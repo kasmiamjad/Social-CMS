@@ -374,7 +374,7 @@ function appendDeterministicAgentSignature(
   // Remove any existing canonical/custom signature variants and append one canonical signature.
   const withoutSignature = reply
     .replace(new RegExp(`\\n?\\s*${escapedSignature}\\s*$`, "i"), "")
-    .replace(/\n?\s*[—-]\s*Lakshit'?s AI Agent\s*🤖?\s*$/i, "")
+    .replace(/\n?\s*[—-]\s*Social-CMS AI Agent\s*🤖?\s*$/i, "")
     .trimEnd();
 
   return `${withoutSignature}\n${sanitizedSignature}`;

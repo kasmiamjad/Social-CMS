@@ -313,16 +313,6 @@ This project is open source and built in public. Contributions are welcome.
 
 ---
 
-## YouTube Series
-
-This project is built episode by episode on YouTube. Each episode covers a new feature from scratch — ideal if you want to understand every decision and how everything connects.
-
-> Subscribe and follow along to build your own fully functional social media automation platform.
-
-[Watch the series → youtube.com/@lakshit-ukani](https://www.youtube.com/@lakshit-ukani)
-
----
-
 ## License
 
 MIT — free to use, modify, and distribute.
