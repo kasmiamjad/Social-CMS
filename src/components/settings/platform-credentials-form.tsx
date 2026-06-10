@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, PlayCircle, Globe, Briefcase, Hash, Key } from "lucide-react";
+import { Camera, PlayCircle, Globe, Briefcase, Hash, Key, MessageCircle, Phone, ShieldCheck, Lock } from "lucide-react";
 import { OAuthConnectCard, type OAuthPlatformDefinition } from "./oauth-connect-card";
 import { ManualCredentialsCard, type ManualPlatformDefinition } from "./manual-credentials-card";
 import type { OAuthConnection } from "@/services/oauth/types";
@@ -119,6 +119,84 @@ const MANUAL_PLATFORMS: ManualPlatformDefinition[] = [
       {
         title: "Save credentials",
         detail: "Paste the Account ID and long-lived access token in this form, then save.",
+      },
+    ],
+  },
+  {
+    id: "whatsapp",
+    name: "WhatsApp Cloud API",
+    icon: MessageCircle,
+    description: "AI auto-reply to customer WhatsApp messages",
+    fields: [
+      {
+        key: "phone_number_id",
+        label: "Phone Number ID",
+        placeholder: "e.g. 123456789012345",
+        type: "text",
+        icon: Phone,
+        helpText: "From Meta Developer → WhatsApp → Setup",
+      },
+      {
+        key: "waba_id",
+        label: "WhatsApp Business Account ID",
+        placeholder: "e.g. 123456789012345",
+        type: "text",
+        icon: Hash,
+        helpText: "Your WABA ID from the same Setup page",
+      },
+      {
+        key: "access_token",
+        label: "Permanent Access Token",
+        placeholder: "EAAxxxxx...",
+        type: "password",
+        icon: Key,
+        helpText: "System User access token with whatsapp_business_messaging + whatsapp_business_management scopes",
+      },
+      {
+        key: "app_id",
+        label: "App ID",
+        placeholder: "e.g. 123456789012345",
+        type: "text",
+        icon: Hash,
+        helpText: "Your Meta app ID (from app dashboard top)",
+      },
+      {
+        key: "app_secret",
+        label: "App Secret",
+        placeholder: "32-character hex string",
+        type: "password",
+        icon: Lock,
+        helpText: "App Dashboard → Settings → Basic → App Secret. Used to verify webhook signatures.",
+      },
+      {
+        key: "verify_token",
+        label: "Webhook Verify Token",
+        placeholder: "Any random string you choose",
+        type: "text",
+        icon: ShieldCheck,
+        helpText: "Make up any string (e.g. 'social_cms_a3sixty_2024'). Paste the SAME string into Meta when subscribing the webhook.",
+      },
+    ],
+    setupGuide: [
+      {
+        title: "Create WhatsApp Business app",
+        detail: "Go to developers.facebook.com → My Apps → Create App → Business type → add the WhatsApp product.",
+      },
+      {
+        title: "Get phone number + WABA ID",
+        detail: "WhatsApp → API Setup → copy the Phone Number ID and WhatsApp Business Account ID.",
+      },
+      {
+        title: "Create System User token",
+        detail: "Meta Business Settings → System Users → create a system user → Generate New Token → select your app, choose 'never' expiry, grant whatsapp_business_messaging + whatsapp_business_management permissions.",
+      },
+      {
+        title: "Subscribe the webhook",
+        detail: "App Dashboard → WhatsApp → Configuration → Edit webhook → Callback URL: https://crm.a3sixty.com/api/v1/whatsapp/webhook → Verify Token: paste the same string you entered here → Subscribe to 'messages' field.",
+      },
+      {
+        title: "Save & test",
+        detail: "Save credentials here, then send a WhatsApp message to your business number. Check the WhatsApp tab to see it appear.",
       },
     ],
   },
