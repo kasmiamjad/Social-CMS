@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, Phone } from "lucide-react";
+import { MessageCircle, Phone, ChevronRight } from "lucide-react";
 
 export interface WhatsAppConversationSummary {
   id: string;
@@ -56,36 +57,48 @@ export function ConversationList({ conversations }: ConversationListProps) {
       ) : (
         <ul className="divide-y divide-border -mx-6">
           {conversations.map((conv) => (
-            <li key={conv.id} className="px-6 py-3.5 hover:bg-surface transition-colors">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <div className="text-sm font-medium text-foreground truncate">
-                      {conv.contact_name?.trim() || conv.contact_phone}
+            <li key={conv.id}>
+              <Link
+                href={`/whatsapp/conversations/${conv.id}`}
+                className="block px-6 py-3.5 hover:bg-surface transition-colors group"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-medium text-foreground truncate">
+                        {conv.contact_name?.trim() || conv.contact_phone}
+                      </div>
+                      {conv.contact_name?.trim() && (
+                        <span className="text-xs text-text-muted font-mono">
+                          {conv.contact_phone}
+                        </span>
+                      )}
+                      {conv.unread_count > 0 && (
+                        <Badge variant="processing" className="ml-auto">
+                          {conv.unread_count}
+                        </Badge>
+                      )}
                     </div>
-                    {conv.contact_name?.trim() && (
-                      <span className="text-xs text-text-muted font-mono">
-                        {conv.contact_phone}
-                      </span>
-                    )}
-                    {conv.unread_count > 0 && (
-                      <Badge variant="processing" className="ml-auto">
-                        {conv.unread_count}
-                      </Badge>
+                    {conv.last_message_preview && (
+                      <p className="mt-0.5 text-xs text-text-muted truncate">
+                        {conv.last_message_preview}
+                      </p>
                     )}
                   </div>
-                  {conv.last_message_preview && (
-                    <p className="mt-0.5 text-xs text-text-muted truncate">
-                      {conv.last_message_preview}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    {conv.last_message_at && (
+                      <div className="text-[10px] text-text-muted whitespace-nowrap">
+                        {formatRelativeTime(conv.last_message_at)}
+                      </div>
+                    )}
+                    <ChevronRight
+                      size={14}
+                      strokeWidth={1.8}
+                      className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                    />
+                  </div>
                 </div>
-                {conv.last_message_at && (
-                  <div className="text-[10px] text-text-muted whitespace-nowrap pt-0.5">
-                    {formatRelativeTime(conv.last_message_at)}
-                  </div>
-                )}
-              </div>
+              </Link>
             </li>
           ))}
         </ul>

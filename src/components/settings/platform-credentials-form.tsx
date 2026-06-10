@@ -209,6 +209,8 @@ const MANUAL_PLATFORMS: ManualPlatformDefinition[] = [
 export interface PlatformCredential {
   platform: string;
   credentials: Record<string, string>;
+  /** Names of password-type fields that have a saved value (but were stripped before being sent to the client). */
+  savedSecretKeys?: string[];
   is_active: boolean;
 }
 
@@ -289,6 +291,7 @@ export function PlatformCredentialsForm({
             key={platform.id}
             platform={platform}
             initialCredentials={existing?.credentials ?? {}}
+            savedSecretKeys={existing?.savedSecretKeys ?? []}
             isConnected={existing?.is_active === true}
           />
         );

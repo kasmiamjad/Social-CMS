@@ -32,18 +32,40 @@ export default async function SettingsPage() {
   const oauthRows = oauthResult.data ?? [];
   const customAppRows = customAppsResult.data ?? [];
 
-  // Mask sensitive access token fields before passing to client components.
+  // Strip sensitive password-type fields before passing to client components.
+  // The form receives empty strings for secrets but a `savedSecretKeys` array
+  // so the UI can show "leave blank to keep saved value" placeholders without
+  // ever leaking actual secrets to the browser.
+  const PASSWORD_FIELD_KEYS = new Set([
+    "access_token",
+    "app_secret",
+    "client_secret",
+    "api_key",
+    "secret",
+    "password",
+  ]);
+
   const maskedCredentials = credentials.map((c) => {
     const creds = (c.credentials ?? {}) as Record<string, string>;
-    const maskedCreds: Record<string, string> = { ...creds };
+    const safeCreds: Record<string, string> = {};
+    const savedSecretKeys: string[] = [];
 
-    if (typeof maskedCreds.access_token === "string" && maskedCreds.access_token) {
-      maskedCreds.access_token = `${maskedCreds.access_token.slice(0, 8)}${"*".repeat(20)}`;
+    for (const [key, value] of Object.entries(creds)) {
+      if (PASSWORD_FIELD_KEYS.has(key)) {
+        // Strip secret entirely; remember it existed
+        safeCreds[key] = "";
+        if (typeof value === "string" && value.trim()) {
+          savedSecretKeys.push(key);
+        }
+      } else {
+        safeCreds[key] = value;
+      }
     }
 
     return {
       platform: c.platform as string,
-      credentials: maskedCreds,
+      credentials: safeCreds,
+      savedSecretKeys,
       is_active: c.is_active as boolean,
     };
   });
