@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowLeft, Bot, Phone, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ManualReplyInput } from "./manual-reply-input";
+import { AiPauseToggle } from "./ai-pause-toggle";
+import { AutoRefresh } from "./auto-refresh";
 
 export interface WhatsAppConversationDetail {
   id: string;
@@ -9,6 +11,7 @@ export interface WhatsAppConversationDetail {
   contact_name: string | null;
   last_message_at: string | null;
   created_at: string;
+  ai_paused: boolean;
 }
 
 export interface WhatsAppMessageRow {
@@ -46,24 +49,33 @@ export function ConversationThread({ conversation, messages }: ConversationThrea
         Back to conversations
       </Link>
 
-      <div className="mb-6 pb-4 border-b border-border flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-surface flex items-center justify-center">
-          <User size={22} strokeWidth={1.8} className="text-text-muted" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-bold tracking-[-0.5px] font-[family-name:var(--font-heading)] text-foreground truncate">
-            {conversation.contact_name?.trim() || conversation.contact_phone}
-          </h1>
-          <p className="text-xs text-text-muted flex items-center gap-1 mt-0.5">
-            <Phone size={11} strokeWidth={1.8} />
-            <span className="font-mono">{conversation.contact_phone}</span>
-            <span className="mx-1.5 text-border">•</span>
-            <span>
-              {messages.length} message{messages.length === 1 ? "" : "s"}
-            </span>
-          </p>
+      <div className="mb-6 pb-4 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-surface flex items-center justify-center shrink-0">
+            <User size={22} strokeWidth={1.8} className="text-text-muted" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-bold tracking-[-0.5px] font-[family-name:var(--font-heading)] text-foreground truncate">
+              {conversation.contact_name?.trim() || conversation.contact_phone}
+            </h1>
+            <p className="text-xs text-text-muted flex items-center gap-1 mt-0.5">
+              <Phone size={11} strokeWidth={1.8} />
+              <span className="font-mono">{conversation.contact_phone}</span>
+              <span className="mx-1.5 text-border">•</span>
+              <span>
+                {messages.length} message{messages.length === 1 ? "" : "s"}
+              </span>
+            </p>
+          </div>
+          <AiPauseToggle
+            conversationId={conversation.id}
+            initiallyPaused={conversation.ai_paused}
+          />
         </div>
       </div>
+
+      {/* Invisible — polls server-rendered data every 5s so new messages appear */}
+      <AutoRefresh intervalMs={5000} />
 
       {/* Messages */}
       {messages.length === 0 ? (

@@ -78,8 +78,8 @@ export class WhatsAppAutoReplyService {
         },
         { onConflict: "user_id,contact_phone" }
       )
-      .select("id")
-      .single<{ id: string }>();
+      .select("id, ai_paused")
+      .single<{ id: string; ai_paused: boolean }>();
 
     if (convError || !conversation) {
       throw new Error(`Failed to upsert WhatsApp conversation: ${convError?.message}`);
@@ -121,6 +121,19 @@ export class WhatsAppAutoReplyService {
       await wa.markAsRead(message.id);
     } catch (err) {
       console.warn("Failed to mark message read", { messageId: message.id, err });
+    }
+
+    // 3a. Short-circuit if AI is paused for this specific conversation.
+    // The message is already stored — only the AI reply is skipped so a
+    // human can take over from the dashboard.
+    if (conversation.ai_paused) {
+      return {
+        conversationId: conversation.id,
+        inboundMessageId: inbound.id,
+        aiDecision: null,
+        outboundMessageId: null,
+        skippedReason: "ai_paused_for_conversation",
+      };
     }
 
     // 3. Load automation config — short-circuit if disabled

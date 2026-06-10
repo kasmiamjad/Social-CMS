@@ -37,7 +37,7 @@ export default async function ConversationThreadPage({ params }: PageProps) {
   const { data: conversation } = await admin
     .from("whatsapp_conversations")
     .select(
-      "id, contact_phone, contact_name, last_message_at, created_at"
+      "id, contact_phone, contact_name, last_message_at, created_at, ai_paused"
     )
     .eq("id", conversationId)
     .eq("user_id", user.id)
