@@ -268,7 +268,12 @@ export class WhatsAppAutoReplyService {
     signatureSuffix: string,
     apiKey?: string
   ): Promise<WhatsAppAIDecision> {
-    const model = process.env.OPENROUTER_CLAUDE_MODEL ?? "anthropic/claude-3.5-sonnet";
+    // LLM_MODEL is the new generic name. OPENROUTER_CLAUDE_MODEL kept for back-compat.
+    // Defaults to a cheap, capable OpenAI model so works out-of-the-box with OPENAI_API_KEY.
+    const model =
+      process.env.LLM_MODEL ??
+      process.env.OPENROUTER_CLAUDE_MODEL ??
+      "gpt-4o-mini";
     const fullSystemPrompt = systemPrompt.trimEnd() + WHATSAPP_AI_JSON_CONTRACT;
 
     const decision = await generateOpenRouterJsonResponse<WhatsAppAIDecision>({

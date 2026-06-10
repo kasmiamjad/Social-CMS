@@ -303,7 +303,12 @@ export class CommentAutomationService {
     signatureSuffix: string,
     apiKey?: string
   ): Promise<YouTubeAIDecision> {
-    const model = process.env.OPENROUTER_CLAUDE_MODEL ?? "minimax/minimax-m2.7";
+    // LLM_MODEL is the new generic name. OPENROUTER_CLAUDE_MODEL kept for back-compat.
+    // Defaults to a cheap, capable OpenAI model so works out-of-the-box with OPENAI_API_KEY.
+    const model =
+      process.env.LLM_MODEL ??
+      process.env.OPENROUTER_CLAUDE_MODEL ??
+      "gpt-4o-mini";
 
     // Always append the JSON contract so the output format is guaranteed
     // regardless of what the user writes in their custom system prompt.
