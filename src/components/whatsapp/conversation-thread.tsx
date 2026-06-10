@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Bot, Phone, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ManualReplyInput } from "./manual-reply-input";
 
 export interface WhatsAppConversationDetail {
   id: string;
@@ -76,6 +77,9 @@ export function ConversationThread({ conversation, messages }: ConversationThrea
           ))}
         </div>
       )}
+
+      {/* Manual reply input */}
+      <ManualReplyInput contactPhone={conversation.contact_phone} />
     </div>
   );
 }
