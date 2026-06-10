@@ -76,7 +76,7 @@ const MANUAL_PLATFORMS: ManualPlatformDefinition[] = [
     id: "instagram",
     name: "Instagram",
     icon: Camera,
-    description: "Post images, stories, reels, and carousels",
+    description: "Post + AI auto-reply to DMs and comments",
     fields: [
       {
         key: "account_id",
@@ -93,23 +93,51 @@ const MANUAL_PLATFORMS: ManualPlatformDefinition[] = [
         type: "password",
         icon: Key,
         helpText:
-          "Requires: instagram_basic, instagram_content_publish, pages_show_list, pages_read_engagement",
+          "Requires: instagram_basic, instagram_content_publish, instagram_manage_comments, instagram_manage_messages, pages_show_list, pages_read_engagement",
+      },
+      {
+        key: "app_id",
+        label: "App ID (for engagement webhooks)",
+        placeholder: "e.g. 1884050208953529",
+        type: "text",
+        icon: Hash,
+        helpText: "Your Meta app ID. Required only if using DM / comment automation.",
+        required: false,
+      },
+      {
+        key: "app_secret",
+        label: "App Secret (for engagement webhooks)",
+        placeholder: "32-character hex string",
+        type: "password",
+        icon: Lock,
+        helpText: "App Settings → Basic → App Secret. Used to verify webhook signatures.",
+        required: false,
+      },
+      {
+        key: "verify_token",
+        label: "Webhook Verify Token",
+        placeholder: "Any random string you choose",
+        type: "text",
+        icon: ShieldCheck,
+        helpText:
+          "Make up a random string (e.g. 'social_cms_ig_2024'). Paste the SAME string in Meta when subscribing the Instagram webhook.",
+        required: false,
       },
     ],
     setupGuide: [
       {
         title: "Create Meta app",
         detail:
-          "Go to developers.facebook.com, create a Business app, and add Instagram Graph API.",
+          "Go to developers.facebook.com, create a Business app, and add the Instagram product.",
       },
       {
         title: "Grant permissions",
         detail:
-          "Use Graph API Explorer to generate a user token with instagram_basic, instagram_content_publish, pages_show_list, and pages_read_engagement scopes.",
+          "For POSTING: instagram_basic, instagram_content_publish. For ENGAGEMENT (DMs/comments): instagram_manage_comments, instagram_manage_messages.",
       },
       {
         title: "Get long-lived token",
-        detail: "Exchange the short-lived token using Facebook OAuth token exchange endpoint.",
+        detail: "Exchange the short-lived token using Facebook OAuth token exchange endpoint, or generate a System User token.",
       },
       {
         title: "Fetch Account ID",
@@ -117,8 +145,13 @@ const MANUAL_PLATFORMS: ManualPlatformDefinition[] = [
           "Call /me/accounts and then /{page-id}?fields=instagram_business_account to get the numeric account ID.",
       },
       {
+        title: "Subscribe webhook (for DMs/comments)",
+        detail:
+          "App Dashboard → Instagram → Webhooks → Callback URL: https://crm.a3sixty.com/api/v1/instagram/webhook → Verify Token: paste the same string above → Subscribe to 'messages' and 'comments' fields.",
+      },
+      {
         title: "Save credentials",
-        detail: "Paste the Account ID and long-lived access token in this form, then save.",
+        detail: "Paste all fields above and save.",
       },
     ],
   },
