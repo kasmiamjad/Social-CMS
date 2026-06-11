@@ -217,21 +217,49 @@ export class WhatsAppAutoReplyService {
         aiGenerated: true,
       });
 
-      // Auto-create lead when AI says the qualification is complete
-      if (decision.lead_ready === true) {
+      // Auto-create lead when AI says the qualification is complete.
+      // We accept two signals:
+      //   1. Explicit lead_ready=true in the AI's JSON response (the cleanest)
+      //   2. Fallback heuristic — the reply contains the summary phrase
+      //      "team will contact you" (in case the AI forgot the JSON flag
+      //      but still sent the right reply text)
+      const replyText = decision.reply ?? "";
+      const replyLooksLikeSummary =
+        /our team will contact you/i.test(replyText) ||
+        /our team will reach out/i.test(replyText) ||
+        /team will get in touch/i.test(replyText);
+      const shouldCreateLead =
+        decision.lead_ready === true || replyLooksLikeSummary;
+
+      // Always log what we got so debugging is easy from pm2 logs
+      console.log("WhatsApp AI decision summary", {
+        conversationId: conversation.id,
+        contactPhone,
+        shouldCreateLead,
+        lead_ready_flag: decision.lead_ready,
+        reply_matches_summary_pattern: replyLooksLikeSummary,
+        has_lead_data: !!decision.lead_data,
+        lead_data: decision.lead_data,
+      });
+
+      if (shouldCreateLead) {
         try {
           await this.maybeCreateLeadFromAI(
             userId,
             conversation.id,
             contactPhone,
             contactName,
-            decision.lead_data ?? {}
+            decision.lead_data ?? {},
+            replyText
           );
+          console.log("Auto-create lead succeeded", {
+            conversationId: conversation.id,
+          });
         } catch (leadErr) {
           // Don't fail the reply just because lead creation failed
-          console.error("Failed to auto-create lead from WhatsApp AI", {
+          console.error("Auto-create lead FAILED", {
             conversationId: conversation.id,
-            err: leadErr,
+            err: leadErr instanceof Error ? leadErr.message : leadErr,
           });
         }
       }
@@ -274,9 +302,37 @@ export class WhatsAppAutoReplyService {
       product_model?: string | null;
       product_qty?: number | null;
       remarks?: string | null;
-    }
+    },
+    replyText: string = ""
   ): Promise<void> {
     const supabase = createAdminClient();
+
+    // If lead_data is missing fields, try to extract them from the AI's summary
+    // text using simple heuristics (the AI usually mentions the model + qty +
+    // location right in the reply).
+    if (!leadData.product_model) {
+      const modelMatch = replyText.match(
+        /\*?(7-Stage Smart RO|6-Stage Smart RO|7-Stage RO \+ UV|7-Stage RO|Dispenser \(Hot\/Cold\))\*?/i
+      );
+      if (modelMatch) leadData.product_model = modelMatch[1];
+    }
+    if (!leadData.product_qty) {
+      const qtyMatch = replyText.match(/×\s*(\d+)/);
+      if (qtyMatch) leadData.product_qty = parseInt(qtyMatch[1], 10);
+    }
+    if (!leadData.business_type) {
+      const lowered = replyText.toLowerCase();
+      if (/for your home|for home|residential/.test(lowered)) leadData.business_type = "Home / Residential";
+      else if (/coffee shop/.test(lowered)) leadData.business_type = "Coffee shop";
+      else if (/restaurant/.test(lowered)) leadData.business_type = "Restaurant";
+      else if (/office/.test(lowered)) leadData.business_type = "Office";
+      else if (/hotel/.test(lowered)) leadData.business_type = "Hotel";
+    }
+    if (!leadData.location_text) {
+      // Pattern: "in <CITY>" or "in <PLACE>" in the summary
+      const locMatch = replyText.match(/(?:in|at)\s+([A-Z][\wÀ-ÿ\s'.-]+?)(?:[•\n.!?]|$)/);
+      if (locMatch) leadData.location_text = locMatch[1].trim();
+    }
 
     // Look for a Google Maps URL in the conversation's location messages
     // — the AI doesn't see the raw payload, only "📍 Location" placeholders.
