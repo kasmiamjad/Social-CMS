@@ -14,10 +14,12 @@ import {
   PlayCircle,
   MessageCircle,
   Camera,
+  Users,
 } from "lucide-react";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Leads", href: "/leads", icon: Users },
   { label: "Create Post", href: "/create", icon: PlusCircle },
   { label: "YouTube", href: "/youtube/videos", icon: PlayCircle },
   { label: "Instagram", href: "/instagram", icon: Camera },

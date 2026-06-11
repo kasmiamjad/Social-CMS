@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ManualReplyInput } from "./manual-reply-input";
 import { AiPauseToggle } from "./ai-pause-toggle";
 import { AutoRefresh } from "./auto-refresh";
+import { ConvertToLeadButton } from "./convert-to-lead-button";
 
 export interface WhatsAppConversationDetail {
   id: string;
@@ -67,10 +68,13 @@ export function ConversationThread({ conversation, messages }: ConversationThrea
               </span>
             </p>
           </div>
-          <AiPauseToggle
-            conversationId={conversation.id}
-            initiallyPaused={conversation.ai_paused}
-          />
+          <div className="flex flex-col items-end gap-1.5">
+            <AiPauseToggle
+              conversationId={conversation.id}
+              initiallyPaused={conversation.ai_paused}
+            />
+            <ConvertToLeadButton conversationId={conversation.id} />
+          </div>
         </div>
       </div>
 
