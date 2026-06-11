@@ -17,16 +17,19 @@ import {
   Users,
 } from "lucide-react";
 
+// `hidden: true` keeps the route/code intact but hides the menu entry.
+// Flip back to `hidden: false` (or remove the flag) when you want it visible again.
 const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Leads", href: "/leads", icon: Users },
-  { label: "Create Post", href: "/create", icon: PlusCircle },
-  { label: "YouTube", href: "/youtube/videos", icon: PlayCircle },
-  { label: "Instagram", href: "/instagram", icon: Camera },
-  { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle },
-  { label: "Gallery", href: "/gallery", icon: Images },
-  { label: "History", href: "/history", icon: Clock },
-  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, hidden: false },
+  { label: "Leads", href: "/leads", icon: Users, hidden: false },
+  { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, hidden: false },
+  { label: "Settings", href: "/settings", icon: Settings, hidden: false },
+  // ── Hidden for now (code + routes still work, just not in the sidebar) ──
+  { label: "Create Post", href: "/create", icon: PlusCircle, hidden: true },
+  { label: "YouTube", href: "/youtube/videos", icon: PlayCircle, hidden: true },
+  { label: "Instagram", href: "/instagram", icon: Camera, hidden: true },
+  { label: "Gallery", href: "/gallery", icon: Images, hidden: true },
+  { label: "History", href: "/history", icon: Clock, hidden: true },
 ];
 
 export function Sidebar() {
@@ -49,7 +52,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
-        {navItems.map((item) => {
+        {navItems.filter((item) => !item.hidden).map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link

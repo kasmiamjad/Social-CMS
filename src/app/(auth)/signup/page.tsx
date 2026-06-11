@@ -71,13 +71,16 @@ export default function SignupPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-[400px]">
         <div className="flex flex-col items-center mb-8">
-          <Image
-            src={BRANDING.logo.url}
-            alt={BRANDING.logo.alt}
-            width={BRANDING.logo.width}
-            height={BRANDING.logo.height}
-            className="mb-4"
-          />
+          <div className="h-20 w-48 bg-black rounded-xl flex items-center justify-center mb-5 px-4">
+            <Image
+              src={BRANDING.logo.url}
+              alt={BRANDING.logo.alt}
+              width={160}
+              height={48}
+              priority
+              className="max-h-12 w-auto [filter:brightness(0)_invert(1)]"
+            />
+          </div>
           <h1 className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
             Create your account
           </h1>
