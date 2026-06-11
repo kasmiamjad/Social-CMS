@@ -5,10 +5,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "www.chatsyncs.com",
-      },
-      {
-        protocol: "https",
         hostname: "*.supabase.co",
       },
     ],

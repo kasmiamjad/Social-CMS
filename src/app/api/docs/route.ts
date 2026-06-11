@@ -7,5 +7,5 @@ import { openApiSpec } from "@/lib/openapi";
  */
 export const GET = ApiReference({
   content: openApiSpec,
-  pageTitle: "SocialSyncs API Reference",
+  pageTitle: "a3sixty API Reference",
 });

@@ -60,15 +60,16 @@ async function resolveUserIdFromApiKey(rawKey: string): Promise<string | null> {
  * Generates a cryptographically random API key and returns the key and its
  * SHA-256 hash. The plaintext key is shown to the user once and never stored.
  *
- * Key format: `ss_<32 random hex chars>` (prefix "ss" = SocialSyncs).
+ * Key format: `a3_<32 random hex chars>` (prefix "a3" = a3sixty).
  * First 8 characters are used as the lookup prefix stored in the DB.
+ * Legacy `ss_*` keys continue to work — the lookup is prefix-agnostic.
  */
 export async function generateApiKey(): Promise<{ key: string; hash: string; prefix: string }> {
   const randomBytes = crypto.getRandomValues(new Uint8Array(16));
   const hex = Array.from(randomBytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-  const key = `ss_${hex}`;
+  const key = `a3_${hex}`;
   const hash = await sha256Hex(key);
   const prefix = key.slice(0, 8);
   return { key, hash, prefix };

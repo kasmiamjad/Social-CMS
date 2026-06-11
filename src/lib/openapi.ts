@@ -1,25 +1,25 @@
 /**
- * Single source of truth for the SocialSyncs public API spec.
+ * Single source of truth for the a3sixty public API spec.
  * Consumed by the Scalar docs route at /api/docs.
  */
 export const openApiSpec = {
   openapi: "3.1.0",
   info: {
-    title: "SocialSyncs API",
+    title: "a3sixty API",
     version: "1.0.0",
     description:
-      "Automate YouTube comment replies and social media workflows. " +
+      "Automate WhatsApp, Instagram, YouTube engagement and social media workflows. " +
       "Use an API key (created in Settings → API Keys) to call any endpoint from n8n or other automation tools.\n\n" +
       "## Authentication\n\n" +
       "All endpoints accept either:\n" +
-      "- **API key** (recommended for n8n): `Authorization: Bearer ss_<your_key>`\n" +
+      "- **API key** (recommended for n8n): `Authorization: Bearer a3_<your_key>` (legacy `ss_*` keys still work)\n" +
       "- **Session cookie**: set automatically when using the app in a browser\n\n" +
       "## n8n Quick-start\n\n" +
       "1. Go to **Settings → API Keys** and create a key.\n" +
       "2. In n8n, add an **HTTP Request** node with:\n" +
       "   - Method: `POST`\n" +
       "   - URL: `https://your-domain/api/v1/youtube/automate/latest`\n" +
-      "   - Header: `Authorization: Bearer ss_<your_key>`\n" +
+      "   - Header: `Authorization: Bearer a3_<your_key>`\n" +
       "   - Body (JSON): `{ \"maxVideos\": 5, \"runLimit\": 1, \"autoPostOverride\": true }`\n" +
       "3. Wire a Cron trigger to run it on your desired schedule.",
   },
@@ -29,7 +29,7 @@ export const openApiSpec = {
       apiKey: {
         type: "http",
         scheme: "bearer",
-        description: "API key created in Settings → API Keys. Format: `ss_<32 hex chars>`.",
+        description: "API key created in Settings → API Keys. Format: `a3_<32 hex chars>` or legacy `ss_<32 hex chars>`.",
       },
     },
     schemas: {

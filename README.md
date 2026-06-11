@@ -1,6 +1,6 @@
-# SocialSyncs
+# a3sixty
 
-**SocialSyncs** is an open-source, self-hosted social media automation platform built with Next.js 15. Post content, automate comments, and run AI-powered engagement workflows across Instagram, YouTube, and more — all from a single dashboard with your own API credentials.
+**a3sixty** is an open-source, self-hosted social media automation platform built with Next.js 15. Post content, automate comments, and run AI-powered engagement workflows across Instagram, YouTube, and more — all from a single dashboard with your own API credentials.
 
 > Built live on YouTube as a teaching project. Fork it, run your own instance, follow along episode by episode.
 
@@ -23,7 +23,7 @@
 
 ## How It Works
 
-SocialSyncs connects to social platforms using your own API credentials. You paste your access tokens into the Settings page — they are stored encrypted in your own Supabase database and never leave your infrastructure.
+a3sixty connects to social platforms using your own API credentials. You paste your access tokens into the Settings page — they are stored encrypted in your own Supabase database and never leave your infrastructure.
 
 **Instagram posting flow (live):**
 1. You create a post in the dashboard (image, reel, carousel, or story)
@@ -69,8 +69,8 @@ SocialSyncs connects to social platforms using your own API credentials. You pas
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-username/socialsyncs.git
-cd socialsyncs
+git clone https://github.com/your-username/a3sixty.git
+cd a3sixty
 npm install
 ```
 
@@ -133,7 +133,7 @@ Open [http://localhost:3000](http://localhost:3000). Sign up for an account, the
 
 ### Instagram
 
-SocialSyncs uses the **Meta Graph API**. You need a Facebook Developer account and a Facebook App with Instagram permissions.
+a3sixty uses the **Meta Graph API**. You need a Facebook Developer account and a Facebook App with Instagram permissions.
 
 1. Go to **Settings → Instagram**
 2. Enter your **Instagram Business or Creator Account ID**
@@ -161,7 +161,7 @@ Your OAuth credentials are entered directly in the app — no server-side env va
 
 ## API
 
-SocialSyncs exposes a versioned REST API. All responses use this envelope:
+a3sixty exposes a versioned REST API. All responses use this envelope:
 
 ```json
 { "success": true, "data": { ... } }
