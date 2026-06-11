@@ -34,18 +34,17 @@ export function Sidebar() {
 
   return (
     <aside className="w-[240px] h-screen fixed left-0 top-0 border-r border-border bg-surface-elevated flex flex-col">
-      <div className="h-14 px-5 border-b border-border flex items-center">
-        <Link href="/dashboard" className="flex items-center gap-2">
+      {/* Brand block — black background, logo forced to pure white via CSS filter */}
+      <div className="h-20 bg-black flex items-center justify-center px-4 border-b border-border">
+        <Link href="/dashboard" className="flex items-center justify-center w-full h-full">
           <Image
             src={BRANDING.logo.url}
             alt={BRANDING.logo.alt}
-            width={32}
-            height={32}
-            className="rounded-lg"
+            width={140}
+            height={48}
+            priority
+            className="max-h-12 w-auto [filter:brightness(0)_invert(1)]"
           />
-          <span className="text-base font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
-            {BRANDING.name}
-          </span>
         </Link>
       </div>
 
