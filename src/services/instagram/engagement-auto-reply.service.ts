@@ -240,12 +240,14 @@ export class InstagramEngagementAutoReplyService {
     }
 
     const apiKey = await this.getOpenRouterApiKey(userId);
+    const history = await this.fetchDmHistory(conversation.id, inbound.id);
     const decision = await this.getAIDecisionForDm(
       config.dms_system_prompt || DEFAULT_INSTAGRAM_DM_SYSTEM_PROMPT,
       profile.username ?? "",
       profile.name ?? "",
       event.message.text,
       config.signature_suffix || DEFAULT_INSTAGRAM_SIGNATURE_SUFFIX,
+      history,
       apiKey
     );
 
@@ -478,12 +480,40 @@ export class InstagramEngagementAutoReplyService {
     return data?.credentials?.api_key;
   }
 
+  /**
+   * Fetches the last N messages of an IG DM conversation as LLM history.
+   * Excludes the just-inserted inbound message.
+   */
+  private async fetchDmHistory(
+    conversationId: string,
+    currentInboundId: string,
+    limit: number = 30
+  ): Promise<Array<{ role: "user" | "assistant"; content: string }>> {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("instagram_dm_messages")
+      .select("id, direction, body")
+      .eq("conversation_id", conversationId)
+      .neq("id", currentInboundId)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+
+    if (!data) return [];
+    return data
+      .filter((m) => typeof m.body === "string" && m.body.trim().length > 0)
+      .map((m) => ({
+        role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
+        content: m.body as string,
+      }));
+  }
+
   private async getAIDecisionForDm(
     systemPrompt: string,
     contactUsername: string,
     contactName: string,
     message: string,
     signatureSuffix: string,
+    history: Array<{ role: "user" | "assistant"; content: string }>,
     apiKey?: string
   ): Promise<InstagramAIDecision> {
     const model =
@@ -496,6 +526,7 @@ export class InstagramEngagementAutoReplyService {
       model,
       systemPrompt: fullSystemPrompt,
       apiKey,
+      history,
       userMessage: JSON.stringify({
         contact_username: contactUsername,
         contact_name: contactName,

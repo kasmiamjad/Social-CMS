@@ -186,11 +186,13 @@ export class WhatsAppAutoReplyService {
     }
 
     const apiKey = await this.getOpenRouterApiKey(userId);
+    const history = await this.fetchConversationHistory(conversation.id, inbound.id);
     const decision = await this.getAIDecision(
       config.system_prompt || DEFAULT_WHATSAPP_SYSTEM_PROMPT,
       contactName,
       message.text.body,
       config.signature_suffix || DEFAULT_WHATSAPP_SIGNATURE_SUFFIX,
+      history,
       apiKey
     );
 
@@ -274,11 +276,41 @@ export class WhatsAppAutoReplyService {
     return data?.credentials?.api_key;
   }
 
+  /**
+   * Fetches the last N messages of a conversation (oldest → newest) to use
+   * as conversation history for the LLM. Excludes the just-inserted inbound
+   * message (which we pass separately as the current userMessage).
+   */
+  private async fetchConversationHistory(
+    conversationId: string,
+    currentInboundId: string,
+    limit: number = 30
+  ): Promise<Array<{ role: "user" | "assistant"; content: string }>> {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("whatsapp_messages")
+      .select("id, direction, body")
+      .eq("conversation_id", conversationId)
+      .neq("id", currentInboundId)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+
+    if (!data) return [];
+
+    return data
+      .filter((m) => typeof m.body === "string" && m.body.trim().length > 0)
+      .map((m) => ({
+        role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
+        content: m.body as string,
+      }));
+  }
+
   private async getAIDecision(
     systemPrompt: string,
     contactName: string | null,
     message: string,
     signatureSuffix: string,
+    history: Array<{ role: "user" | "assistant"; content: string }>,
     apiKey?: string
   ): Promise<WhatsAppAIDecision> {
     // LLM_MODEL is the new generic name. OPENROUTER_CLAUDE_MODEL kept for back-compat.
@@ -293,6 +325,7 @@ export class WhatsAppAutoReplyService {
       model,
       systemPrompt: fullSystemPrompt,
       apiKey,
+      history,
       userMessage: JSON.stringify({
         contact_name: contactName ?? "",
         message,

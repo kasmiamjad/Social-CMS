@@ -29,6 +29,13 @@ export interface OpenRouterJsonCompletionParams {
   systemPrompt: string;
   userMessage: string;
   apiKey?: string;
+  /**
+   * Optional prior conversation history. Inserted between the system prompt
+   * and the userMessage so the model has full context (e.g. previous
+   * customer messages and AI replies in the same WhatsApp thread).
+   * Order: oldest first → newest last.
+   */
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 interface OpenRouterChoice {
@@ -82,12 +89,15 @@ export async function generateOpenRouterJsonResponse<T>(
   const apiUrl = resolveApiUrl(apiKey);
   const providerLabel = apiUrl.includes("openai.com") ? "OpenAI" : "OpenRouter";
 
+  const messages: OpenRouterChatMessage[] = [
+    { role: "system", content: params.systemPrompt },
+    ...(params.history ?? []),
+    { role: "user", content: params.userMessage },
+  ];
+
   const body = {
     model: params.model,
-    messages: [
-      { role: "system", content: params.systemPrompt },
-      { role: "user", content: params.userMessage },
-    ] as OpenRouterChatMessage[],
+    messages,
     response_format: { type: "json_object" },
   };
 
