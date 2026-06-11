@@ -11,7 +11,7 @@ import {
 const UpdateConfigSchema = z.object({
   enabled: z.boolean().optional(),
   auto_reply: z.boolean().optional(),
-  system_prompt: z.string().min(10).max(20000).optional(),
+  system_prompt: z.string().min(10).max(40000).optional(),
   signature_suffix: z.string().max(200).optional(),
   business_hours_enabled: z.boolean().optional(),
   business_hours_start: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).nullable().optional(),

@@ -102,7 +102,7 @@ export function AutomationConfigForm({ initialConfig }: AutomationConfigFormProp
           rows={12}
           value={config.system_prompt}
           onChange={(e) => update("system_prompt", e.target.value)}
-          charCount={{ current: config.system_prompt.length, max: 20000 }}
+          charCount={{ current: config.system_prompt.length, max: 40000 }}
         />
         <p className="-mt-3 text-xs text-text-muted">
           Customize the AI&apos;s voice and rules. The system enforces JSON output automatically.
