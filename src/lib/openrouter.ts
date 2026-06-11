@@ -1,23 +1,27 @@
 /**
  * LLM gateway client.
  *
- * Supports THREE providers via a single function:
- *   1. OpenAI (key starts with sk-* but not sk-or-, sk-ant-)
+ * Supports FOUR providers via a single function:
+ *   1. OpenAI (key starts with sk-*)
  *   2. OpenRouter (key starts with sk-or-)
  *   3. Anthropic Claude (key starts with sk-ant-)
+ *   4. Google Gemini (key starts with AIza — and is set as GOOGLE_AI_API_KEY)
  *
  * Provider is auto-detected from the API key format. You can override with
  * the LLM_API_URL env var.
  *
- * Env vars (any of these work):
- *   - OPENAI_API_KEY        (preferred for OpenAI)
- *   - OPENROUTER_API_KEY    (preferred for OpenRouter)
- *   - ANTHROPIC_API_KEY     (preferred for Claude — fastest for chat workloads)
+ * Env vars (priority order — first one set wins):
+ *   - ANTHROPIC_API_KEY     (Claude — fastest paid option)
+ *   - GOOGLE_AI_API_KEY     (Gemini — FREE up to 1500 req/day)
+ *   - OPENAI_API_KEY        (OpenAI)
+ *   - OPENROUTER_API_KEY    (OpenRouter)
+ *
+ * Other env:
  *   - LLM_API_URL           (force endpoint URL — optional)
- *   - OPENROUTER_CLAUDE_MODEL / LLM_MODEL (default model name)
+ *   - LLM_MODEL             (default model name)
  *
  * Function name `generateOpenRouterJsonResponse` is kept for backwards compat
- * with all existing callers. It now works for any of the three providers.
+ * with all existing callers. It now works for any of the four providers.
  */
 
 export interface OpenRouterChatMessage {
@@ -55,23 +59,40 @@ interface AnthropicMessagesResponse {
   };
 }
 
+interface GeminiCandidate {
+  content?: {
+    parts?: Array<{ text?: string }>;
+  };
+}
+
+interface GeminiResponse {
+  candidates?: GeminiCandidate[];
+  error?: {
+    message?: string;
+    code?: number;
+  };
+}
+
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 
-type Provider = "openai" | "openrouter" | "anthropic";
+type Provider = "openai" | "openrouter" | "anthropic" | "gemini";
 
-function detectProvider(apiKey: string): Provider {
+function detectProvider(apiKey: string, isGoogleKey: boolean): Provider {
+  if (isGoogleKey) return "gemini";
   if (apiKey.startsWith("sk-ant-")) return "anthropic";
   if (apiKey.startsWith("sk-or-")) return "openrouter";
   return "openai";
 }
 
-function resolveApiUrl(provider: Provider): string {
+function resolveApiUrl(provider: Provider, model: string): string {
   const override = process.env.LLM_API_URL?.trim();
   if (override) return override;
   if (provider === "anthropic") return ANTHROPIC_URL;
   if (provider === "openrouter") return OPENROUTER_URL;
+  if (provider === "gemini") return `${GEMINI_BASE_URL}/${model}:generateContent`;
   return OPENAI_URL;
 }
 
@@ -82,20 +103,24 @@ function resolveApiUrl(provider: Provider): string {
 export async function generateOpenRouterJsonResponse<T>(
   params: OpenRouterJsonCompletionParams
 ): Promise<T> {
+  // Priority order: explicit param → Anthropic → Gemini → OpenAI → OpenRouter
+  const googleKey = process.env.GOOGLE_AI_API_KEY?.trim();
   const apiKey =
     params.apiKey ??
     process.env.ANTHROPIC_API_KEY ??
+    googleKey ??
     process.env.OPENAI_API_KEY ??
     process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
     throw new Error(
-      "Missing LLM API key. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY in .env.local."
+      "Missing LLM API key. Set ANTHROPIC_API_KEY, GOOGLE_AI_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY."
     );
   }
 
-  const provider = detectProvider(apiKey);
-  const apiUrl = resolveApiUrl(provider);
+  const isGoogleKey = !!googleKey && apiKey === googleKey;
+  const provider = detectProvider(apiKey, isGoogleKey);
+  const apiUrl = resolveApiUrl(provider, params.model);
 
   let rawContent: string | undefined;
   let providerLabel: string;
@@ -103,6 +128,9 @@ export async function generateOpenRouterJsonResponse<T>(
   if (provider === "anthropic") {
     providerLabel = "Anthropic";
     rawContent = await callAnthropic(apiUrl, apiKey, params);
+  } else if (provider === "gemini") {
+    providerLabel = "Google Gemini";
+    rawContent = await callGemini(apiUrl, apiKey, params);
   } else {
     providerLabel = provider === "openrouter" ? "OpenRouter" : "OpenAI";
     rawContent = await callOpenAICompatible(apiUrl, apiKey, params, providerLabel);
@@ -168,6 +196,56 @@ async function callOpenAICompatible(
   }
 
   return responseData.choices?.[0]?.message?.content;
+}
+
+/**
+ * Calls Google Gemini's generateContent endpoint.
+ * Format:
+ *   - system prompt becomes systemInstruction.parts[0].text
+ *   - messages become contents[] with role: "user" | "model"
+ *   - JSON output enforced via response_mime_type
+ *   - API key is passed as ?key=... query param, not header
+ */
+async function callGemini(
+  apiUrl: string,
+  apiKey: string,
+  params: OpenRouterJsonCompletionParams
+): Promise<string | undefined> {
+  // Gemini uses "model" instead of "assistant" for the bot's role
+  const contents = [
+    ...(params.history ?? []).map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    })),
+    { role: "user", parts: [{ text: params.userMessage }] },
+  ];
+
+  const body = {
+    systemInstruction: {
+      parts: [{ text: params.systemPrompt }],
+    },
+    contents,
+    generationConfig: {
+      response_mime_type: "application/json",
+      temperature: 0.7,
+      max_output_tokens: 1024,
+    },
+  };
+
+  const response = await fetch(`${apiUrl}?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const responseData = (await response.json()) as GeminiResponse;
+  if (!response.ok) {
+    throw new Error(
+      responseData.error?.message ?? `Gemini request failed (HTTP ${response.status})`
+    );
+  }
+
+  return responseData.candidates?.[0]?.content?.parts?.[0]?.text;
 }
 
 /**
