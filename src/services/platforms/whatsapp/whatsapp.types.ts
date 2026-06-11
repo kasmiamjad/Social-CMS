@@ -103,8 +103,26 @@ export interface WhatsAppStatusUpdate {
 
 // ── AI decision contract ───────────────────────────────────────────────────
 
+/**
+ * Structured lead info extracted by the AI when it has finished the
+ * qualification flow and just sent the summary. The auto-reply service
+ * uses these fields to auto-create a row in the `leads` table.
+ */
+export interface WhatsAppAILeadData {
+  client_name?: string | null;
+  business_type?: string | null;
+  location_text?: string | null;
+  product_model?: string | null;
+  product_qty?: number | null;
+  remarks?: string | null;
+}
+
 export interface WhatsAppAIDecision {
   should_reply: boolean;
   reply: string | null;
   intent: string | null;
+  /** Set to true when AI has collected all qualification info and is sending the summary. */
+  lead_ready?: boolean;
+  /** Filled in alongside lead_ready=true. */
+  lead_data?: WhatsAppAILeadData;
 }

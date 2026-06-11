@@ -216,6 +216,26 @@ export class WhatsAppAutoReplyService {
         body: decision.reply,
         aiGenerated: true,
       });
+
+      // Auto-create lead when AI says the qualification is complete
+      if (decision.lead_ready === true) {
+        try {
+          await this.maybeCreateLeadFromAI(
+            userId,
+            conversation.id,
+            contactPhone,
+            contactName,
+            decision.lead_data ?? {}
+          );
+        } catch (leadErr) {
+          // Don't fail the reply just because lead creation failed
+          console.error("Failed to auto-create lead from WhatsApp AI", {
+            conversationId: conversation.id,
+            err: leadErr,
+          });
+        }
+      }
+
       return {
         conversationId: conversation.id,
         inboundMessageId: inbound.id,
@@ -234,6 +254,115 @@ export class WhatsAppAutoReplyService {
         skippedReason: reason,
       };
     }
+  }
+
+  /**
+   * Auto-creates (or updates) a lead row from the AI's extracted lead_data
+   * when the qualification flow is complete. If a lead already exists for
+   * this conversation, fills in any missing fields without overwriting
+   * data the operator may have already corrected manually.
+   */
+  private async maybeCreateLeadFromAI(
+    userId: string,
+    conversationId: string,
+    contactPhone: string,
+    contactName: string | null,
+    leadData: {
+      client_name?: string | null;
+      business_type?: string | null;
+      location_text?: string | null;
+      product_model?: string | null;
+      product_qty?: number | null;
+      remarks?: string | null;
+    }
+  ): Promise<void> {
+    const supabase = createAdminClient();
+
+    // Look for a Google Maps URL in the conversation's location messages
+    // — the AI doesn't see the raw payload, only "📍 Location" placeholders.
+    let googleMapsUrl: string | null = null;
+    let lat: number | null = null;
+    let lng: number | null = null;
+    const { data: locationRows } = await supabase
+      .from("whatsapp_messages")
+      .select("raw_payload")
+      .eq("conversation_id", conversationId)
+      .eq("message_type", "location")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (locationRows && locationRows.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payload = locationRows[0].raw_payload as any;
+      const loc = payload?.location;
+      if (loc) {
+        if (typeof loc.latitude === "number") lat = loc.latitude;
+        if (typeof loc.longitude === "number") lng = loc.longitude;
+        if (lat !== null && lng !== null) {
+          googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+        }
+      }
+    }
+
+    // Does a lead for this conversation already exist?
+    const { data: existing } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("whatsapp_conversation_id", conversationId)
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+
+    const clientName =
+      leadData.client_name?.trim() ||
+      contactName?.trim() ||
+      contactPhone;
+
+    if (existing) {
+      // Update only fields that are still empty (don't clobber operator edits)
+      const updatePayload: Record<string, unknown> = {};
+      if (leadData.business_type) updatePayload.client_business_type = leadData.business_type;
+      if (leadData.location_text) updatePayload.location_address = leadData.location_text;
+      if (leadData.product_model) updatePayload.product_model = leadData.product_model;
+      if (typeof leadData.product_qty === "number") updatePayload.product_qty = leadData.product_qty;
+      if (leadData.remarks) updatePayload.remarks = leadData.remarks;
+      if (googleMapsUrl) updatePayload.location_url = googleMapsUrl;
+      if (lat !== null) updatePayload.location_lat = lat;
+      if (lng !== null) updatePayload.location_lng = lng;
+      updatePayload.status = "qualified";
+
+      if (Object.keys(updatePayload).length > 0) {
+        await supabase
+          .from("leads")
+          .update(updatePayload)
+          .eq("id", existing.id);
+      }
+      return;
+    }
+
+    // Create new lead
+    const { data: nextNoData } = await supabase
+      .rpc("next_lead_serial_no", { p_user_id: userId })
+      .single<number>();
+    const serial_no = typeof nextNoData === "number" ? nextNoData : 1;
+
+    await supabase.from("leads").insert({
+      user_id: userId,
+      serial_no,
+      client_name: clientName,
+      client_phone: contactPhone,
+      client_business_type: leadData.business_type ?? null,
+      product_qty: leadData.product_qty ?? 1,
+      product_model: leadData.product_model ?? null,
+      location_address: leadData.location_text ?? null,
+      location_url: googleMapsUrl,
+      location_lat: lat,
+      location_lng: lng,
+      status: "qualified",
+      source: "whatsapp_ai",
+      whatsapp_conversation_id: conversationId,
+      remarks: leadData.remarks ?? null,
+    });
   }
 
   /**

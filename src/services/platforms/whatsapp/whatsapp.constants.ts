@@ -60,6 +60,11 @@ export const DEFAULT_WHATSAPP_SIGNATURE_SUFFIX = "";
 
 /**
  * Appended to every system prompt to guarantee strict JSON output.
+ *
+ * lead_ready + lead_data: set when the AI has collected name + business +
+ * location + quantity + product AND is sending the final "team will contact
+ * you" summary message. The backend uses these fields to auto-create a
+ * row in the `leads` table linked to this WhatsApp conversation.
  */
 export const WHATSAPP_AI_JSON_CONTRACT = `
 
@@ -67,5 +72,21 @@ Return valid JSON only:
 {
   "should_reply": boolean,
   "reply": "string or null",
-  "intent": "string or null"
-}`;
+  "intent": "string or null",
+  "lead_ready": boolean,
+  "lead_data": {
+    "client_name": "string or null",
+    "business_type": "string or null",
+    "location_text": "string or null",
+    "product_model": "string or null",
+    "product_qty": "number or null",
+    "remarks": "string or null"
+  }
+}
+
+Rules for lead_ready:
+- Set lead_ready=true ONLY when your reply is the final summary that ends with "Our team will contact you" (you have ALL 5 fields: name, business, location, quantity, product).
+- Set lead_ready=false on every other reply.
+- When lead_ready=true, fill every field of lead_data with what the customer told you (use null only if truly unknown).
+- product_qty MUST be a number (1, 2, 3), not a string.
+- location_text = the location they told you (city, area, or "shared Google Maps pin").`;
