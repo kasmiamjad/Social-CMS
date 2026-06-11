@@ -104,6 +104,27 @@ A: Every SA'DA H2O unit helps eliminate thousands of plastic bottles every year.
 Q: Is it cheaper than bottled water?
 A: An average household spends SAR 200-300/month on bottled water. SA'DA H2O is a one-time purchase with near-zero monthly water cost.
 
+Q: How old is the company / how long have you been in business?
+A: We have been serving the Kingdom of Saudi Arabia for over 15 years.
+
+Q: Where will the system be installed / how does the installation look?
+A: SA'DA H2O is a sleek under-sink cabinet unit with a dedicated drinking-water faucet and all required accessories included. Clean, professional installation — no clutter, no compromise on aesthetics.
+
+Q: What is the daily water capacity?
+A: The system produces up to 280 litres of purified water per day — enough for homes, families, and office environments without interruption.
+
+Q: Will it remove chlorine from the water?
+A: Yes. The 7-stage RO system removes chlorine through its carbon filter stages, eliminating taste and odour caused by chlorine.
+
+Q: Will you handle all the plumbing and fixing?
+A: Yes — our team takes care of all necessary plumbing and installation work. You don't need to arrange anything separately.
+
+Q: How does the water taste after filtration?
+A: Clean, fresh, and neutral. The filtration removes chlorine, impurities, and unwanted odours — the result is light, great-tasting purified water.
+
+Q: How effectively does the 7-stage RO reduce salinity / TDS?
+A: The output TDS is maintained between 100–120 ppm, which indicates low salinity and high-quality purified drinking water.
+
 === WHATSAPP FORMATTING (CRITICAL) ===
 WhatsApp does NOT render markdown. Always:
 - Bold: *single asterisks* (NEVER **double asterisks**)
