@@ -127,13 +127,16 @@ export async function generateOpenRouterJsonResponse<T>(
 
   if (provider === "anthropic") {
     providerLabel = "Anthropic";
-    rawContent = await callAnthropic(apiUrl, apiKey, params);
+    rawContent = await withRetry(() => callAnthropic(apiUrl, apiKey, params), providerLabel);
   } else if (provider === "gemini") {
     providerLabel = "Google Gemini";
-    rawContent = await callGemini(apiUrl, apiKey, params);
+    rawContent = await withRetry(() => callGemini(apiUrl, apiKey, params), providerLabel);
   } else {
     providerLabel = provider === "openrouter" ? "OpenRouter" : "OpenAI";
-    rawContent = await callOpenAICompatible(apiUrl, apiKey, params, providerLabel);
+    rawContent = await withRetry(
+      () => callOpenAICompatible(apiUrl, apiKey, params, providerLabel),
+      providerLabel
+    );
   }
 
   if (!rawContent) {
@@ -294,4 +297,47 @@ async function callAnthropic(
   // grab the first text block.
   const textBlock = responseData.content?.find((b) => b.type === "text");
   return textBlock?.text;
+}
+
+/**
+ * Wraps an LLM call with simple exponential-backoff retries for
+ * transient errors (rate limits, model overload, 5xx).
+ *
+ * Why this matters: providers like Google Gemini free tier and OpenAI
+ * gpt-4o-mini routinely return "model is currently experiencing high
+ * demand" / 429 / 503 during peak hours. A single retry after 1-2s
+ * usually succeeds because load shifts quickly across their fleet.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  providerLabel: string,
+  maxAttempts: number = 3
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+
+      // Retry-worthy patterns: overload, rate limit, 5xx server errors, timeouts
+      const isTransient =
+        /high demand|overload|currently unavailable|rate limit|too many requests|try again later|server error|timeout|ECONNRESET|ETIMEDOUT|503|502|500|429/i.test(
+          msg
+        );
+
+      if (!isTransient || attempt === maxAttempts) {
+        throw err;
+      }
+
+      // Exponential backoff: 1s, 2s, 4s
+      const waitMs = 1000 * 2 ** (attempt - 1);
+      console.warn(
+        `${providerLabel} transient error on attempt ${attempt}/${maxAttempts}, retrying in ${waitMs}ms: ${msg}`
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+  throw lastError;
 }
