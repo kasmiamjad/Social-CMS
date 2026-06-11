@@ -116,12 +116,14 @@ export class WhatsAppAutoReplyService {
       throw new Error(`Failed to persist inbound message: ${inboundError?.message}`);
     }
 
-    // Acknowledge read (best-effort, don't fail flow).
-    try {
-      await wa.markAsRead(message.id);
-    } catch (err) {
-      console.warn("Failed to mark message read", { messageId: message.id, err });
-    }
+    // Acknowledge read — fire-and-forget. Don't make the AI reply wait for
+    // a slow WhatsApp Graph API call.
+    void wa.markAsRead(message.id).catch((err: unknown) => {
+      console.warn("Failed to mark message read (non-blocking)", {
+        messageId: message.id,
+        err: err instanceof Error ? err.message : err,
+      });
+    });
 
     // 3a. Short-circuit if AI is paused for this specific conversation.
     // The message is already stored — only the AI reply is skipped so a
@@ -469,7 +471,7 @@ export class WhatsAppAutoReplyService {
   private async fetchConversationHistory(
     conversationId: string,
     currentInboundId: string,
-    limit: number = 30
+    limit: number = 15
   ): Promise<Array<{ role: "user" | "assistant"; content: string }>> {
     const supabase = createAdminClient();
     const { data } = await supabase
