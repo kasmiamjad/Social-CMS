@@ -3,9 +3,11 @@ import { Loader2 } from "lucide-react";
 import { ButtonHTMLAttributes, forwardRef } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "cta" | "danger";
+type ButtonSize = "sm" | "md" | "lg";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "size"> {
   variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
 }
 
@@ -22,14 +24,21 @@ const variantStyles: Record<ButtonVariant, string> = {
     "bg-error hover:bg-error/90 text-white",
 };
 
+const sizeStyles: Record<ButtonSize, string> = {
+  sm: "text-xs px-3 py-1.5",
+  md: "text-xs px-6 py-2.5",
+  lg: "text-sm px-8 py-3",
+};
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "primary", loading, disabled, children, ...props }, ref) => {
+  ({ className, variant = "primary", size = "md", loading, disabled, children, ...props }, ref) => {
     return (
       <button
         ref={ref}
         className={cn(
-          "inline-flex items-center justify-center gap-2 rounded-lg font-semibold text-xs px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all duration-150",
+          "inline-flex items-center justify-center gap-2 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all duration-150",
           variantStyles[variant],
+          sizeStyles[size],
           className
         )}
         disabled={disabled || loading}
