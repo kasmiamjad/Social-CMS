@@ -15,6 +15,7 @@ import {
   MessageCircle,
   Camera,
   Users,
+  CalendarCheck,
 } from "lucide-react";
 
 // `hidden: true` keeps the route/code intact but hides the menu entry.
@@ -22,6 +23,7 @@ import {
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, hidden: false },
   { label: "Leads", href: "/leads", icon: Users, hidden: false },
+  { label: "Bookings", href: "/bookings", icon: CalendarCheck, hidden: false },
   { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, hidden: false },
   { label: "Settings", href: "/settings", icon: Settings, hidden: false },
   // ── Hidden for now (code + routes still work, just not in the sidebar) ──
