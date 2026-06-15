@@ -8,6 +8,14 @@
  * so the formatting helpers below are shared.
  */
 
+/**
+ * Master switch for auto-sending the WhatsApp confirmation.
+ * OFF for now — the `booking_confirmation` template isn't approved yet, so the
+ * UI shows a copy-paste box instead. Flip to `true` once Meta approves the
+ * template to re-enable automatic delivery (free-text / template path).
+ */
+export const BOOKING_WHATSAPP_AUTOSEND: boolean = false;
+
 /** Name of the approved template in Meta Business Manager (body has 7 variables). */
 export const BOOKING_TEMPLATE_NAME = "booking_confirmation";
 

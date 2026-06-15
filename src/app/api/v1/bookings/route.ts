@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess({
       booking: result.booking,
+      confirmation_text: result.confirmationText,
       confirmation_sent: result.confirmationSent,
       delivery_method: result.deliveryMethod,
       confirmation_error: result.confirmationError,

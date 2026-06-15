@@ -15,7 +15,8 @@ import {
   DollarSign,
   CheckCircle,
   AlertCircle,
-  AlertTriangle,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface ScheduleBookingPanelProps {
@@ -29,8 +30,7 @@ interface ScheduleBookingPanelProps {
 }
 
 type Result =
-  | { kind: "success"; bookingRef: string; deliveryMethod: string | null }
-  | { kind: "partial"; bookingRef: string; error: string }
+  | { kind: "created"; bookingRef: string; text: string; autoSent: boolean }
   | { kind: "error"; message: string };
 
 /**
@@ -55,6 +55,17 @@ export function ScheduleBookingPanel({
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function copyMessage(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   const qty = productQty || 1;
   const priceNum = unitPrice === "" ? null : Number(unitPrice);
@@ -97,16 +108,12 @@ export function ScheduleBookingPanel({
         return;
       }
 
-      const ref = json.data.booking?.booking_ref ?? "—";
-      if (json.data.confirmation_sent) {
-        setResult({ kind: "success", bookingRef: ref, deliveryMethod: json.data.delivery_method });
-      } else {
-        setResult({
-          kind: "partial",
-          bookingRef: ref,
-          error: json.data.confirmation_error ?? "WhatsApp confirmation was not delivered.",
-        });
-      }
+      setResult({
+        kind: "created",
+        bookingRef: json.data.booking?.booking_ref ?? "—",
+        text: json.data.confirmation_text ?? "",
+        autoSent: Boolean(json.data.confirmation_sent),
+      });
       router.refresh();
     } catch (err) {
       setResult({ kind: "error", message: err instanceof Error ? err.message : "Network error" });
@@ -127,8 +134,8 @@ export function ScheduleBookingPanel({
               </span>
             </CardTitle>
             <CardDescription>
-              Confirm the install date &amp; time. A WhatsApp confirmation with the order
-              details is sent to the customer automatically.
+              Confirm the install date &amp; time. A ready-to-send confirmation message is
+              generated for you to copy into WhatsApp.
             </CardDescription>
           </div>
           {alreadyBooked && <Badge variant="success">Already booked</Badge>}
@@ -203,22 +210,42 @@ export function ScheduleBookingPanel({
           onChange={(e) => setNotes(e.target.value)}
         />
 
-        {result?.kind === "success" && (
-          <div className="flex items-start gap-2 text-sm text-success">
-            <CheckCircle size={15} strokeWidth={1.8} className="mt-0.5 shrink-0" />
-            <span>
-              Booking <strong>{result.bookingRef}</strong> created. WhatsApp confirmation sent
-              {result.deliveryMethod === "template" ? " (template)" : " (free text)"}.
-            </span>
-          </div>
-        )}
-        {result?.kind === "partial" && (
-          <div className="flex items-start gap-2 text-sm text-warning">
-            <AlertTriangle size={15} strokeWidth={1.8} className="mt-0.5 shrink-0" />
-            <span>
-              Booking <strong>{result.bookingRef}</strong> created, but the WhatsApp confirmation
-              failed: {result.error}
-            </span>
+        {result?.kind === "created" && (
+          <div className="space-y-2 rounded-lg border border-success/30 bg-success/5 p-4">
+            <div className="flex items-start gap-2 text-sm text-success">
+              <CheckCircle size={15} strokeWidth={1.8} className="mt-0.5 shrink-0" />
+              <span>
+                Booking <strong>{result.bookingRef}</strong> created.
+                {result.autoSent
+                  ? " WhatsApp confirmation sent automatically."
+                  : " Copy the message below and send it to the customer on WhatsApp."}
+              </span>
+            </div>
+            {!result.autoSent && (
+              <>
+                <Textarea
+                  id="confirmation_text"
+                  label="Message to send"
+                  rows={9}
+                  readOnly
+                  value={result.text}
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => copyMessage(result.text)}
+                >
+                  {copied ? (
+                    <Check size={14} strokeWidth={1.8} />
+                  ) : (
+                    <Copy size={14} strokeWidth={1.8} />
+                  )}
+                  {copied ? "Copied!" : "Copy message"}
+                </Button>
+              </>
+            )}
           </div>
         )}
         {result?.kind === "error" && (
@@ -235,7 +262,7 @@ export function ScheduleBookingPanel({
           <div className="flex-1" />
           <Button onClick={handleSubmit} loading={submitting} disabled={!hasPhone}>
             <CalendarCheck size={14} strokeWidth={1.8} />
-            Confirm &amp; Send WhatsApp
+            Create Booking
           </Button>
         </div>
       </div>

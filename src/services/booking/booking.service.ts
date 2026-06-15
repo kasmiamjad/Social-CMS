@@ -4,6 +4,7 @@ import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp
 import {
   BOOKING_TEMPLATE_LANGUAGE,
   BOOKING_TEMPLATE_NAME,
+  BOOKING_WHATSAPP_AUTOSEND,
   buildBookingFreeText,
   buildBookingTemplateComponents,
   composeBookingRef,
@@ -28,7 +29,9 @@ export interface CreateBookingInput {
 
 export interface CreateBookingResult {
   booking: Record<string, unknown>;
-  /** Whether the WhatsApp confirmation was delivered. */
+  /** The ready-to-send confirmation text (always returned for copy-paste). */
+  confirmationText: string;
+  /** Whether the WhatsApp confirmation was auto-delivered (false while paused). */
   confirmationSent: boolean;
   deliveryMethod: "template" | "free_text" | null;
   /** Human-readable reason the confirmation failed (if any). */
@@ -135,7 +138,7 @@ export class BookingService {
       })
       .eq("id", lead.id);
 
-    // 6. Send WhatsApp confirmation (best-effort)
+    // 6. Build the customer confirmation text (always returned for copy-paste).
     const fields: BookingMessageFields = {
       clientName: lead.client_name,
       bookingRef,
@@ -147,30 +150,37 @@ export class BookingService {
       dateFormatted: formatBookingDate(input.scheduledAt),
       timeFormatted: input.slotLabel?.trim() || formatBookingTime(input.scheduledAt),
     };
+    const confirmationText = buildBookingFreeText(fields);
 
-    const confirmation = await this.sendConfirmation(
-      supabase,
-      userId,
-      lead,
-      fields
-    );
+    // 7. Auto-send over WhatsApp only when enabled (paused until the template
+    // is approved — see BOOKING_WHATSAPP_AUTOSEND). Send is best-effort.
+    let confirmationSent = false;
+    let deliveryMethod: "template" | "free_text" | null = null;
+    let confirmationError: string | null = null;
 
-    // 7. Record the delivery outcome on the booking row.
-    await supabase
-      .from("bookings")
-      .update({
-        whatsapp_message_id: confirmation.messageId,
-        delivery_method: confirmation.method,
-        confirmation_sent_at: confirmation.messageId ? new Date().toISOString() : null,
-        confirmation_error: confirmation.error,
-      })
-      .eq("id", booking.id);
+    if (BOOKING_WHATSAPP_AUTOSEND) {
+      const confirmation = await this.sendConfirmation(supabase, userId, lead, fields);
+      confirmationSent = Boolean(confirmation.messageId);
+      deliveryMethod = confirmation.method;
+      confirmationError = confirmation.error;
+
+      await supabase
+        .from("bookings")
+        .update({
+          whatsapp_message_id: confirmation.messageId,
+          delivery_method: confirmation.method,
+          confirmation_sent_at: confirmation.messageId ? new Date().toISOString() : null,
+          confirmation_error: confirmation.error,
+        })
+        .eq("id", booking.id);
+    }
 
     return {
       booking,
-      confirmationSent: Boolean(confirmation.messageId),
-      deliveryMethod: confirmation.method,
-      confirmationError: confirmation.error,
+      confirmationText,
+      confirmationSent,
+      deliveryMethod,
+      confirmationError,
     };
   }
 
