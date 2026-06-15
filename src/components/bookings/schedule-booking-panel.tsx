@@ -224,7 +224,7 @@ export function ScheduleBookingPanel({
         {result?.kind === "error" && (
           <div className="flex items-start gap-2 text-sm text-error">
             <AlertCircle size={15} strokeWidth={1.8} className="mt-0.5 shrink-0" />
-            <span>{result.error}</span>
+            <span>{result.message}</span>
           </div>
         )}
 
