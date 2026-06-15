@@ -193,13 +193,13 @@ export class BookingService {
     const phone = lead.client_phone as string;
 
     // Load WhatsApp credentials
-    const { data: credsRow } = await supabase
+    const { data: credsRow } = (await supabase
       .from("platform_credentials")
       .select("credentials")
       .eq("user_id", userId)
       .eq("platform", "whatsapp")
       .eq("is_active", true)
-      .maybeSingle<PlatformCredentialsRow>();
+      .maybeSingle()) as { data: PlatformCredentialsRow | null };
 
     if (!credsRow) {
       return {
@@ -263,14 +263,14 @@ export class BookingService {
   ): Promise<boolean> {
     if (!conversationId) return false;
 
-    const { data } = await supabase
+    const { data } = (await supabase
       .from("whatsapp_messages")
       .select("sent_at, created_at")
       .eq("conversation_id", conversationId)
       .eq("direction", "inbound")
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle<{ sent_at: string | null; created_at: string }>();
+      .maybeSingle()) as { data: { sent_at: string | null; created_at: string } | null };
 
     if (!data) return false;
     const last = new Date(data.sent_at ?? data.created_at).getTime();
@@ -293,7 +293,7 @@ export class BookingService {
     let convId = conversationId;
 
     if (!convId) {
-      const { data: conv } = await supabase
+      const { data: conv } = (await supabase
         .from("whatsapp_conversations")
         .upsert(
           {
@@ -305,7 +305,7 @@ export class BookingService {
           { onConflict: "user_id,contact_phone" }
         )
         .select("id")
-        .single<{ id: string }>();
+        .single()) as { data: { id: string } | null };
       convId = conv?.id ?? null;
     }
 
