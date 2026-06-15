@@ -16,6 +16,13 @@ import {
 /** Window (ms) inside which Meta allows free-form text. */
 const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+export type BookingStatus =
+  | "scheduled"
+  | "confirmed"
+  | "completed"
+  | "cancelled"
+  | "no_show";
+
 export interface CreateBookingInput {
   leadId: string;
   /** ISO timestamp for the scheduled installation. */
@@ -74,18 +81,23 @@ export class BookingService {
     const supabase = createAdminClient();
 
     // 1. Load + verify the lead
-    const { data: lead, error: leadErr } = await supabase
-      .from("leads")
-      .select(
-        "id, user_id, client_name, client_phone, product_model, product_qty, location_address, whatsapp_conversation_id"
-      )
-      .eq("id", input.leadId)
-      .eq("user_id", userId)
-      .maybeSingle<LeadRow>();
+    const lead = await this.loadLead(supabase, userId, input.leadId);
 
-    if (leadErr) throw new Error(leadErr.message);
-    if (!lead) throw new Error("LEAD_NOT_FOUND");
-    if (!lead.client_phone?.trim()) throw new Error("LEAD_NO_PHONE");
+    // 1a. One active booking per lead — refuse a duplicate so callers update
+    // the existing one instead. Cancelled bookings don't block a fresh one.
+    const { data: existing } = await supabase
+      .from("bookings")
+      .select("id, booking_ref")
+      .eq("user_id", userId)
+      .eq("lead_id", lead.id)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      throw new Error(`BOOKING_EXISTS:${(existing as { id: string }).id}`);
+    }
 
     // 2. Reference number (per-user serial + creation year)
     const { data: serialData } = await supabase
@@ -130,30 +142,168 @@ export class BookingService {
     }
 
     // 5. Flip the lead to 'scheduled' + record the installation date.
-    await supabase
-      .from("leads")
-      .update({
-        status: "scheduled",
-        installation_date: input.scheduledAt.slice(0, 10),
-      })
-      .eq("id", lead.id);
+    await this.markLeadScheduled(supabase, lead.id, input.scheduledAt);
 
-    // 6. Build the customer confirmation text (always returned for copy-paste).
-    const fields: BookingMessageFields = {
+    // 6 + 7. Build the confirmation text and (optionally) auto-send.
+    const fields = this.buildFields({
       clientName: lead.client_name,
       bookingRef,
       product,
       qty,
-      totalFormatted:
-        totalAmount !== null ? totalAmount.toLocaleString("en-US") : "—",
-      currency: "SAR",
-      dateFormatted: formatBookingDate(input.scheduledAt),
-      timeFormatted: input.slotLabel?.trim() || formatBookingTime(input.scheduledAt),
-    };
-    const confirmationText = buildBookingFreeText(fields);
+      totalAmount,
+      scheduledAt: input.scheduledAt,
+      slotLabel: input.slotLabel ?? null,
+    });
+    const confirmation = await this.finalizeConfirmation(supabase, userId, lead, booking.id, fields);
 
-    // 7. Auto-send over WhatsApp only when enabled (paused until the template
-    // is approved — see BOOKING_WHATSAPP_AUTOSEND). Send is best-effort.
+    return { booking, ...confirmation };
+  }
+
+  /**
+   * Updates an existing booking in place (reschedule / price / technician),
+   * re-snapshotting product + qty from the current lead and regenerating the
+   * confirmation text. Keeps the original booking_ref.
+   *
+   * @throws "BOOKING_NOT_FOUND", "LEAD_NOT_FOUND", "LEAD_NO_PHONE"
+   */
+  async updateBookingAndConfirm(
+    userId: string,
+    bookingId: string,
+    input: Omit<CreateBookingInput, "leadId"> & { status?: BookingStatus }
+  ): Promise<CreateBookingResult> {
+    const supabase = createAdminClient();
+
+    const { data: current } = await supabase
+      .from("bookings")
+      .select("id, lead_id, booking_ref")
+      .eq("id", bookingId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!current) throw new Error("BOOKING_NOT_FOUND");
+    const cur = current as { id: string; lead_id: string; booking_ref: string };
+
+    const lead = await this.loadLead(supabase, userId, cur.lead_id);
+
+    const qty = lead.product_qty ?? 1;
+    const unitPrice = input.unitPrice ?? null;
+    const totalAmount = unitPrice !== null ? Number((unitPrice * qty).toFixed(2)) : null;
+    const product = lead.product_model ?? "Water purifier";
+
+    const { data: booking, error: updateErr } = await supabase
+      .from("bookings")
+      .update({
+        scheduled_at: input.scheduledAt,
+        slot_label: input.slotLabel?.trim() || null,
+        product_snapshot: product,
+        qty_snapshot: qty,
+        unit_price: unitPrice,
+        total_amount: totalAmount,
+        address_snapshot: lead.location_address ?? null,
+        technician: input.technician?.trim() || null,
+        notes: input.notes?.trim() || null,
+        ...(input.status ? { status: input.status } : {}),
+      })
+      .eq("id", cur.id)
+      .eq("user_id", userId)
+      .select("*")
+      .single();
+
+    if (updateErr || !booking) {
+      throw new Error(`Failed to update booking: ${updateErr?.message}`);
+    }
+
+    await this.markLeadScheduled(supabase, lead.id, input.scheduledAt);
+
+    const fields = this.buildFields({
+      clientName: lead.client_name,
+      bookingRef: cur.booking_ref,
+      product,
+      qty,
+      totalAmount,
+      scheduledAt: input.scheduledAt,
+      slotLabel: input.slotLabel ?? null,
+    });
+    const confirmation = await this.finalizeConfirmation(supabase, userId, lead, booking.id, fields);
+
+    return { booking, ...confirmation };
+  }
+
+  // ── Shared helpers ─────────────────────────────────────────────────────────
+
+  private async loadLead(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    userId: string,
+    leadId: string
+  ): Promise<LeadRow> {
+    const { data: lead, error } = (await supabase
+      .from("leads")
+      .select(
+        "id, user_id, client_name, client_phone, product_model, product_qty, location_address, whatsapp_conversation_id"
+      )
+      .eq("id", leadId)
+      .eq("user_id", userId)
+      .maybeSingle()) as { data: LeadRow | null; error: { message: string } | null };
+
+    if (error) throw new Error(error.message);
+    if (!lead) throw new Error("LEAD_NOT_FOUND");
+    if (!lead.client_phone?.trim()) throw new Error("LEAD_NO_PHONE");
+    return lead;
+  }
+
+  private async markLeadScheduled(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    leadId: string,
+    scheduledAt: string
+  ): Promise<void> {
+    await supabase
+      .from("leads")
+      .update({ status: "scheduled", installation_date: scheduledAt.slice(0, 10) })
+      .eq("id", leadId);
+  }
+
+  private buildFields(params: {
+    clientName: string;
+    bookingRef: string;
+    product: string;
+    qty: number;
+    totalAmount: number | null;
+    scheduledAt: string;
+    slotLabel: string | null;
+  }): BookingMessageFields {
+    return {
+      clientName: params.clientName,
+      bookingRef: params.bookingRef,
+      product: params.product,
+      qty: params.qty,
+      totalFormatted:
+        params.totalAmount !== null ? params.totalAmount.toLocaleString("en-US") : "—",
+      currency: "SAR",
+      dateFormatted: formatBookingDate(params.scheduledAt),
+      timeFormatted: params.slotLabel?.trim() || formatBookingTime(params.scheduledAt),
+    };
+  }
+
+  /**
+   * Builds the confirmation text and, when auto-send is enabled, delivers it
+   * over WhatsApp (best-effort) and records the outcome on the booking row.
+   */
+  private async finalizeConfirmation(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    userId: string,
+    lead: LeadRow,
+    bookingId: string,
+    fields: BookingMessageFields
+  ): Promise<{
+    confirmationText: string;
+    confirmationSent: boolean;
+    deliveryMethod: "template" | "free_text" | null;
+    confirmationError: string | null;
+  }> {
+    const confirmationText = buildBookingFreeText(fields);
     let confirmationSent = false;
     let deliveryMethod: "template" | "free_text" | null = null;
     let confirmationError: string | null = null;
@@ -172,16 +322,10 @@ export class BookingService {
           confirmation_sent_at: confirmation.messageId ? new Date().toISOString() : null,
           confirmation_error: confirmation.error,
         })
-        .eq("id", booking.id);
+        .eq("id", bookingId);
     }
 
-    return {
-      booking,
-      confirmationText,
-      confirmationSent,
-      deliveryMethod,
-      confirmationError,
-    };
+    return { confirmationText, confirmationSent, deliveryMethod, confirmationError };
   }
 
   /**

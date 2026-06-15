@@ -100,6 +100,14 @@ export async function POST(request: NextRequest) {
         400
       );
     }
+    if (msg.startsWith("BOOKING_EXISTS:")) {
+      return apiError(
+        "BOOKING_EXISTS",
+        "This lead already has a booking. Refresh the page to edit it instead of creating a new one.",
+        409,
+        { booking_id: msg.slice("BOOKING_EXISTS:".length) }
+      );
+    }
     return apiError("CREATE_FAILED", msg, 500);
   }
 }

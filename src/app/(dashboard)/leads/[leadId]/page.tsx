@@ -31,6 +31,18 @@ export default async function LeadDetailPage({ params }: PageProps) {
 
   if (!lead) notFound();
 
+  // The lead's active (non-cancelled) booking, if any — so the panel edits it
+  // instead of creating a duplicate.
+  const { data: existingBooking } = await admin
+    .from("bookings")
+    .select("id, booking_ref, scheduled_at, slot_label, unit_price, technician, notes, status")
+    .eq("user_id", user.id)
+    .eq("lead_id", leadId)
+    .neq("status", "cancelled")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div>
       <Link
@@ -50,6 +62,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
           productQty={lead.product_qty ?? 1}
           defaultTechnician={lead.installed_by ?? null}
           leadStatus={lead.status ?? "new"}
+          existingBooking={existingBooking ?? null}
         />
       </div>
     </div>

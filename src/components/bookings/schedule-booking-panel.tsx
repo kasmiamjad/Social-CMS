@@ -27,11 +27,42 @@ interface ScheduleBookingPanelProps {
   defaultTechnician: string | null;
   /** Current lead status — used to show whether a booking already exists. */
   leadStatus: string;
+  /** The lead's active booking, if any — editing it instead of creating new. */
+  existingBooking: ExistingBooking | null;
+}
+
+export interface ExistingBooking {
+  id: string;
+  booking_ref: string;
+  scheduled_at: string;
+  slot_label: string | null;
+  unit_price: number | null;
+  technician: string | null;
+  notes: string | null;
+  status: string;
 }
 
 type Result =
-  | { kind: "created"; bookingRef: string; text: string; autoSent: boolean }
+  | { kind: "saved"; verb: "created" | "updated"; bookingRef: string; text: string; autoSent: boolean }
   | { kind: "error"; message: string };
+
+/** Splits an ISO timestamp into Riyadh-local date (YYYY-MM-DD) and time (HH:mm). */
+function riyadhDateTimeParts(iso: string): { date: string; time: string } {
+  const d = new Date(iso);
+  const date = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Riyadh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+  return { date, time };
+}
 
 /**
  * "Schedule Installation" panel on the lead detail page. Collects the install
@@ -45,14 +76,24 @@ export function ScheduleBookingPanel({
   productQty,
   defaultTechnician,
   leadStatus,
+  existingBooking,
 }: ScheduleBookingPanelProps) {
   const router = useRouter();
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [slotLabel, setSlotLabel] = useState("");
-  const [unitPrice, setUnitPrice] = useState("");
-  const [technician, setTechnician] = useState(defaultTechnician ?? "");
-  const [notes, setNotes] = useState("");
+  const isUpdate = Boolean(existingBooking);
+  const initial = existingBooking
+    ? riyadhDateTimeParts(existingBooking.scheduled_at)
+    : { date: "", time: "" };
+
+  const [date, setDate] = useState(initial.date);
+  const [time, setTime] = useState(initial.time);
+  const [slotLabel, setSlotLabel] = useState(existingBooking?.slot_label ?? "");
+  const [unitPrice, setUnitPrice] = useState(
+    existingBooking?.unit_price != null ? String(existingBooking.unit_price) : ""
+  );
+  const [technician, setTechnician] = useState(
+    existingBooking?.technician ?? defaultTechnician ?? ""
+  );
+  const [notes, setNotes] = useState(existingBooking?.notes ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [copied, setCopied] = useState(false);
@@ -89,17 +130,29 @@ export function ScheduleBookingPanel({
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/v1/bookings", {
-        method: "POST",
+      const url = isUpdate ? `/api/v1/bookings/${existingBooking!.id}` : "/api/v1/bookings";
+      const method = isUpdate ? "PATCH" : "POST";
+      const body = isUpdate
+        ? {
+            scheduled_at: scheduledAt,
+            slot_label: slotLabel.trim() || null,
+            unit_price: priceNum,
+            technician: technician.trim() || null,
+            notes: notes.trim() || null,
+          }
+        : {
+            lead_id: leadId,
+            scheduled_at: scheduledAt,
+            slot_label: slotLabel.trim() || null,
+            unit_price: priceNum,
+            technician: technician.trim() || null,
+            notes: notes.trim() || null,
+          };
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lead_id: leadId,
-          scheduled_at: scheduledAt,
-          slot_label: slotLabel.trim() || null,
-          unit_price: priceNum,
-          technician: technician.trim() || null,
-          notes: notes.trim() || null,
-        }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
 
@@ -109,7 +162,8 @@ export function ScheduleBookingPanel({
       }
 
       setResult({
-        kind: "created",
+        kind: "saved",
+        verb: isUpdate ? "updated" : "created",
         bookingRef: json.data.booking?.booking_ref ?? "—",
         text: json.data.confirmation_text ?? "",
         autoSent: Boolean(json.data.confirmation_sent),
@@ -130,15 +184,20 @@ export function ScheduleBookingPanel({
             <CardTitle>
               <span className="inline-flex items-center gap-2">
                 <CalendarCheck size={18} strokeWidth={1.8} />
-                Schedule Installation
+                {isUpdate ? "Update Booking" : "Schedule Installation"}
               </span>
             </CardTitle>
             <CardDescription>
-              Confirm the install date &amp; time. A ready-to-send confirmation message is
-              generated for you to copy into WhatsApp.
+              {isUpdate
+                ? "This lead already has a booking — saving updates it (no duplicate is created)."
+                : "Confirm the install date & time. A ready-to-send confirmation message is generated for you to copy into WhatsApp."}
             </CardDescription>
           </div>
-          {alreadyBooked && <Badge variant="success">Already booked</Badge>}
+          {isUpdate ? (
+            <Badge variant="processing">{existingBooking!.booking_ref}</Badge>
+          ) : (
+            alreadyBooked && <Badge variant="success">Already booked</Badge>
+          )}
         </div>
       </CardHeader>
 
@@ -210,12 +269,12 @@ export function ScheduleBookingPanel({
           onChange={(e) => setNotes(e.target.value)}
         />
 
-        {result?.kind === "created" && (
+        {result?.kind === "saved" && (
           <div className="space-y-2 rounded-lg border border-success/30 bg-success/5 p-4">
             <div className="flex items-start gap-2 text-sm text-success">
               <CheckCircle size={15} strokeWidth={1.8} className="mt-0.5 shrink-0" />
               <span>
-                Booking <strong>{result.bookingRef}</strong> created.
+                Booking <strong>{result.bookingRef}</strong> {result.verb}.
                 {result.autoSent
                   ? " WhatsApp confirmation sent automatically."
                   : " Copy the message below and send it to the customer on WhatsApp."}
@@ -262,7 +321,7 @@ export function ScheduleBookingPanel({
           <div className="flex-1" />
           <Button onClick={handleSubmit} loading={submitting} disabled={!hasPhone}>
             <CalendarCheck size={14} strokeWidth={1.8} />
-            Create Booking
+            {isUpdate ? "Update Booking" : "Create Booking"}
           </Button>
         </div>
       </div>
