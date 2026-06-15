@@ -23,6 +23,34 @@ interface WhatsAppAutomationConfigRow {
   business_hours_end: string | null;
   business_hours_timezone: string | null;
   out_of_hours_message: string | null;
+  product_images: Record<string, string> | null;
+}
+
+const PRODUCT_IMAGE_LABELS: Record<string, string> = {
+  dispenser:     "RO Water Dispenser (Hot/Cold) — SAR 499",
+  ro_699:        "7-Stage RO Purifier — SAR 699",
+  ro_uv_999:     "7-Stage RO Purifier + UV — SAR 999",
+  smart_ro_1199: "6-Stage Smart RO — SAR 1,199",
+  smart_ro_1299: "7-Stage Smart RO — SAR 1,299",
+};
+
+function buildProductImageSection(images: Record<string, string>): string {
+  const entries = Object.entries(images).filter(([, url]) => typeof url === "string" && url.startsWith("http"));
+  if (entries.length === 0) return "";
+
+  const lines = entries.map(([slug, url]) => {
+    const label = PRODUCT_IMAGE_LABELS[slug] ?? slug;
+    return `• ${label}: ${url}`;
+  });
+
+  return `\n\n=== PRODUCT IMAGE URLS (auto-injected — use ONLY these, never invent URLs) ===
+You CAN send images on WhatsApp. When a customer asks for photos or pictures of any product:
+- Add the relevant image URL(s) to the images_to_send JSON field
+- Do NOT say "I'm unable to send images"
+- If they ask for ALL products, include all URLs below
+- If they ask for a specific model, include only that model's URL
+
+${lines.join("\n")}`;
 }
 
 interface PlatformCredentialsRow {
@@ -189,8 +217,15 @@ export class WhatsAppAutoReplyService {
 
     const apiKey = await this.getOpenRouterApiKey(userId);
     const history = await this.fetchConversationHistory(conversation.id, inbound.id);
+
+    // Append product image URLs to the system prompt dynamically so the bot
+    // can send images without the user having to paste URLs manually.
+    const basePrompt = config.system_prompt || DEFAULT_WHATSAPP_SYSTEM_PROMPT;
+    const imageSection = buildProductImageSection(config.product_images ?? {});
+    const fullPrompt = basePrompt + imageSection;
+
     const decision = await this.getAIDecision(
-      config.system_prompt || DEFAULT_WHATSAPP_SYSTEM_PROMPT,
+      fullPrompt,
       contactName,
       message.text.body,
       config.signature_suffix || DEFAULT_WHATSAPP_SIGNATURE_SUFFIX,
@@ -444,7 +479,7 @@ export class WhatsAppAutoReplyService {
     const { data } = await supabase
       .from("whatsapp_automation_configs")
       .select(
-        "enabled, auto_reply, system_prompt, signature_suffix, business_hours_enabled, business_hours_start, business_hours_end, business_hours_timezone, out_of_hours_message"
+        "enabled, auto_reply, system_prompt, signature_suffix, business_hours_enabled, business_hours_start, business_hours_end, business_hours_timezone, out_of_hours_message, product_images"
       )
       .eq("user_id", userId)
       .maybeSingle<WhatsAppAutomationConfigRow>();
@@ -460,6 +495,7 @@ export class WhatsAppAutoReplyService {
         business_hours_end: null,
         business_hours_timezone: null,
         out_of_hours_message: null,
+        product_images: null,
       }
     );
   }

@@ -12,6 +12,7 @@ import {
   AutomationConfigForm,
   type WhatsAppAutomationConfig,
 } from "@/components/whatsapp/automation-config-form";
+import { ProductImagesForm } from "@/components/whatsapp/product-images-form";
 import {
   DEFAULT_WHATSAPP_SIGNATURE_SUFFIX,
   DEFAULT_WHATSAPP_SYSTEM_PROMPT,
@@ -78,8 +79,8 @@ export default async function WhatsAppPage() {
     );
   }
 
-  // Load conversations + automation config in parallel.
-  const [conversationsRes, configRes] = await Promise.all([
+  // Load conversations, automation config, and product images in parallel.
+  const [conversationsRes, configRes, imagesRes] = await Promise.all([
     admin
       .from("whatsapp_conversations")
       .select(
@@ -93,9 +94,15 @@ export default async function WhatsAppPage() {
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle(),
+    admin
+      .from("whatsapp_automation_configs")
+      .select("product_images")
+      .eq("user_id", user.id)
+      .maybeSingle<{ product_images: Record<string, string> }>(),
   ]);
 
   const conversations = (conversationsRes.data ?? []) as WhatsAppConversationSummary[];
+  const productImages = (imagesRes.data?.product_images ?? {}) as Record<string, string>;
 
   const config: WhatsAppAutomationConfig = configRes.data
     ? (configRes.data as WhatsAppAutomationConfig)
@@ -117,7 +124,10 @@ export default async function WhatsAppPage() {
 
       <div className="mt-6 grid gap-6 grid-cols-1 xl:grid-cols-2">
         <ConversationList conversations={conversations} />
-        <AutomationConfigForm initialConfig={config} />
+        <div className="space-y-6">
+          <ProductImagesForm initialImages={productImages} />
+          <AutomationConfigForm initialConfig={config} />
+        </div>
       </div>
     </div>
   );
