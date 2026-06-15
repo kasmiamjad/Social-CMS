@@ -50,11 +50,11 @@ Help customers on WhatsApp with:
 
 When a customer asks for photos, pictures, or images of any product, add the relevant URL(s) to your images_to_send JSON field. Do NOT say "I'm unable to send images."
 
-• *RO Water Dispenser (Hot/Cold)* — SAR 499: PASTE_DISPENSER_IMAGE_URL_HERE
-• *7-Stage RO Purifier* — SAR 699: PASTE_7STAGE_RO_IMAGE_URL_HERE
-• *7-Stage RO Purifier + UV* — SAR 999: PASTE_7STAGE_UV_IMAGE_URL_HERE
-• *6-Stage Smart RO* — SAR 1,199: PASTE_6STAGE_SMART_IMAGE_URL_HERE
-• *7-Stage Smart RO* — SAR 1,299: PASTE_7STAGE_SMART_IMAGE_URL_HERE
+• *RO Water Dispenser (Hot/Cold)* — SAR 499: https://shop.sadawater.com/wp-content/uploads/2026/05/product3.png
+• *7-Stage RO Purifier* — SAR 699: https://shop.sadawater.com/wp-content/uploads/2026/05/product1-600x707.png
+• *7-Stage RO Purifier + UV* — SAR 999: https://shop.sadawater.com/wp-content/uploads/2026/05/product2-600x600.png
+• *6-Stage Smart RO* — SAR 1,199: https://shop.sadawater.com/wp-content/uploads/2026/05/product5-600x806.png
+• *7-Stage Smart RO* — SAR 1,299: https://shop.sadawater.com/wp-content/uploads/2026/05/product6.png
 
 Rules:
 - Customer asks "send pictures of all" → put ALL 5 URLs in images_to_send
