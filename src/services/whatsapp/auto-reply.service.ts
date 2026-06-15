@@ -210,6 +210,19 @@ export class WhatsAppAutoReplyService {
     }
 
     try {
+      // 6a. Send product images BEFORE the text reply (if AI included any)
+      const imageUrls = Array.isArray(decision.images_to_send)
+        ? decision.images_to_send.filter((u): u is string => typeof u === "string" && u.startsWith("http"))
+        : [];
+
+      for (const imageUrl of imageUrls) {
+        try {
+          await wa.sendImageMessage(contactPhone, imageUrl);
+        } catch (imgErr) {
+          console.warn("Failed to send product image (non-blocking)", { imageUrl, err: imgErr });
+        }
+      }
+
       const sent = await wa.sendTextMessage(contactPhone, decision.reply);
       const outboundId = await this.persistOutboundMessage(supabase, {
         conversationId: conversation.id,

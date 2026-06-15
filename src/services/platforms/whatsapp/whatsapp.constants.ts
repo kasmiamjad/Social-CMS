@@ -73,6 +73,7 @@ Return valid JSON only:
   "should_reply": boolean,
   "reply": "string or null",
   "intent": "string or null",
+  "images_to_send": [],
   "lead_ready": boolean,
   "lead_data": {
     "client_name": "string or null",
@@ -83,6 +84,14 @@ Return valid JSON only:
     "remarks": "string or null"
   }
 }
+
+Rules for images_to_send:
+- Set images_to_send to an array of image URLs ONLY when the customer explicitly asks for photos, pictures, or images of product(s).
+- If they ask for ALL products, include all relevant image URLs from the catalog.
+- If they ask for a specific model, include only that model's image URL.
+- If they did NOT ask for images, set images_to_send to [] (empty array).
+- NEVER make up URLs — only use the exact URLs listed in the system prompt under PRODUCT IMAGES.
+- Images are sent BEFORE your text reply.
 
 Rules for lead_ready:
 - Set lead_ready=true ONLY when your reply is the final summary that ends with "Our team will contact you" (you have ALL 5 fields: name, business, location, quantity, product).

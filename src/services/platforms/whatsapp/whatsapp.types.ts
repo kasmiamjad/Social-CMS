@@ -125,4 +125,10 @@ export interface WhatsAppAIDecision {
   lead_ready?: boolean;
   /** Filled in alongside lead_ready=true. */
   lead_data?: WhatsAppAILeadData;
+  /**
+   * Optional list of product image URLs to send BEFORE the text reply.
+   * Only populate when the customer explicitly asks for photos/pictures.
+   * Each URL must be publicly accessible over HTTPS.
+   */
+  images_to_send?: string[];
 }
