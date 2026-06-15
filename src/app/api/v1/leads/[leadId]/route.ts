@@ -5,7 +5,7 @@ import { resolveUserId } from "@/lib/api-auth";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 const STATUS_VALUES = [
-  "new", "contacted", "qualified", "quoted", "won", "lost", "installed", "in_service",
+  "new", "contacted", "qualified", "quoted", "won", "lost", "scheduled", "installed", "in_service",
 ] as const;
 
 const UpdateLeadSchema = z.object({

@@ -35,7 +35,7 @@ export default async function LeadsPage() {
 
   // Stats
   const total = leads.length;
-  const won = leads.filter((l) => l.status === "won" || l.status === "installed" || l.status === "in_service").length;
+  const won = leads.filter((l) => ["won", "scheduled", "installed", "in_service"].includes(l.status)).length;
   const open = leads.filter((l) => ["new", "contacted", "qualified", "quoted"].includes(l.status)).length;
   const fromWhatsApp = leads.filter((l) => l.source === "whatsapp_ai").length;
 

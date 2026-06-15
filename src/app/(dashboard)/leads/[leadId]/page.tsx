@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LeadForm, type Lead } from "@/components/leads/lead-form";
+import { ScheduleBookingPanel } from "@/components/bookings/schedule-booking-panel";
 import { ArrowLeft } from "lucide-react";
 
 interface PageProps {
@@ -40,6 +41,17 @@ export default async function LeadDetailPage({ params }: PageProps) {
         Back to leads
       </Link>
       <LeadForm mode="edit" initialLead={lead} />
+
+      <div className="mt-6 max-w-4xl">
+        <ScheduleBookingPanel
+          leadId={lead.id!}
+          hasPhone={Boolean(lead.client_phone?.trim())}
+          productModel={lead.product_model ?? null}
+          productQty={lead.product_qty ?? 1}
+          defaultTechnician={lead.installed_by ?? null}
+          leadStatus={lead.status ?? "new"}
+        />
+      </div>
     </div>
   );
 }

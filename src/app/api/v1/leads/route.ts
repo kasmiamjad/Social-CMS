@@ -11,6 +11,7 @@ const STATUS_VALUES = [
   "quoted",
   "won",
   "lost",
+  "scheduled",
   "installed",
   "in_service",
 ] as const;

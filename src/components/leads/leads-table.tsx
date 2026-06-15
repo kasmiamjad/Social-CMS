@@ -37,6 +37,7 @@ const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "error"
   quoted: "warning",
   won: "success",
   lost: "error",
+  scheduled: "processing",
   installed: "success",
   in_service: "success",
 };

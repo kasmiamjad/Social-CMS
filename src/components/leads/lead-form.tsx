@@ -58,6 +58,7 @@ const STATUS_OPTIONS = [
   { value: "quoted", label: "Quoted" },
   { value: "won", label: "Won" },
   { value: "lost", label: "Lost" },
+  { value: "scheduled", label: "Scheduled" },
   { value: "installed", label: "Installed" },
   { value: "in_service", label: "In Service" },
 ];
