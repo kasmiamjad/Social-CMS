@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { PRODUCT_MODEL_OPTIONS } from "@/lib/products";
 import {
   AlertCircle,
   CheckCircle,
@@ -61,17 +62,6 @@ const STATUS_OPTIONS = [
   { value: "scheduled", label: "Scheduled" },
   { value: "installed", label: "Installed" },
   { value: "in_service", label: "In Service" },
-];
-
-// The SA'DA H2O catalog (must stay in sync with SADA_H2O_SYSTEM_PROMPT.md and
-// the Product Images panel). Value = clean model name stored in product_model;
-// label adds the price for the operator's convenience (price isn't stored here).
-const PRODUCT_MODEL_OPTIONS = [
-  { value: "RO Water Dispenser (Hot/Cold)", label: "RO Water Dispenser (Hot/Cold) — SAR 499" },
-  { value: "7-Stage RO Purifier", label: "7-Stage RO Purifier — SAR 699" },
-  { value: "7-Stage RO Purifier + UV", label: "7-Stage RO Purifier + UV — SAR 999" },
-  { value: "6-Stage Smart RO", label: "6-Stage Smart RO — SAR 1,199" },
-  { value: "7-Stage Smart RO", label: "7-Stage Smart RO — SAR 1,299" },
 ];
 
 const BUSINESS_TYPE_OPTIONS = [

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { defaultPriceForModel } from "@/lib/products";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,9 +88,10 @@ export function ScheduleBookingPanel({
   const [date, setDate] = useState(initial.date);
   const [time, setTime] = useState(initial.time);
   const [slotLabel, setSlotLabel] = useState(existingBooking?.slot_label ?? "");
-  const [unitPrice, setUnitPrice] = useState(
-    existingBooking?.unit_price != null ? String(existingBooking.unit_price) : ""
-  );
+  // Update mode keeps the booking's saved price; create mode prefills from the
+  // selected model's catalog price (operator can still override).
+  const prefillPrice = existingBooking?.unit_price ?? defaultPriceForModel(productModel);
+  const [unitPrice, setUnitPrice] = useState(prefillPrice != null ? String(prefillPrice) : "");
   const [technician, setTechnician] = useState(
     existingBooking?.technician ?? defaultTechnician ?? ""
   );
