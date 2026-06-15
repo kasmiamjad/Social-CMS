@@ -574,6 +574,9 @@ export class WhatsAppAutoReplyService {
       should_reply: Boolean(decision.should_reply),
       reply: finalReply,
       intent: decision.intent ?? null,
+      lead_ready: decision.lead_ready ?? false,
+      lead_data: decision.lead_data ?? {},
+      images_to_send: Array.isArray(decision.images_to_send) ? decision.images_to_send : [],
     };
   }
 
