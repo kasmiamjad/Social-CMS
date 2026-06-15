@@ -92,13 +92,13 @@ export async function POST(request: NextRequest) {
   };
 
   // Update if row exists, insert minimal row if not
-  const { count } = await supabase
+  const { data: updated } = await supabase
     .from("whatsapp_automation_configs")
     .update({ product_images: updatedImages })
     .eq("user_id", userId)
-    .select("user_id", { count: "exact", head: true });
+    .select("user_id");
 
-  if ((count ?? 0) === 0) {
+  if (!updated || updated.length === 0) {
     await supabase.from("whatsapp_automation_configs").insert({
       user_id: userId,
       product_images: updatedImages,
