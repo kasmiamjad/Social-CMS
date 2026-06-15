@@ -63,6 +63,17 @@ const STATUS_OPTIONS = [
   { value: "in_service", label: "In Service" },
 ];
 
+// The SA'DA H2O catalog (must stay in sync with SADA_H2O_SYSTEM_PROMPT.md and
+// the Product Images panel). Value = clean model name stored in product_model;
+// label adds the price for the operator's convenience (price isn't stored here).
+const PRODUCT_MODEL_OPTIONS = [
+  { value: "RO Water Dispenser (Hot/Cold)", label: "RO Water Dispenser (Hot/Cold) — SAR 499" },
+  { value: "7-Stage RO Purifier", label: "7-Stage RO Purifier — SAR 699" },
+  { value: "7-Stage RO Purifier + UV", label: "7-Stage RO Purifier + UV — SAR 999" },
+  { value: "6-Stage Smart RO", label: "6-Stage Smart RO — SAR 1,199" },
+  { value: "7-Stage Smart RO", label: "7-Stage Smart RO — SAR 1,299" },
+];
+
 const BUSINESS_TYPE_OPTIONS = [
   "Coffee shop",
   "Restaurant",
@@ -296,14 +307,34 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
             onChange={(e) => update("product_qty", Number(e.target.value) || 1)}
           />
           <div className="md:col-span-2">
-            <Input
-              id="product_model"
-              label="RO Unit / Model"
-              icon={Package}
-              placeholder="e.g. 400 GAL - AQUA TOWER"
-              value={lead.product_model ?? ""}
-              onChange={(e) => update("product_model", e.target.value)}
-            />
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              RO Unit / Model
+            </label>
+            <div className="relative">
+              <Package
+                size={16}
+                strokeWidth={1.8}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+              />
+              <select
+                value={lead.product_model ?? ""}
+                onChange={(e) => update("product_model", e.target.value || null)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">(select model)</option>
+                {/* Keep any legacy/custom value selectable so editing an old lead
+                    doesn't silently drop its model. */}
+                {lead.product_model &&
+                  !PRODUCT_MODEL_OPTIONS.some((o) => o.value === lead.product_model) && (
+                    <option value={lead.product_model}>{lead.product_model}</option>
+                  )}
+                {PRODUCT_MODEL_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </Card>
