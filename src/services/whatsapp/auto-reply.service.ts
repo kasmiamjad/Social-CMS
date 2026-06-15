@@ -234,13 +234,27 @@ export class WhatsAppAutoReplyService {
     );
 
     // 6. Send reply if AI decided yes
-    if (!decision.should_reply || !decision.reply?.trim()) {
+    const replyText = decision.reply?.trim() ?? "";
+    const hasImages = Array.isArray(decision.images_to_send) && decision.images_to_send.length > 0;
+    // Skip if AI said no-reply AND there are no images to send
+    if (!decision.should_reply && !hasImages) {
       return {
         conversationId: conversation.id,
         inboundMessageId: inbound.id,
         aiDecision: decision,
         outboundMessageId: null,
         skippedReason: "ai_decided_skip",
+      };
+    }
+    // Guard against junk single-character replies like "?" — skip text but still send images
+    const isJunkReply = replyText.length <= 2 && !/^(ok|hi)$/i.test(replyText);
+    if (!replyText && !hasImages) {
+      return {
+        conversationId: conversation.id,
+        inboundMessageId: inbound.id,
+        aiDecision: decision,
+        outboundMessageId: null,
+        skippedReason: "empty_reply",
       };
     }
 
@@ -258,12 +272,26 @@ export class WhatsAppAutoReplyService {
         }
       }
 
-      const sent = await wa.sendTextMessage(contactPhone, decision.reply);
+      // 6b. Skip text reply if it's junk (single char like "?") but images were sent
+      if (isJunkReply || !replyText) {
+        if (imageUrls.length > 0) {
+          console.warn("Skipped junk text reply after sending images", { reply: replyText });
+        }
+        return {
+          conversationId: conversation.id,
+          inboundMessageId: inbound.id,
+          aiDecision: decision,
+          outboundMessageId: null,
+          skippedReason: isJunkReply ? "junk_reply_suppressed" : "empty_reply",
+        };
+      }
+
+      const sent = await wa.sendTextMessage(contactPhone, replyText);
       const outboundId = await this.persistOutboundMessage(supabase, {
         conversationId: conversation.id,
         userId,
         waMessageId: sent.messageId,
-        body: decision.reply,
+        body: replyText,
         aiGenerated: true,
       });
 
@@ -273,7 +301,6 @@ export class WhatsAppAutoReplyService {
       //   2. Fallback heuristic — the reply contains the summary phrase
       //      "team will contact you" (in case the AI forgot the JSON flag
       //      but still sent the right reply text)
-      const replyText = decision.reply ?? "";
       const replyLooksLikeSummary =
         /our team will contact you/i.test(replyText) ||
         /our team will reach out/i.test(replyText) ||
