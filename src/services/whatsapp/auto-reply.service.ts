@@ -215,6 +215,31 @@ export class WhatsAppAutoReplyService {
       };
     }
 
+    // Burst-message coalescing: when a customer sends several messages in quick
+    // succession (e.g. "Hi" → "2" → "1"), each webhook fires a parallel handler.
+    // Wait 1.5 s then check whether a newer inbound message has arrived for this
+    // conversation — if so, skip AI generation here and let the newer handler win.
+    await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+
+    const { data: newerMessages } = await createAdminClient()
+      .from("whatsapp_messages")
+      .select("id")
+      .eq("conversation_id", conversation.id)
+      .eq("direction", "inbound")
+      .neq("id", inbound.id)
+      .gt("created_at", new Date(Number(message.timestamp) * 1000).toISOString())
+      .limit(1);
+
+    if (newerMessages && newerMessages.length > 0) {
+      return {
+        conversationId: conversation.id,
+        inboundMessageId: inbound.id,
+        aiDecision: null,
+        outboundMessageId: null,
+        skippedReason: "superseded_by_newer_message",
+      };
+    }
+
     const apiKey = await this.getOpenRouterApiKey(userId);
     const history = await this.fetchConversationHistory(conversation.id, inbound.id);
 
