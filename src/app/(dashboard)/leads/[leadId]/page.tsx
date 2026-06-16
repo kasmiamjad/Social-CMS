@@ -63,6 +63,16 @@ export default async function LeadDetailPage({ params }: PageProps) {
           defaultTechnician={lead.installed_by ?? null}
           leadStatus={lead.status ?? "new"}
           existingBooking={existingBooking ?? null}
+          chatChannel={
+            lead.whatsapp_conversation_id
+              ? "whatsapp"
+              : lead.messenger_conversation_id
+                ? "messenger"
+                : null
+          }
+          chatConversationId={
+            lead.whatsapp_conversation_id ?? lead.messenger_conversation_id ?? null
+          }
         />
       </div>
     </div>

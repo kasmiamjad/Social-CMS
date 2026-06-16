@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Copy,
   Check,
+  Send,
 } from "lucide-react";
 
 interface ScheduleBookingPanelProps {
@@ -30,6 +31,9 @@ interface ScheduleBookingPanelProps {
   leadStatus: string;
   /** The lead's active booking, if any — editing it instead of creating new. */
   existingBooking: ExistingBooking | null;
+  /** Linked chat channel + conversation, for sending the confirmation inline. */
+  chatChannel: "whatsapp" | "messenger" | null;
+  chatConversationId: string | null;
 }
 
 export interface ExistingBooking {
@@ -78,6 +82,8 @@ export function ScheduleBookingPanel({
   defaultTechnician,
   leadStatus,
   existingBooking,
+  chatChannel,
+  chatConversationId,
 }: ScheduleBookingPanelProps) {
   const router = useRouter();
   const isUpdate = Boolean(existingBooking);
@@ -99,6 +105,13 @@ export function ScheduleBookingPanel({
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [copied, setCopied] = useState(false);
+  const [chatSend, setChatSend] = useState<{
+    state: "idle" | "sending" | "sent" | "error";
+    message?: string;
+  }>({ state: "idle" });
+
+  const canSendInChat = Boolean(chatChannel && chatConversationId);
+  const channelLabel = chatChannel === "messenger" ? "Messenger" : "WhatsApp";
 
   async function copyMessage(text: string) {
     try {
@@ -110,6 +123,30 @@ export function ScheduleBookingPanel({
     }
   }
 
+  /** Sends the confirmation text straight into the customer's chat thread. */
+  async function sendInChat(text: string) {
+    if (!canSendInChat) return;
+    setChatSend({ state: "sending" });
+    try {
+      const res = await fetch(
+        `/api/v1/${chatChannel}/conversations/${chatConversationId}/messages`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body: text }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setChatSend({ state: "error", message: json.error?.message ?? "Failed to send" });
+        return;
+      }
+      setChatSend({ state: "sent" });
+    } catch (err) {
+      setChatSend({ state: "error", message: err instanceof Error ? err.message : "Network error" });
+    }
+  }
+
   const qty = productQty || 1;
   const priceNum = unitPrice === "" ? null : Number(unitPrice);
   const total = priceNum !== null && !Number.isNaN(priceNum) ? priceNum * qty : null;
@@ -117,6 +154,7 @@ export function ScheduleBookingPanel({
 
   async function handleSubmit() {
     setResult(null);
+    setChatSend({ state: "idle" });
 
     if (!hasPhone) {
       setResult({ kind: "error", message: "This lead has no phone number — add one first." });
@@ -279,7 +317,9 @@ export function ScheduleBookingPanel({
                 Booking <strong>{result.bookingRef}</strong> {result.verb}.
                 {result.autoSent
                   ? " WhatsApp confirmation sent automatically."
-                  : " Copy the message below and send it to the customer on WhatsApp."}
+                  : canSendInChat
+                    ? ` Send it on ${channelLabel} below, or copy it.`
+                    : " Copy the message below and send it to the customer on WhatsApp."}
               </span>
             </div>
             {!result.autoSent && (
@@ -292,19 +332,48 @@ export function ScheduleBookingPanel({
                   value={result.text}
                   onFocus={(e) => e.currentTarget.select()}
                 />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => copyMessage(result.text)}
-                >
-                  {copied ? (
-                    <Check size={14} strokeWidth={1.8} />
-                  ) : (
-                    <Copy size={14} strokeWidth={1.8} />
+                <div className="flex flex-wrap items-center gap-2">
+                  {canSendInChat && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => sendInChat(result.text)}
+                      loading={chatSend.state === "sending"}
+                      disabled={chatSend.state === "sent"}
+                    >
+                      {chatSend.state === "sent" ? (
+                        <Check size={14} strokeWidth={1.8} />
+                      ) : (
+                        <Send size={14} strokeWidth={1.8} />
+                      )}
+                      {chatSend.state === "sent" ? "Sent" : `Send on ${channelLabel}`}
+                    </Button>
                   )}
-                  {copied ? "Copied!" : "Copy message"}
-                </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => copyMessage(result.text)}
+                  >
+                    {copied ? (
+                      <Check size={14} strokeWidth={1.8} />
+                    ) : (
+                      <Copy size={14} strokeWidth={1.8} />
+                    )}
+                    {copied ? "Copied!" : "Copy message"}
+                  </Button>
+                </div>
+                {chatSend.state === "sent" && (
+                  <p className="text-xs text-success">
+                    Sent to the customer on {channelLabel}. ✓
+                  </p>
+                )}
+                {chatSend.state === "error" && (
+                  <p className="text-xs text-error">
+                    Couldn&apos;t send: {chatSend.message}
+                    {" "}(the 24h window may be closed — copy &amp; send manually).
+                  </p>
+                )}
               </>
             )}
           </div>

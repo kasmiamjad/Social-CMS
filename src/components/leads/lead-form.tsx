@@ -48,6 +48,7 @@ export interface Lead {
   status?: string;
   source?: string;
   whatsapp_conversation_id?: string | null;
+  messenger_conversation_id?: string | null;
   remarks?: string | null;
   internal_notes?: string | null;
 }
@@ -272,8 +273,9 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
             />
             <Input
               id="qr_code"
-              label="QR Code"
+              label="S.No."
               icon={Hash}
+              placeholder="e.g. 1024"
               value={lead.qr_code ?? ""}
               onChange={(e) => update("qr_code", e.target.value)}
             />
