@@ -9,6 +9,10 @@ import { Plus } from "lucide-react";
 /** Lead sources created by the AI bot rather than a person. */
 const BOT_SOURCES = new Set(["whatsapp_ai", "facebook", "instagram", "youtube"]);
 
+/** Statuses still in the open pipeline — the only ones shown on the Leads list.
+ * Scheduled/installed/in-service move to Bookings; won/lost drop out of the list. */
+const OPEN_STATUSES = new Set(["new", "contacted", "qualified", "quoted"]);
+
 export default async function LeadsPage() {
   const supabase = await createClient();
   const {
@@ -79,6 +83,10 @@ export default async function LeadsPage() {
     };
   });
 
+  // Only open-pipeline leads appear in the list; the rest live on Bookings or
+  // are closed. Stats below are still computed from the full set.
+  const openLeads = leads.filter((l) => OPEN_STATUSES.has(l.status));
+
   // Stats
   const total = leads.length;
   const won = leads.filter((l) => ["won", "scheduled", "installed", "in_service"].includes(l.status)).length;
@@ -93,7 +101,7 @@ export default async function LeadsPage() {
             Leads
           </h1>
           <p className="text-sm text-text-muted mt-1">
-            Manage customer enquiries from WhatsApp, Instagram, and manual entry
+            Active leads (new → quoted). Scheduled ones move to Bookings.
           </p>
         </div>
         <Link
@@ -113,7 +121,7 @@ export default async function LeadsPage() {
         <StatCard label="From WhatsApp" value={fromWhatsApp} />
       </div>
 
-      <LeadsTable leads={leads} />
+      <LeadsTable leads={openLeads} />
     </div>
   );
 }
