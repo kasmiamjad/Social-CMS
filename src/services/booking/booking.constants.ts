@@ -52,7 +52,7 @@ export function buildBookingFreeText(f: BookingMessageFields): string {
     `💰 Total: ${f.currency} ${f.totalFormatted}`,
     `📅 Installation: ${f.dateFormatted} at ${f.timeFormatted}`,
     ``,
-    `Reply here to reschedule.`,
+    `Need a different time? Just reply with your preferred date & time.`,
   ].join("\n");
 }
 

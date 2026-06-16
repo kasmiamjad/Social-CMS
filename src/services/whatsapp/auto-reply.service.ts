@@ -259,6 +259,12 @@ export class WhatsAppAutoReplyService {
     // reschedule requests against it.
     const booking = await this.getActiveBooking(userId, conversation.id);
 
+    const activeBookingInfo = booking
+      ? `Ref ${booking.booking_ref}, installation ${formatBookingDate(booking.scheduled_at)} at ${
+          booking.slot_label?.trim() || formatBookingTime(booking.scheduled_at)
+        }`
+      : null;
+
     const decision = await this.getAIDecision(
       fullPrompt,
       contactName,
@@ -267,7 +273,8 @@ export class WhatsAppAutoReplyService {
       history,
       apiKey,
       formatRiyadhNow(),
-      booking?.pending_reschedule_at ?? null
+      booking?.pending_reschedule_at ?? null,
+      activeBookingInfo
     );
 
     // 5b. Reschedule flow (confirm-first). Handles propose / confirm / cancel
@@ -365,8 +372,10 @@ export class WhatsAppAutoReplyService {
         /our team will contact you/i.test(replyText) ||
         /our team will reach out/i.test(replyText) ||
         /team will get in touch/i.test(replyText);
+      // Never re-run lead qualification for a customer who already has a
+      // booking — it would regress the lead from 'scheduled' back to 'qualified'.
       const shouldCreateLead =
-        decision.lead_ready === true || replyLooksLikeSummary;
+        !booking && (decision.lead_ready === true || replyLooksLikeSummary);
 
       // Always log what we got so debugging is easy from pm2 logs
       console.log("WhatsApp AI decision summary", {
@@ -636,7 +645,8 @@ export class WhatsAppAutoReplyService {
     history: Array<{ role: "user" | "assistant"; content: string }>,
     apiKey?: string,
     currentDateTime?: string,
-    pendingRescheduleAt?: string | null
+    pendingRescheduleAt?: string | null,
+    activeBookingInfo?: string | null
   ): Promise<WhatsAppAIDecision> {
     // LLM_MODEL is the new generic name. OPENROUTER_CLAUDE_MODEL kept for back-compat.
     // Defaults to a cheap, capable OpenAI model so works out-of-the-box with OPENAI_API_KEY.
@@ -656,6 +666,7 @@ export class WhatsAppAutoReplyService {
         message,
         current_datetime: currentDateTime ?? null,
         pending_reschedule_at: pendingRescheduleAt ?? null,
+        active_booking: activeBookingInfo ?? null,
       }),
     });
 
