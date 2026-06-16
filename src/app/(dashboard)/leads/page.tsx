@@ -6,6 +6,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { LeadsTable, type LeadRow } from "@/components/leads/leads-table";
 import { Plus } from "lucide-react";
 
+/** Lead sources created by the AI bot rather than a person. */
+const BOT_SOURCES = new Set(["whatsapp_ai", "facebook", "instagram", "youtube"]);
+
 export default async function LeadsPage() {
   const supabase = await createClient();
   const {
@@ -22,6 +25,16 @@ export default async function LeadsPage() {
   }
 
   const admin = createAdminClient();
+
+  // The account owner's name, used as the "Added by" label for manual leads.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .maybeSingle<{ display_name: string | null }>();
+  const ownerName =
+    profile?.display_name?.trim() || user.email?.split("@")[0] || "Team";
+
   const { data } = await admin
     .from("leads")
     .select(
@@ -62,6 +75,7 @@ export default async function LeadsPage() {
           ? ("messenger" as const)
           : null,
       chat_conversation_id: l.whatsapp_conversation_id ?? l.messenger_conversation_id ?? null,
+      added_by: BOT_SOURCES.has(l.source) ? "AI Bot" : ownerName,
     };
   });
 

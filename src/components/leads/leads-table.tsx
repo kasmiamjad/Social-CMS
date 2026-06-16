@@ -47,6 +47,8 @@ export interface LeadRow {
   chat_channel?: "whatsapp" | "messenger" | null;
   /** Linked conversation id (for opening the chat drawer). */
   chat_conversation_id?: string | null;
+  /** Who added the lead — the user's name (manual) or "AI Bot". */
+  added_by?: string | null;
 }
 
 /** Icon + label per lead source for the Source column. */
@@ -113,11 +115,8 @@ export function LeadsTable({ leads }: LeadsTableProps) {
               <th className="px-4 py-3 font-semibold">Source</th>
               <th className="px-4 py-3 font-semibold">Last chat</th>
               <th className="px-4 py-3 font-semibold">Type</th>
-              <th className="px-4 py-3 font-semibold">Qty</th>
               <th className="px-4 py-3 font-semibold">Unit</th>
-              <th className="px-4 py-3 font-semibold">Installed</th>
-              <th className="px-4 py-3 font-semibold">Next service</th>
-              <th className="px-4 py-3 font-semibold">By</th>
+              <th className="px-4 py-3 font-semibold">Added by</th>
               <th className="px-4 py-3 font-semibold">Location</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 font-semibold w-8"></th>
@@ -182,22 +181,11 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
                   {lead.client_business_type ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-foreground text-center">{lead.product_qty ?? 1}</td>
                 <td className="px-4 py-3 text-foreground text-xs whitespace-nowrap">
                   {lead.product_model ?? "—"}
                 </td>
                 <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
-                  {lead.installation_date
-                    ? new Date(lead.installation_date).toLocaleDateString()
-                    : "—"}
-                </td>
-                <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
-                  {lead.next_service_date
-                    ? new Date(lead.next_service_date).toLocaleDateString()
-                    : "—"}
-                </td>
-                <td className="px-4 py-3 text-text-muted text-xs">
-                  {lead.installed_by ?? "—"}
+                  {lead.added_by ?? "—"}
                 </td>
                 <td className="px-4 py-3">
                   {lead.location_url ? (
