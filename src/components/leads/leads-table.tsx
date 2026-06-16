@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ChatDrawer, type ActiveChat } from "./chat-drawer";
 import {
   ChevronRight,
   ExternalLink,
@@ -41,6 +43,10 @@ export interface LeadRow {
   last_customer_msg?: string | null;
   /** Total messages in the linked chat (both directions). */
   chat_count?: number;
+  /** Which channel the linked chat is on (for opening the chat drawer). */
+  chat_channel?: "whatsapp" | "messenger" | null;
+  /** Linked conversation id (for opening the chat drawer). */
+  chat_conversation_id?: string | null;
 }
 
 /** Icon + label per lead source for the Source column. */
@@ -73,6 +79,8 @@ const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "error"
 };
 
 export function LeadsTable({ leads }: LeadsTableProps) {
+  const [activeChat, setActiveChat] = useState<ActiveChat | null>(null);
+
   if (leads.length === 0) {
     return (
       <Card>
@@ -92,6 +100,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
   }
 
   return (
+    <>
     <Card padding={false}>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -145,15 +154,27 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                   <SourceCell source={lead.source} />
                 </td>
                 <td className="px-4 py-3">
-                  {lead.chat_count && lead.chat_count > 0 ? (
-                    <div className="max-w-[220px]">
-                      <div className="text-xs text-foreground truncate">
-                        {lead.last_customer_msg?.trim() || "(no text)"}
+                  {lead.chat_count && lead.chat_count > 0 && lead.chat_channel && lead.chat_conversation_id ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveChat({
+                          channel: lead.chat_channel!,
+                          conversationId: lead.chat_conversation_id!,
+                          name: lead.client_name,
+                        })
+                      }
+                      className="max-w-[220px] text-left group/chat"
+                      title="Open chat"
+                    >
+                      <div className="flex items-center gap-1 text-xs text-primary group-hover/chat:underline truncate">
+                        <MessageCircle size={12} strokeWidth={1.8} className="shrink-0" />
+                        <span className="truncate">{lead.last_customer_msg?.trim() || "(no text)"}</span>
                       </div>
                       <div className="text-[10px] text-text-muted mt-0.5">
-                        {lead.chat_count} message{lead.chat_count === 1 ? "" : "s"}
+                        {lead.chat_count} message{lead.chat_count === 1 ? "" : "s"} · open
                       </div>
-                    </div>
+                    </button>
                   ) : (
                     <span className="text-text-muted">—</span>
                   )}
@@ -211,6 +232,8 @@ export function LeadsTable({ leads }: LeadsTableProps) {
         </table>
       </div>
     </Card>
+    {activeChat && <ChatDrawer chat={activeChat} onClose={() => setActiveChat(null)} />}
+    </>
   );
 }
 

@@ -56,6 +56,12 @@ export default async function LeadsPage() {
       ...l,
       last_customer_msg: chat?.lastCustomerMsg ?? null,
       chat_count: chat?.count ?? 0,
+      chat_channel: l.whatsapp_conversation_id
+        ? ("whatsapp" as const)
+        : l.messenger_conversation_id
+          ? ("messenger" as const)
+          : null,
+      chat_conversation_id: l.whatsapp_conversation_id ?? l.messenger_conversation_id ?? null,
     };
   });
 
