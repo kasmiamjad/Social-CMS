@@ -6,6 +6,12 @@ import {
   DEFAULT_WHATSAPP_SYSTEM_PROMPT,
   WHATSAPP_AI_JSON_CONTRACT,
 } from "@/services/platforms/whatsapp/whatsapp.constants";
+import {
+  buildBookingFreeText,
+  formatBookingDate,
+  formatBookingTime,
+  type BookingMessageFields,
+} from "@/services/booking/booking.constants";
 import type {
   WhatsAppAIDecision,
   WhatsAppCredentials,
@@ -249,14 +255,43 @@ export class WhatsAppAutoReplyService {
     const imageSection = buildProductImageSection(config.product_images ?? {});
     const fullPrompt = basePrompt + imageSection;
 
+    // Load the customer's active booking (if any) so the AI can interpret
+    // reschedule requests against it.
+    const booking = await this.getActiveBooking(userId, conversation.id);
+
     const decision = await this.getAIDecision(
       fullPrompt,
       contactName,
       message.text.body,
       config.signature_suffix || DEFAULT_WHATSAPP_SIGNATURE_SUFFIX,
       history,
-      apiKey
+      apiKey,
+      formatRiyadhNow(),
+      booking?.pending_reschedule_at ?? null
     );
+
+    // 5b. Reschedule flow (confirm-first). Handles propose / confirm / cancel
+    // against the active booking and short-circuits the normal reply.
+    if (booking) {
+      const handled = await this.handleRescheduleIfAny(supabase, wa, {
+        conversationId: conversation.id,
+        contactPhone,
+        contactName,
+        userId,
+        booking,
+        decision,
+        customerText: message.text.body,
+      });
+      if (handled) {
+        return {
+          conversationId: conversation.id,
+          inboundMessageId: inbound.id,
+          aiDecision: decision,
+          outboundMessageId: handled.outboundId,
+          skippedReason: null,
+        };
+      }
+    }
 
     // 6. Send reply if AI decided yes
     const replyText = decision.reply?.trim() ?? "";
@@ -599,7 +634,9 @@ export class WhatsAppAutoReplyService {
     message: string,
     signatureSuffix: string,
     history: Array<{ role: "user" | "assistant"; content: string }>,
-    apiKey?: string
+    apiKey?: string,
+    currentDateTime?: string,
+    pendingRescheduleAt?: string | null
   ): Promise<WhatsAppAIDecision> {
     // LLM_MODEL is the new generic name. OPENROUTER_CLAUDE_MODEL kept for back-compat.
     // Defaults to a cheap, capable OpenAI model so works out-of-the-box with OPENAI_API_KEY.
@@ -617,10 +654,21 @@ export class WhatsAppAutoReplyService {
       userMessage: JSON.stringify({
         contact_name: contactName ?? "",
         message,
+        current_datetime: currentDateTime ?? null,
+        pending_reschedule_at: pendingRescheduleAt ?? null,
       }),
     });
 
     const finalReply = appendSignatureIfPresent(decision.reply, signatureSuffix);
+
+    const rIntent = decision.reschedule?.intent;
+    const reschedule: WhatsAppAIDecision["reschedule"] = {
+      intent:
+        rIntent === "propose" || rIntent === "confirm" || rIntent === "cancel"
+          ? rIntent
+          : "none",
+      new_datetime_iso: decision.reschedule?.new_datetime_iso ?? null,
+    };
 
     return {
       should_reply: Boolean(decision.should_reply),
@@ -629,7 +677,122 @@ export class WhatsAppAutoReplyService {
       lead_ready: decision.lead_ready ?? false,
       lead_data: decision.lead_data ?? {},
       images_to_send: Array.isArray(decision.images_to_send) ? decision.images_to_send : [],
+      reschedule,
     };
+  }
+
+  /**
+   * Loads the active (non-cancelled) booking for the lead linked to this
+   * WhatsApp conversation, or null. Used by the reschedule flow.
+   */
+  private async getActiveBooking(
+    userId: string,
+    conversationId: string
+  ): Promise<{
+    id: string;
+    lead_id: string;
+    scheduled_at: string;
+    pending_reschedule_at: string | null;
+    booking_ref: string;
+    product_snapshot: string | null;
+    qty_snapshot: number;
+    total_amount: number | null;
+    currency: string;
+    slot_label: string | null;
+  } | null> {
+    const supabase = createAdminClient();
+    const { data: lead } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("whatsapp_conversation_id", conversationId)
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+    if (!lead) return null;
+
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select(
+        "id, lead_id, scheduled_at, pending_reschedule_at, booking_ref, product_snapshot, qty_snapshot, total_amount, currency, slot_label"
+      )
+      .eq("user_id", userId)
+      .eq("lead_id", lead.id)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (booking as any) ?? null;
+  }
+
+  /**
+   * Confirm-first reschedule handling. Returns { outboundId } if it sent a
+   * reschedule-related reply (and the caller should stop), or null to let the
+   * normal reply flow continue.
+   */
+  private async handleRescheduleIfAny(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    wa: WhatsAppService,
+    params: {
+      conversationId: string;
+      contactPhone: string;
+      contactName: string | null;
+      userId: string;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      booking: any;
+      decision: WhatsAppAIDecision;
+      customerText: string;
+    }
+  ): Promise<{ outboundId: string } | null> {
+    const { booking, decision, contactPhone, contactName, conversationId, userId } = params;
+    const intent = decision.reschedule?.intent ?? "none";
+    const affirmative = /^\s*(yes|yep|yeah|ok|okay|okey|confirm|sure|نعم|تمام|اوكي|أوكي|اوك)\b/i.test(
+      params.customerText.trim()
+    );
+
+    const isConfirm =
+      intent === "confirm" || (Boolean(booking.pending_reschedule_at) && affirmative && intent !== "propose" && intent !== "cancel");
+
+    let replyText: string;
+
+    if (isConfirm && booking.pending_reschedule_at) {
+      const newAt = booking.pending_reschedule_at as string;
+      await supabase
+        .from("bookings")
+        .update({ scheduled_at: newAt, slot_label: null, pending_reschedule_at: null })
+        .eq("id", booking.id);
+      await supabase
+        .from("leads")
+        .update({ installation_date: newAt.slice(0, 10) })
+        .eq("id", booking.lead_id);
+      replyText = buildBookingFreeText(rescheduleFields(booking, newAt, contactName, contactPhone));
+    } else if (intent === "propose" && decision.reschedule?.new_datetime_iso) {
+      const iso = decision.reschedule.new_datetime_iso;
+      await supabase.from("bookings").update({ pending_reschedule_at: iso }).eq("id", booking.id);
+      replyText = `📅 Sure! I can move your SA'DA H2O installation to *${formatBookingDate(iso)} at ${formatBookingTime(iso)}*.\n\nReply *YES* to confirm, or send a different time.`;
+    } else if (intent === "propose") {
+      // Wants to reschedule but gave no time.
+      replyText = "Sure — what date and time works best for your installation?";
+    } else if (intent === "cancel") {
+      if (booking.pending_reschedule_at) {
+        await supabase.from("bookings").update({ pending_reschedule_at: null }).eq("id", booking.id);
+      }
+      replyText = `No problem 👍 Your installation stays on *${formatBookingDate(booking.scheduled_at)} at ${booking.slot_label?.trim() || formatBookingTime(booking.scheduled_at)}*.`;
+    } else {
+      return null; // not a reschedule action — let the normal reply flow run
+    }
+
+    const sent = await wa.sendTextMessage(contactPhone, replyText);
+    const outboundId = await this.persistOutboundMessage(supabase, {
+      conversationId,
+      userId,
+      waMessageId: sent.messageId,
+      body: replyText,
+      aiGenerated: true,
+    });
+    return { outboundId };
   }
 
   private async persistOutboundMessage(
@@ -677,6 +840,43 @@ export class WhatsAppAutoReplyService {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
+
+/** Current date/time in Riyadh, human-readable, for the AI to resolve relative dates. */
+function formatRiyadhNow(): string {
+  return (
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Riyadh",
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).format(new Date()) + " (Asia/Riyadh)"
+  );
+}
+
+/** Builds the booking-confirmation message fields for a rescheduled booking. */
+function rescheduleFields(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  booking: any,
+  atIso: string,
+  contactName: string | null,
+  contactPhone: string
+): BookingMessageFields {
+  return {
+    clientName: contactName?.trim() || contactPhone,
+    bookingRef: booking.booking_ref,
+    product: booking.product_snapshot ?? "Water purifier",
+    qty: booking.qty_snapshot ?? 1,
+    totalFormatted:
+      booking.total_amount != null ? Number(booking.total_amount).toLocaleString("en-US") : "—",
+    currency: booking.currency ?? "SAR",
+    dateFormatted: formatBookingDate(atIso),
+    timeFormatted: formatBookingTime(atIso),
+  };
+}
 
 function extractMessagePreview(message: WhatsAppIncomingMessage): string {
   switch (message.type) {

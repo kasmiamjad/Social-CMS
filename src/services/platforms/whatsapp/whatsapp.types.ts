@@ -131,4 +131,12 @@ export interface WhatsAppAIDecision {
    * Each URL must be publicly accessible over HTTPS.
    */
   images_to_send?: string[];
+  /**
+   * Reschedule signal for a customer who already has a confirmed booking.
+   * intent "propose" carries the parsed new_datetime_iso (or null if no time given).
+   */
+  reschedule?: {
+    intent: "propose" | "confirm" | "cancel" | "none";
+    new_datetime_iso: string | null;
+  };
 }

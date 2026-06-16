@@ -82,8 +82,20 @@ Return valid JSON only:
     "product_model": "string or null",
     "product_qty": "number or null",
     "remarks": "string or null"
+  },
+  "reschedule": {
+    "intent": "propose | confirm | cancel | none",
+    "new_datetime_iso": "string or null"
   }
 }
+
+Rules for reschedule (only relevant if the customer already has a confirmed installation booking):
+- The user message JSON includes "current_datetime" (Asia/Riyadh) and, if a reschedule is awaiting confirmation, "pending_reschedule_at".
+- intent="propose": the customer wants a NEW installation date/time. Resolve their words ("tomorrow 5pm", "Friday morning", "بكرة الساعة ٥") into an absolute timestamp using current_datetime, and put it in new_datetime_iso as ISO 8601 WITH the +03:00 offset (e.g. "2026-06-18T17:00:00+03:00"). If they want to reschedule but gave NO specific time, set intent="propose" and new_datetime_iso=null.
+- intent="confirm": there is a pending_reschedule_at AND the customer is agreeing (yes / ok / confirm / نعم / تمام). new_datetime_iso=null.
+- intent="cancel": the customer no longer wants to reschedule / wants to keep the original time. new_datetime_iso=null.
+- intent="none": the message is not about rescheduling (the normal case).
+- Do NOT promise a new time yourself in "reply" — the system sends the confirmation. Keep "reply" short or empty when intent is propose/confirm/cancel.
 
 Rules for images_to_send:
 - Set images_to_send to an array of image URLs ONLY when the customer explicitly asks for photos, pictures, or images of product(s).
