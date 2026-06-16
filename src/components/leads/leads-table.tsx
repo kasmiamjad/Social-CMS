@@ -3,7 +3,20 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ExternalLink, MapPin } from "lucide-react";
+import {
+  ChevronRight,
+  ExternalLink,
+  MapPin,
+  MessageCircle,
+  Send,
+  Camera,
+  Globe,
+  PhoneCall,
+  User,
+  Users,
+  PlayCircle,
+  type LucideIcon,
+} from "lucide-react";
 
 export interface LeadRow {
   id: string;
@@ -24,7 +37,24 @@ export interface LeadRow {
   source: string;
   remarks: string | null;
   created_at: string;
+  /** Last inbound (customer) message from the linked chat, if any. */
+  last_customer_msg?: string | null;
+  /** Total messages in the linked chat (both directions). */
+  chat_count?: number;
 }
+
+/** Icon + label per lead source for the Source column. */
+const SOURCE_META: Record<string, { icon: LucideIcon; label: string }> = {
+  manual: { icon: User, label: "Manual" },
+  whatsapp_ai: { icon: MessageCircle, label: "WhatsApp" },
+  facebook: { icon: Send, label: "Messenger" },
+  instagram: { icon: Camera, label: "Instagram" },
+  youtube: { icon: PlayCircle, label: "YouTube" },
+  website_form: { icon: Globe, label: "Website" },
+  phone_call: { icon: PhoneCall, label: "Phone call" },
+  walk_in: { icon: User, label: "Walk-in" },
+  referral: { icon: Users, label: "Referral" },
+};
 
 interface LeadsTableProps {
   leads: LeadRow[];
@@ -69,8 +99,10 @@ export function LeadsTable({ leads }: LeadsTableProps) {
             <tr className="text-left text-[10px] uppercase tracking-wider text-text-muted">
               <th className="px-4 py-3 font-semibold">#</th>
               <th className="px-4 py-3 font-semibold">Date</th>
-              <th className="px-4 py-3 font-semibold">Code</th>
+              <th className="px-4 py-3 font-semibold">Ref No</th>
               <th className="px-4 py-3 font-semibold">Client</th>
+              <th className="px-4 py-3 font-semibold">Source</th>
+              <th className="px-4 py-3 font-semibold">Last chat</th>
               <th className="px-4 py-3 font-semibold">Type</th>
               <th className="px-4 py-3 font-semibold">Qty</th>
               <th className="px-4 py-3 font-semibold">Unit</th>
@@ -93,8 +125,8 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                     ? new Date(lead.installation_date).toLocaleDateString()
                     : new Date(lead.created_at).toLocaleDateString()}
                 </td>
-                <td className="px-4 py-3 text-foreground font-mono text-xs">
-                  {lead.client_code ?? "—"}
+                <td className="px-4 py-3 text-foreground font-mono text-xs whitespace-nowrap">
+                  {lead.client_code?.trim() || `LD-${String(lead.serial_no).padStart(4, "0")}`}
                 </td>
                 <td className="px-4 py-3">
                   <Link
@@ -107,6 +139,23 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                     <div className="text-text-muted text-[10px] font-mono mt-0.5">
                       {lead.client_phone}
                     </div>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <SourceCell source={lead.source} />
+                </td>
+                <td className="px-4 py-3">
+                  {lead.chat_count && lead.chat_count > 0 ? (
+                    <div className="max-w-[220px]">
+                      <div className="text-xs text-foreground truncate">
+                        {lead.last_customer_msg?.trim() || "(no text)"}
+                      </div>
+                      <div className="text-[10px] text-text-muted mt-0.5">
+                        {lead.chat_count} message{lead.chat_count === 1 ? "" : "s"}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-text-muted">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
@@ -162,5 +211,20 @@ export function LeadsTable({ leads }: LeadsTableProps) {
         </table>
       </div>
     </Card>
+  );
+}
+
+/** Source icon + label for a lead (manual / WhatsApp / Messenger / etc.). */
+function SourceCell({ source }: { source: string }) {
+  const meta = SOURCE_META[source] ?? { icon: User, label: source };
+  const Icon = meta.icon;
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-xs text-text-muted whitespace-nowrap"
+      title={meta.label}
+    >
+      <Icon size={14} strokeWidth={1.8} className="text-foreground shrink-0" />
+      {meta.label}
+    </span>
   );
 }
