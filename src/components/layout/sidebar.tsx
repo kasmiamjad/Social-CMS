@@ -27,11 +27,11 @@ const navItems = [
   { label: "Bookings", href: "/bookings", icon: CalendarCheck, hidden: false },
   { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, hidden: false },
   { label: "Messenger", href: "/messenger", icon: Send, hidden: false },
+  { label: "Instagram", href: "/instagram", icon: Camera, hidden: false },
   { label: "Settings", href: "/settings", icon: Settings, hidden: false },
   // ── Hidden for now (code + routes still work, just not in the sidebar) ──
   { label: "Create Post", href: "/create", icon: PlusCircle, hidden: true },
   { label: "YouTube", href: "/youtube/videos", icon: PlayCircle, hidden: true },
-  { label: "Instagram", href: "/instagram", icon: Camera, hidden: true },
   { label: "Gallery", href: "/gallery", icon: Images, hidden: true },
   { label: "History", href: "/history", icon: Clock, hidden: true },
 ];
