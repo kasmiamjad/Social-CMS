@@ -233,6 +233,73 @@ const MANUAL_PLATFORMS: ManualPlatformDefinition[] = [
       },
     ],
   },
+  {
+    id: "messenger",
+    name: "Facebook Messenger",
+    icon: MessageCircle,
+    description: "AI auto-reply to your Facebook Page messages",
+    fields: [
+      {
+        key: "page_id",
+        label: "Facebook Page ID",
+        placeholder: "e.g. 123456789012345",
+        type: "text",
+        icon: Hash,
+        helpText: "The numeric ID of the Page the bot replies as (Page → About, or Meta dashboard).",
+      },
+      {
+        key: "page_access_token",
+        label: "Page Access Token",
+        placeholder: "EAAxxxxx...",
+        type: "password",
+        icon: Key,
+        helpText: "Messenger → Settings → generate a token for your linked Page (pages_messaging permission).",
+      },
+      {
+        key: "app_secret",
+        label: "App Secret",
+        placeholder: "32-character hex string",
+        type: "password",
+        icon: Lock,
+        helpText: "App Settings → Basic → App Secret. Used to verify webhook signatures.",
+      },
+      {
+        key: "verify_token",
+        label: "Webhook Verify Token",
+        placeholder: "Any random string you choose",
+        type: "text",
+        icon: ShieldCheck,
+        helpText: "Make up any string (e.g. 'a3sixty_msgr_2026'). Paste the SAME string into Meta when subscribing the webhook.",
+      },
+      {
+        key: "app_id",
+        label: "App ID",
+        placeholder: "e.g. 123456789012345",
+        type: "text",
+        icon: Hash,
+        helpText: "Your Meta app ID (optional, informational).",
+        required: false,
+      },
+    ],
+    setupGuide: [
+      {
+        title: "Add Messenger to your Meta app",
+        detail: "developers.facebook.com → your app → Add Product → Messenger.",
+      },
+      {
+        title: "Link your Page + generate a token",
+        detail: "Messenger → Settings → connect your Facebook Page and generate a Page access token.",
+      },
+      {
+        title: "Subscribe the webhook",
+        detail: "Messenger → Settings → Webhooks → Callback URL: https://crm.a3sixty.com/api/v1/messenger/webhook → Verify Token: paste the same string above → subscribe to the 'messages' field, then subscribe your Page.",
+      },
+      {
+        title: "Save & test",
+        detail: "Save credentials here, then message your Page from another account. Check the Messenger tab to see it appear.",
+      },
+    ],
+  },
 ];
 
 // ---------------------------------------------------------------------------

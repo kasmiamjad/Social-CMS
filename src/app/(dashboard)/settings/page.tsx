@@ -38,6 +38,7 @@ export default async function SettingsPage() {
   // ever leaking actual secrets to the browser.
   const PASSWORD_FIELD_KEYS = new Set([
     "access_token",
+    "page_access_token",
     "app_secret",
     "client_secret",
     "api_key",
