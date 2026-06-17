@@ -92,9 +92,8 @@ export function LeadsTable({ leads }: LeadsTableProps) {
         </CardHeader>
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="text-sm text-text-muted max-w-md">
-            Leads from WhatsApp AI chats will appear here automatically once you click{" "}
-            <span className="font-semibold text-foreground">Convert to lead</span> on a conversation.
-            You can also add leads manually with the button above.
+            Leads from WhatsApp &amp; Messenger chats appear here automatically when a customer
+            messages you. You can also add leads manually with the button above.
           </p>
         </div>
       </Card>

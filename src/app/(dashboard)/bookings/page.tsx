@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BookingsTable, type BookingRow } from "@/components/bookings/bookings-table";
 import { buildChatInfo, uniqueConversationIds } from "@/lib/chat-info";
+import { AutoRefresh } from "@/components/whatsapp/auto-refresh";
 
 export default async function BookingsPage() {
   const supabase = await createClient();
@@ -73,6 +74,7 @@ export default async function BookingsPage() {
 
   return (
     <div>
+      <AutoRefresh intervalMs={8000} />
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
           Bookings
