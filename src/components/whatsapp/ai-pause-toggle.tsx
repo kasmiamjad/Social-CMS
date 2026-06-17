@@ -7,14 +7,16 @@ import { Bot, Pause, Play, Loader2, AlertCircle } from "lucide-react";
 interface AiPauseToggleProps {
   conversationId: string;
   initiallyPaused: boolean;
+  /** Which channel's conversation this is. Defaults to whatsapp. */
+  channel?: "whatsapp" | "messenger";
 }
 
 /**
  * Small toggle that pauses or resumes the AI auto-reply for a single
- * conversation. Calls PATCH /api/v1/whatsapp/conversations/[id] then
+ * conversation. Calls PATCH /api/v1/{channel}/conversations/[id] then
  * refreshes server data so the new state is reflected everywhere.
  */
-export function AiPauseToggle({ conversationId, initiallyPaused }: AiPauseToggleProps) {
+export function AiPauseToggle({ conversationId, initiallyPaused, channel = "whatsapp" }: AiPauseToggleProps) {
   const [paused, setPaused] = useState(initiallyPaused);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export function AiPauseToggle({ conversationId, initiallyPaused }: AiPauseToggle
     setPaused(nextState);
 
     try {
-      const res = await fetch(`/api/v1/whatsapp/conversations/${conversationId}`, {
+      const res = await fetch(`/api/v1/${channel}/conversations/${conversationId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ai_paused: nextState }),

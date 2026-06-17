@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Bot, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AutoRefresh } from "@/components/whatsapp/auto-refresh";
+import { AiPauseToggle } from "@/components/whatsapp/ai-pause-toggle";
 
 export interface MessengerConversationDetail {
   id: string;
@@ -61,6 +62,11 @@ export function MessengerConversationThread({ conversation, messages }: Conversa
               {messages.length} message{messages.length === 1 ? "" : "s"}
             </p>
           </div>
+          <AiPauseToggle
+            conversationId={conversation.id}
+            initiallyPaused={conversation.ai_paused}
+            channel="messenger"
+          />
         </div>
       </div>
 
