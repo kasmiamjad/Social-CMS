@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LeadsTable, type LeadRow } from "@/components/leads/leads-table";
 import { buildChatInfo, uniqueConversationIds } from "@/lib/chat-info";
-import { AutoRefresh } from "@/components/whatsapp/auto-refresh";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { Plus } from "lucide-react";
 
 /** Lead sources created by the AI bot rather than a person. */
@@ -97,8 +97,8 @@ export default async function LeadsPage() {
 
   return (
     <div>
-      {/* Polls server data so new leads appear without a manual refresh */}
-      <AutoRefresh intervalMs={8000} />
+      {/* Realtime push — new leads/messages refresh the list instantly */}
+      <RealtimeRefresh tables={["leads", "whatsapp_messages", "messenger_messages"]} />
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">

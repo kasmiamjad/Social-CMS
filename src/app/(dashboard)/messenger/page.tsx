@@ -6,7 +6,7 @@ import {
   MessengerConversationList,
   type MessengerConversationSummary,
 } from "@/components/messenger/conversation-list";
-import { AutoRefresh } from "@/components/whatsapp/auto-refresh";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 
 export default async function MessengerPage() {
   const supabase = await createClient();
@@ -36,7 +36,7 @@ export default async function MessengerPage() {
 
   return (
     <div>
-      <AutoRefresh intervalMs={8000} />
+      <RealtimeRefresh tables={["messenger_conversations", "messenger_messages"]} />
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
           Messenger
