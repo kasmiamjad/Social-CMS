@@ -33,7 +33,7 @@ export async function GET(
   const supabase = createAdminClient();
   let query = supabase
     .from("technician_slots")
-    .select("id, slot_date, start_time, end_time, booking_id, booking:bookings(booking_ref)")
+    .select("id, slot_date, start_time, end_time, booking_id")
     .eq("user_id", userId)
     .eq("technician_id", technicianId)
     .eq("slot_date", date)
@@ -43,7 +43,30 @@ export async function GET(
 
   const { data, error } = await query;
   if (error) return apiError("LOAD_FAILED", error.message, 500);
-  return apiSuccess({ slots: data ?? [] });
+
+  // Attach the booking ref for taken slots via a separate query — we can't embed
+  // bookings directly because technician_slots <-> bookings has two FKs (slot_id
+  // and booking_id), which makes a PostgREST embed ambiguous.
+  const slots = (data ?? []) as Array<{ booking_id: string | null; [k: string]: unknown }>;
+  const bookingIds = slots.map((s) => s.booking_id).filter((id): id is string => Boolean(id));
+
+  let refByBooking = new Map<string, string>();
+  if (bookingIds.length > 0) {
+    const { data: bookings } = await supabase
+      .from("bookings")
+      .select("id, booking_ref")
+      .in("id", bookingIds);
+    refByBooking = new Map(
+      ((bookings ?? []) as Array<{ id: string; booking_ref: string }>).map((b) => [b.id, b.booking_ref])
+    );
+  }
+
+  const withRefs = slots.map((s) => ({
+    ...s,
+    booking: s.booking_id ? { booking_ref: refByBooking.get(s.booking_id) ?? "booked" } : null,
+  }));
+
+  return apiSuccess({ slots: withRefs });
 }
 
 /**
