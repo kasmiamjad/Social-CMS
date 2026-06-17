@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, MessageCircle } from "lucide-react";
+import { ChatDrawer, type ActiveChat } from "@/components/leads/chat-drawer";
 
 export interface BookingRow {
   id: string;
@@ -18,6 +20,11 @@ export interface BookingRow {
   status: string;
   lead_id: string;
   lead: { client_name: string; client_phone: string | null } | null;
+  /** Last customer message from the linked chat, if any. */
+  last_customer_msg?: string | null;
+  chat_count?: number;
+  chat_channel?: "whatsapp" | "messenger" | null;
+  chat_conversation_id?: string | null;
 }
 
 interface BookingsTableProps {
@@ -46,6 +53,8 @@ const TIME_FMT = new Intl.DateTimeFormat("en-US", {
 });
 
 export function BookingsTable({ bookings }: BookingsTableProps) {
+  const [activeChat, setActiveChat] = useState<ActiveChat | null>(null);
+
   if (bookings.length === 0) {
     return (
       <Card>
@@ -65,6 +74,7 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
   }
 
   return (
+    <>
     <Card padding={false}>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -73,6 +83,7 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
               <th className="px-4 py-3 font-semibold">Ref</th>
               <th className="px-4 py-3 font-semibold">Installation</th>
               <th className="px-4 py-3 font-semibold">Customer</th>
+              <th className="px-4 py-3 font-semibold">Last chat</th>
               <th className="px-4 py-3 font-semibold">Product</th>
               <th className="px-4 py-3 font-semibold">Total</th>
               <th className="px-4 py-3 font-semibold">Technician</th>
@@ -105,6 +116,32 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
                     </div>
                   )}
                 </td>
+                <td className="px-4 py-3">
+                  {b.chat_count && b.chat_count > 0 && b.chat_channel && b.chat_conversation_id ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveChat({
+                          channel: b.chat_channel!,
+                          conversationId: b.chat_conversation_id!,
+                          name: b.lead?.client_name ?? "Customer",
+                        })
+                      }
+                      className="max-w-[220px] text-left group/chat"
+                      title="Open chat"
+                    >
+                      <div className="flex items-center gap-1 text-xs text-primary group-hover/chat:underline truncate">
+                        <MessageCircle size={12} strokeWidth={1.8} className="shrink-0" />
+                        <span className="truncate">{b.last_customer_msg?.trim() || "(no text)"}</span>
+                      </div>
+                      <div className="text-[10px] text-text-muted mt-0.5">
+                        {b.chat_count} message{b.chat_count === 1 ? "" : "s"} · open
+                      </div>
+                    </button>
+                  ) : (
+                    <span className="text-text-muted">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-foreground text-xs whitespace-nowrap">
                   {b.product_snapshot ?? "—"}
                   <span className="text-text-muted"> ×{b.qty_snapshot}</span>
@@ -134,5 +171,7 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
         </table>
       </div>
     </Card>
+    {activeChat && <ChatDrawer chat={activeChat} onClose={() => setActiveChat(null)} />}
+    </>
   );
 }
