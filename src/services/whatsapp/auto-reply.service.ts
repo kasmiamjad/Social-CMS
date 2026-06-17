@@ -759,17 +759,20 @@ export class WhatsAppAutoReplyService {
   ): Promise<{ outboundId: string } | null> {
     const { booking, decision, contactPhone, contactName, conversationId, userId } = params;
     const intent = decision.reschedule?.intent ?? "none";
-    const affirmative = /^\s*(yes|yep|yeah|ok|okay|okey|confirm|sure|نعم|تمام|اوكي|أوكي|اوك)\b/i.test(
-      params.customerText.trim()
-    );
+    const text = params.customerText.trim();
+    const newIso = decision.reschedule?.new_datetime_iso ?? null;
+    const affirmative = /^\s*(yes|yep|yeah|ok|okay|okey|confirm|sure|نعم|تمام|اوكي|أوكي|اوك)\b/i.test(text);
+    const negative = /^\s*(no|nope|cancel|keep|لا|كنسل|الغاء|إلغاء)\b/i.test(text);
+    const hasPending = Boolean(booking.pending_reschedule_at);
 
-    const isConfirm =
-      intent === "confirm" || (Boolean(booking.pending_reschedule_at) && affirmative && intent !== "propose" && intent !== "cancel");
+    const stays = () =>
+      `No problem 👍 Your installation stays on *${formatBookingDate(booking.scheduled_at)} at ${
+        booking.slot_label?.trim() || formatBookingTime(booking.scheduled_at)
+      }*.`;
+    const proposeMsg = (iso: string) =>
+      `📅 I can move your SA'DA H2O installation to *${formatBookingDate(iso)} at ${formatBookingTime(iso)}*.\n\nReply *YES* to confirm, or send a different date & time.`;
 
-    let replyText: string;
-
-    if (isConfirm && booking.pending_reschedule_at) {
-      const newAt = booking.pending_reschedule_at as string;
+    const applyConfirm = async (newAt: string): Promise<string> => {
       await supabase
         .from("bookings")
         .update({ scheduled_at: newAt, slot_label: null, pending_reschedule_at: null })
@@ -778,19 +781,38 @@ export class WhatsAppAutoReplyService {
         .from("leads")
         .update({ installation_date: newAt.slice(0, 10) })
         .eq("id", booking.lead_id);
-      replyText = buildBookingFreeText(rescheduleFields(booking, newAt, contactName, contactPhone));
-    } else if (intent === "propose" && decision.reschedule?.new_datetime_iso) {
-      const iso = decision.reschedule.new_datetime_iso;
+      return buildBookingFreeText(rescheduleFields(booking, newAt, contactName, contactPhone));
+    };
+    const setPending = async (iso: string): Promise<void> => {
       await supabase.from("bookings").update({ pending_reschedule_at: iso }).eq("id", booking.id);
-      replyText = `📅 Sure! I can move your SA'DA H2O installation to *${formatBookingDate(iso)} at ${formatBookingTime(iso)}*.\n\nReply *YES* to confirm, or send a different time.`;
+    };
+
+    let replyText: string;
+
+    if (hasPending) {
+      // Mid-confirmation: handle deterministically. NEVER fall through to the
+      // AI's free text here — gpt-4o-mini will falsely claim it rescheduled.
+      if (affirmative || intent === "confirm") {
+        replyText = await applyConfirm(booking.pending_reschedule_at as string);
+      } else if (negative || intent === "cancel") {
+        await supabase.from("bookings").update({ pending_reschedule_at: null }).eq("id", booking.id);
+        replyText = stays();
+      } else if (newIso) {
+        // Customer adjusted the proposed slot (e.g. "make it 7:30pm") — re-propose.
+        await setPending(newIso);
+        replyText = proposeMsg(newIso);
+      } else {
+        // Couldn't parse a new time — re-ask without claiming anything happened.
+        const p = booking.pending_reschedule_at as string;
+        replyText = `You have a pending change to *${formatBookingDate(p)} at ${formatBookingTime(p)}*.\n\nReply *YES* to confirm, or send the full new date & time.`;
+      }
+    } else if (intent === "propose" && newIso) {
+      await setPending(newIso);
+      replyText = proposeMsg(newIso);
     } else if (intent === "propose") {
-      // Wants to reschedule but gave no time.
       replyText = "Sure — what date and time works best for your installation?";
     } else if (intent === "cancel") {
-      if (booking.pending_reschedule_at) {
-        await supabase.from("bookings").update({ pending_reschedule_at: null }).eq("id", booking.id);
-      }
-      replyText = `No problem 👍 Your installation stays on *${formatBookingDate(booking.scheduled_at)} at ${booking.slot_label?.trim() || formatBookingTime(booking.scheduled_at)}*.`;
+      replyText = stays();
     } else {
       return null; // not a reschedule action — let the normal reply flow run
     }
