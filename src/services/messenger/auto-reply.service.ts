@@ -103,6 +103,14 @@ export class MessengerAutoReplyService {
       }
     }
 
+    // Ensure every inbound conversation has a lead (status 'new', source
+    // 'facebook') so all Messenger chats appear in the Leads list immediately.
+    try {
+      await this.ensureLeadForConversation(userId, conversation.id, conversation.contact_name, psid, preview);
+    } catch (err) {
+      console.error("ensureLeadForConversation (Messenger) failed", err);
+    }
+
     // 3. Short-circuit: paused conversation or disabled automation.
     if (conversation.ai_paused) {
       return { conversationId: conversation.id, skippedReason: "ai_paused_for_conversation" };
@@ -169,6 +177,43 @@ export class MessengerAutoReplyService {
       console.error("Failed to send Messenger AI reply", { psid, err });
       return { conversationId: conversation.id, skippedReason: reason };
     }
+  }
+
+  /**
+   * Creates a 'new' lead for a Messenger conversation on its first inbound
+   * message, if one doesn't already exist. Later qualification fills details.
+   */
+  private async ensureLeadForConversation(
+    userId: string,
+    conversationId: string,
+    contactName: string | null,
+    psid: string,
+    preview: string
+  ): Promise<void> {
+    const supabase = createAdminClient();
+    const { data: existing } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("messenger_conversation_id", conversationId)
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+    if (existing) return;
+
+    const { data: nextNoData } = await supabase
+      .rpc("next_lead_serial_no", { p_user_id: userId })
+      .single<number>();
+    const serial_no = typeof nextNoData === "number" ? nextNoData : 1;
+
+    await supabase.from("leads").insert({
+      user_id: userId,
+      serial_no,
+      client_name: contactName?.trim() || `Messenger ${psid.slice(-6)}`,
+      status: "new",
+      source: "facebook",
+      messenger_conversation_id: conversationId,
+      remarks: preview?.slice(0, 200) || null,
+    });
   }
 
   /**

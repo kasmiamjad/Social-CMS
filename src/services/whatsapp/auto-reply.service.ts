@@ -159,6 +159,15 @@ export class WhatsAppAutoReplyService {
       });
     });
 
+    // Ensure every inbound conversation has a lead (status 'new') with its
+    // source flag, so ALL chats appear in the Leads list immediately — not
+    // only after qualification or a manual convert. Non-blocking.
+    try {
+      await this.ensureLeadForConversation(userId, conversation.id, contactPhone, contactName, messagePreview);
+    } catch (err) {
+      console.error("ensureLeadForConversation (WhatsApp) failed", err);
+    }
+
     // 3a. Short-circuit if AI is paused for this specific conversation.
     // The message is already stored — only the AI reply is skipped so a
     // human can take over from the dashboard.
@@ -428,6 +437,44 @@ export class WhatsAppAutoReplyService {
         skippedReason: reason,
       };
     }
+  }
+
+  /**
+   * Creates a 'new' lead for a conversation on its first inbound message, if one
+   * doesn't already exist. Later qualification fills in the details.
+   */
+  private async ensureLeadForConversation(
+    userId: string,
+    conversationId: string,
+    contactPhone: string,
+    contactName: string | null,
+    preview: string
+  ): Promise<void> {
+    const supabase = createAdminClient();
+    const { data: existing } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("whatsapp_conversation_id", conversationId)
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+    if (existing) return;
+
+    const { data: nextNoData } = await supabase
+      .rpc("next_lead_serial_no", { p_user_id: userId })
+      .single<number>();
+    const serial_no = typeof nextNoData === "number" ? nextNoData : 1;
+
+    await supabase.from("leads").insert({
+      user_id: userId,
+      serial_no,
+      client_name: contactName?.trim() || contactPhone,
+      client_phone: contactPhone,
+      status: "new",
+      source: "whatsapp_ai",
+      whatsapp_conversation_id: conversationId,
+      remarks: preview?.slice(0, 200) || null,
+    });
   }
 
   /**
