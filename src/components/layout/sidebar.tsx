@@ -17,6 +17,7 @@ import {
   Users,
   CalendarCheck,
   Send,
+  Wrench,
 } from "lucide-react";
 
 // `hidden: true` keeps the route/code intact but hides the menu entry.
@@ -25,6 +26,7 @@ const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, hidden: false },
   { label: "Leads", href: "/leads", icon: Users, hidden: false },
   { label: "Bookings", href: "/bookings", icon: CalendarCheck, hidden: false },
+  { label: "Technicians", href: "/technicians", icon: Wrench, hidden: false },
   { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, hidden: false },
   { label: "Messenger", href: "/messenger", icon: Send, hidden: false },
   { label: "Instagram", href: "/instagram", icon: Camera, hidden: false },
