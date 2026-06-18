@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LeadForm, type Lead } from "@/components/leads/lead-form";
 import { BookingDrawer } from "@/components/bookings/booking-drawer";
+import { SendBookingLinkButton } from "@/components/bookings/send-booking-link-button";
 import { ArrowLeft } from "lucide-react";
 
 interface PageProps {
@@ -63,25 +64,43 @@ export default async function LeadDetailPage({ params }: PageProps) {
           <ArrowLeft size={14} strokeWidth={1.8} />
           Back to leads
         </Link>
-        <BookingDrawer
-          leadId={lead.id!}
-          hasPhone={Boolean(lead.client_phone?.trim())}
-          productModel={lead.product_model ?? null}
-          productQty={lead.product_qty ?? 1}
-          leadStatus={lead.status ?? "new"}
-          existingBooking={existingBooking ?? null}
-          technicians={(technicians ?? []) as { id: string; name: string }[]}
-          chatChannel={
-            lead.whatsapp_conversation_id
-              ? "whatsapp"
-              : lead.messenger_conversation_id
-                ? "messenger"
-                : null
-          }
-          chatConversationId={
-            lead.whatsapp_conversation_id ?? lead.messenger_conversation_id ?? null
-          }
-        />
+        <div className="flex items-center gap-2">
+          {lead.booking_token && (
+            <SendBookingLinkButton
+              token={lead.booking_token}
+              customerName={lead.client_name}
+              chatChannel={
+                lead.whatsapp_conversation_id
+                  ? "whatsapp"
+                  : lead.messenger_conversation_id
+                    ? "messenger"
+                    : null
+              }
+              chatConversationId={
+                lead.whatsapp_conversation_id ?? lead.messenger_conversation_id ?? null
+              }
+            />
+          )}
+          <BookingDrawer
+            leadId={lead.id!}
+            hasPhone={Boolean(lead.client_phone?.trim())}
+            productModel={lead.product_model ?? null}
+            productQty={lead.product_qty ?? 1}
+            leadStatus={lead.status ?? "new"}
+            existingBooking={existingBooking ?? null}
+            technicians={(technicians ?? []) as { id: string; name: string }[]}
+            chatChannel={
+              lead.whatsapp_conversation_id
+                ? "whatsapp"
+                : lead.messenger_conversation_id
+                  ? "messenger"
+                  : null
+            }
+            chatConversationId={
+              lead.whatsapp_conversation_id ?? lead.messenger_conversation_id ?? null
+            }
+          />
+        </div>
       </div>
       <LeadForm mode="edit" initialLead={lead} />
     </div>

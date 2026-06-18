@@ -49,6 +49,7 @@ export interface Lead {
   source?: string;
   whatsapp_conversation_id?: string | null;
   messenger_conversation_id?: string | null;
+  booking_token?: string | null;
   remarks?: string | null;
   internal_notes?: string | null;
 }
