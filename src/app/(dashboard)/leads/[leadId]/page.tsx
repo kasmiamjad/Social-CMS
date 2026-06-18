@@ -35,13 +35,23 @@ export default async function LeadDetailPage({ params }: PageProps) {
   // instead of creating a duplicate.
   const { data: existingBooking } = await admin
     .from("bookings")
-    .select("id, booking_ref, scheduled_at, slot_label, unit_price, technician, notes, status")
+    .select(
+      "id, booking_ref, scheduled_at, slot_label, unit_price, technician, notes, status, technician_id, slot_id"
+    )
     .eq("user_id", user.id)
     .eq("lead_id", leadId)
     .neq("status", "cancelled")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  // Technicians for the slot picker.
+  const { data: technicians } = await admin
+    .from("technicians")
+    .select("id, name")
+    .eq("user_id", user.id)
+    .eq("is_active", true)
+    .order("name", { ascending: true });
 
   return (
     <div>
@@ -60,9 +70,9 @@ export default async function LeadDetailPage({ params }: PageProps) {
           hasPhone={Boolean(lead.client_phone?.trim())}
           productModel={lead.product_model ?? null}
           productQty={lead.product_qty ?? 1}
-          defaultTechnician={lead.installed_by ?? null}
           leadStatus={lead.status ?? "new"}
           existingBooking={existingBooking ?? null}
+          technicians={(technicians ?? []) as { id: string; name: string }[]}
           chatChannel={
             lead.whatsapp_conversation_id
               ? "whatsapp"

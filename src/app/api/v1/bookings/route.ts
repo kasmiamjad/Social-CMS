@@ -12,6 +12,8 @@ const CreateBookingSchema = z.object({
   unit_price: z.number().min(0).max(9_999_999).optional().nullable(),
   technician: z.string().max(120).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
+  technician_id: z.string().uuid().optional().nullable(),
+  slot_id: z.string().uuid().optional().nullable(),
 });
 
 /**
@@ -81,6 +83,8 @@ export async function POST(request: NextRequest) {
       unitPrice: parsed.unit_price,
       technician: parsed.technician,
       notes: parsed.notes,
+      technicianId: parsed.technician_id,
+      slotId: parsed.slot_id,
     });
 
     return apiSuccess({
@@ -107,6 +111,9 @@ export async function POST(request: NextRequest) {
         409,
         { booking_id: msg.slice("BOOKING_EXISTS:".length) }
       );
+    }
+    if (msg === "SLOT_TAKEN") {
+      return apiError("SLOT_TAKEN", "That slot was just taken — pick another open slot.", 409);
     }
     return apiError("CREATE_FAILED", msg, 500);
   }

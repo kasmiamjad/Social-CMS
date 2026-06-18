@@ -11,6 +11,8 @@ const UpdateBookingSchema = z.object({
   technician: z.string().max(120).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   status: z.enum(["scheduled", "confirmed", "completed", "cancelled", "no_show"]).optional(),
+  technician_id: z.string().uuid().optional().nullable(),
+  slot_id: z.string().uuid().optional().nullable(),
 });
 
 /**
@@ -47,6 +49,8 @@ export async function PATCH(
       technician: parsed.technician,
       notes: parsed.notes,
       status: parsed.status,
+      technicianId: parsed.technician_id,
+      slotId: parsed.slot_id,
     });
 
     return apiSuccess({
@@ -62,6 +66,9 @@ export async function PATCH(
     if (msg === "LEAD_NOT_FOUND") return apiError("NOT_FOUND", "Lead not found", 404);
     if (msg === "LEAD_NO_PHONE") {
       return apiError("LEAD_NO_PHONE", "This lead has no phone number.", 400);
+    }
+    if (msg === "SLOT_TAKEN") {
+      return apiError("SLOT_TAKEN", "That slot was just taken — pick another open slot.", 409);
     }
     return apiError("UPDATE_FAILED", msg, 500);
   }

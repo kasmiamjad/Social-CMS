@@ -32,6 +32,9 @@ export interface CreateBookingInput {
   unitPrice?: number | null;
   technician?: string | null;
   notes?: string | null;
+  /** Assigned technician + availability slot (slot is claimed on book). */
+  technicianId?: string | null;
+  slotId?: string | null;
 }
 
 export interface CreateBookingResult {
@@ -131,6 +134,8 @@ export class BookingService {
         total_amount: totalAmount,
         address_snapshot: lead.location_address ?? null,
         technician: input.technician?.trim() || null,
+        technician_id: input.technicianId ?? null,
+        slot_id: input.slotId ?? null,
         notes: input.notes?.trim() || null,
         status: "scheduled",
       })
@@ -139,6 +144,15 @@ export class BookingService {
 
     if (insertErr || !booking) {
       throw new Error(`Failed to create booking: ${insertErr?.message}`);
+    }
+
+    // 4a. Claim the availability slot (race-safe). Roll back if already taken.
+    if (input.slotId) {
+      const claimed = await this.claimSlot(supabase, userId, input.slotId, booking.id);
+      if (!claimed) {
+        await supabase.from("bookings").delete().eq("id", booking.id);
+        throw new Error("SLOT_TAKEN");
+      }
     }
 
     // 5. Flip the lead to 'scheduled' + record the installation date.
@@ -175,13 +189,13 @@ export class BookingService {
 
     const { data: current } = await supabase
       .from("bookings")
-      .select("id, lead_id, booking_ref")
+      .select("id, lead_id, booking_ref, slot_id")
       .eq("id", bookingId)
       .eq("user_id", userId)
       .maybeSingle();
 
     if (!current) throw new Error("BOOKING_NOT_FOUND");
-    const cur = current as { id: string; lead_id: string; booking_ref: string };
+    const cur = current as { id: string; lead_id: string; booking_ref: string; slot_id: string | null };
 
     const lead = await this.loadLead(supabase, userId, cur.lead_id);
 
@@ -190,20 +204,38 @@ export class BookingService {
     const totalAmount = unitPrice !== null ? Number((unitPrice * qty).toFixed(2)) : null;
     const product = lead.product_model ?? "Water purifier";
 
+    // Slot transitions: free the old slot on cancel, or move to the new slot.
+    const cancelling = input.status === "cancelled";
+    const oldSlotId = cur.slot_id;
+    const newSlotId = input.slotId ?? null;
+
+    if (cancelling) {
+      if (oldSlotId) await this.freeSlot(supabase, userId, oldSlotId);
+    } else if (newSlotId && newSlotId !== oldSlotId) {
+      const claimed = await this.claimSlot(supabase, userId, newSlotId, cur.id);
+      if (!claimed) throw new Error("SLOT_TAKEN");
+      if (oldSlotId) await this.freeSlot(supabase, userId, oldSlotId);
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      scheduled_at: input.scheduledAt,
+      slot_label: input.slotLabel?.trim() || null,
+      product_snapshot: product,
+      qty_snapshot: qty,
+      unit_price: unitPrice,
+      total_amount: totalAmount,
+      address_snapshot: lead.location_address ?? null,
+      technician: input.technician?.trim() || null,
+      notes: input.notes?.trim() || null,
+      ...(input.status ? { status: input.status } : {}),
+    };
+    if (input.technicianId !== undefined) updatePayload.technician_id = input.technicianId;
+    if (cancelling) updatePayload.slot_id = null;
+    else if (newSlotId) updatePayload.slot_id = newSlotId;
+
     const { data: booking, error: updateErr } = await supabase
       .from("bookings")
-      .update({
-        scheduled_at: input.scheduledAt,
-        slot_label: input.slotLabel?.trim() || null,
-        product_snapshot: product,
-        qty_snapshot: qty,
-        unit_price: unitPrice,
-        total_amount: totalAmount,
-        address_snapshot: lead.location_address ?? null,
-        technician: input.technician?.trim() || null,
-        notes: input.notes?.trim() || null,
-        ...(input.status ? { status: input.status } : {}),
-      })
+      .update(updatePayload)
       .eq("id", cur.id)
       .eq("user_id", userId)
       .select("*")
@@ -230,6 +262,38 @@ export class BookingService {
   }
 
   // ── Shared helpers ─────────────────────────────────────────────────────────
+
+  /** Claims a free availability slot for a booking (race-safe). Returns false if taken. */
+  private async claimSlot(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    userId: string,
+    slotId: string,
+    bookingId: string
+  ): Promise<boolean> {
+    const { data } = await supabase
+      .from("technician_slots")
+      .update({ booking_id: bookingId })
+      .eq("id", slotId)
+      .eq("user_id", userId)
+      .is("booking_id", null)
+      .select("id");
+    return Array.isArray(data) && data.length > 0;
+  }
+
+  /** Releases a slot back to the open pool. */
+  private async freeSlot(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    userId: string,
+    slotId: string
+  ): Promise<void> {
+    await supabase
+      .from("technician_slots")
+      .update({ booking_id: null })
+      .eq("id", slotId)
+      .eq("user_id", userId);
+  }
 
   private async loadLead(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { defaultPriceForModel } from "@/lib/products";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,14 +19,19 @@ import {
   Copy,
   Check,
   Send,
+  Loader2,
 } from "lucide-react";
+
+interface TechnicianOption {
+  id: string;
+  name: string;
+}
 
 interface ScheduleBookingPanelProps {
   leadId: string;
   hasPhone: boolean;
   productModel: string | null;
   productQty: number;
-  defaultTechnician: string | null;
   /** Current lead status — used to show whether a booking already exists. */
   leadStatus: string;
   /** The lead's active booking, if any — editing it instead of creating new. */
@@ -34,6 +39,8 @@ interface ScheduleBookingPanelProps {
   /** Linked chat channel + conversation, for sending the confirmation inline. */
   chatChannel: "whatsapp" | "messenger" | null;
   chatConversationId: string | null;
+  /** The user's technicians, for assigning the install + slot. */
+  technicians: TechnicianOption[];
 }
 
 export interface ExistingBooking {
@@ -45,6 +52,34 @@ export interface ExistingBooking {
   technician: string | null;
   notes: string | null;
   status: string;
+  technician_id: string | null;
+  slot_id: string | null;
+}
+
+interface SlotOption {
+  id: string;
+  start_time: string;
+  end_time: string;
+  booking_id: string | null;
+}
+
+/** "12:00:00" → "12:00 PM". */
+function fmtTime(t: string): string {
+  const [h, m] = t.split(":");
+  const hour = Number(h);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12}:${m} ${ampm}`;
+}
+
+/** Today's date in Riyadh as YYYY-MM-DD. */
+function riyadhToday(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 type Result =
@@ -79,28 +114,29 @@ export function ScheduleBookingPanel({
   hasPhone,
   productModel,
   productQty,
-  defaultTechnician,
   leadStatus,
   existingBooking,
   chatChannel,
   chatConversationId,
+  technicians,
 }: ScheduleBookingPanelProps) {
   const router = useRouter();
   const isUpdate = Boolean(existingBooking);
-  const initial = existingBooking
-    ? riyadhDateTimeParts(existingBooking.scheduled_at)
-    : { date: "", time: "" };
+  const initialDate = existingBooking
+    ? riyadhDateTimeParts(existingBooking.scheduled_at).date
+    : riyadhToday();
 
-  const [date, setDate] = useState(initial.date);
-  const [time, setTime] = useState(initial.time);
-  const [slotLabel, setSlotLabel] = useState(existingBooking?.slot_label ?? "");
+  const [technicianId, setTechnicianId] = useState(
+    existingBooking?.technician_id ?? technicians[0]?.id ?? ""
+  );
+  const [date, setDate] = useState(initialDate);
+  const [slots, setSlots] = useState<SlotOption[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(existingBooking?.slot_id ?? null);
   // Update mode keeps the booking's saved price; create mode prefills from the
   // selected model's catalog price (operator can still override).
   const prefillPrice = existingBooking?.unit_price ?? defaultPriceForModel(productModel);
   const [unitPrice, setUnitPrice] = useState(prefillPrice != null ? String(prefillPrice) : "");
-  const [technician, setTechnician] = useState(
-    existingBooking?.technician ?? defaultTechnician ?? ""
-  );
   const [notes, setNotes] = useState(existingBooking?.notes ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -112,6 +148,33 @@ export function ScheduleBookingPanel({
 
   const canSendInChat = Boolean(chatChannel && chatConversationId);
   const channelLabel = chatChannel === "messenger" ? "Messenger" : "WhatsApp";
+
+  // Load the chosen technician's slots for the chosen date.
+  const loadSlots = useCallback(async () => {
+    if (!technicianId || !date) {
+      setSlots([]);
+      return;
+    }
+    setSlotsLoading(true);
+    try {
+      const res = await fetch(`/api/v1/technicians/${technicianId}/slots?date=${date}`);
+      const json = await res.json();
+      setSlots(res.ok && json.success ? (json.data.slots as SlotOption[]) : []);
+    } catch {
+      setSlots([]);
+    } finally {
+      setSlotsLoading(false);
+    }
+  }, [technicianId, date]);
+
+  useEffect(() => {
+    void loadSlots();
+  }, [loadSlots]);
+
+  // A slot is selectable if it's free, or it's the one this booking already holds.
+  const isSelectable = (s: SlotOption) =>
+    s.booking_id === null || (isUpdate && s.booking_id === existingBooking!.id);
+  const selectedSlot = slots.find((s) => s.id === selectedSlotId) ?? null;
 
   async function copyMessage(text: string) {
     try {
@@ -160,34 +223,34 @@ export function ScheduleBookingPanel({
       setResult({ kind: "error", message: "This lead has no phone number — add one first." });
       return;
     }
-    if (!date || !time) {
-      setResult({ kind: "error", message: "Pick both a date and a time." });
+    if (!technicianId) {
+      setResult({ kind: "error", message: "Pick a technician." });
+      return;
+    }
+    if (!selectedSlot) {
+      setResult({ kind: "error", message: "Pick an available slot." });
       return;
     }
 
-    // Saudi Arabia is UTC+3 year-round (no DST). Build an explicit-offset ISO string.
-    const scheduledAt = `${date}T${time}:00+03:00`;
+    // Saudi Arabia is UTC+3 year-round (no DST). Slot start → explicit-offset ISO.
+    const scheduledAt = `${date}T${selectedSlot.start_time}+03:00`;
+    const slotLabel = `${fmtTime(selectedSlot.start_time)}–${fmtTime(selectedSlot.end_time)}`;
+    const technicianName = technicians.find((t) => t.id === technicianId)?.name ?? null;
 
     setSubmitting(true);
     try {
       const url = isUpdate ? `/api/v1/bookings/${existingBooking!.id}` : "/api/v1/bookings";
       const method = isUpdate ? "PATCH" : "POST";
-      const body = isUpdate
-        ? {
-            scheduled_at: scheduledAt,
-            slot_label: slotLabel.trim() || null,
-            unit_price: priceNum,
-            technician: technician.trim() || null,
-            notes: notes.trim() || null,
-          }
-        : {
-            lead_id: leadId,
-            scheduled_at: scheduledAt,
-            slot_label: slotLabel.trim() || null,
-            unit_price: priceNum,
-            technician: technician.trim() || null,
-            notes: notes.trim() || null,
-          };
+      const common = {
+        scheduled_at: scheduledAt,
+        slot_label: slotLabel,
+        unit_price: priceNum,
+        technician: technicianName,
+        technician_id: technicianId,
+        slot_id: selectedSlot.id,
+        notes: notes.trim() || null,
+      };
+      const body = isUpdate ? common : { lead_id: leadId, ...common };
 
       const res = await fetch(url, {
         method,
@@ -242,35 +305,96 @@ export function ScheduleBookingPanel({
       </CardHeader>
 
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            id="booking_date"
-            label="Installation date *"
-            type="date"
-            icon={Calendar}
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-          <Input
-            id="booking_time"
-            label="Installation time *"
-            type="time"
-            icon={Clock}
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-          />
-        </div>
+        {technicians.length === 0 ? (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-warning">
+            No technicians yet. Add one in the <strong>Technicians</strong> tab, then set their
+            availability, to schedule installs.
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Technician *</label>
+                <div className="relative">
+                  <Wrench
+                    size={16}
+                    strokeWidth={1.8}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                  />
+                  <select
+                    value={technicianId}
+                    onChange={(e) => {
+                      setTechnicianId(e.target.value);
+                      setSelectedSlotId(null);
+                    }}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    {technicians.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <Input
+                id="booking_date"
+                label="Installation date *"
+                type="date"
+                icon={Calendar}
+                value={date}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  setSelectedSlotId(null);
+                }}
+              />
+            </div>
 
-        <Input
-          id="slot_label"
-          label="Slot label (optional — shown to customer instead of exact time)"
-          icon={Clock}
-          placeholder="e.g. Morning (9 AM – 12 PM)"
-          value={slotLabel}
-          onChange={(e) => setSlotLabel(e.target.value)}
-        />
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Available slots *
+              </label>
+              {slotsLoading ? (
+                <div className="flex items-center gap-2 text-text-muted text-sm py-2">
+                  <Loader2 size={16} className="animate-spin" /> Loading slots…
+                </div>
+              ) : slots.length === 0 ? (
+                <p className="text-sm text-text-muted py-1">
+                  No slots for this day. Add availability in the{" "}
+                  <strong className="text-foreground">Technicians</strong> tab.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {slots.map((s) => {
+                    const selectable = isSelectable(s);
+                    const selected = s.id === selectedSlotId;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        disabled={!selectable}
+                        onClick={() => setSelectedSlotId(s.id)}
+                        title={selectable ? "" : "Already booked"}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                          selected
+                            ? "border-primary bg-primary text-white"
+                            : selectable
+                              ? "border-border hover:border-primary text-foreground"
+                              : "border-border bg-surface text-text-muted opacity-60 cursor-not-allowed line-through"
+                        }`}
+                      >
+                        <Clock size={12} strokeWidth={1.8} />
+                        {fmtTime(s.start_time)}–{fmtTime(s.end_time)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="max-w-xs">
           <Input
             id="unit_price"
             label="Unit price (SAR)"
@@ -280,14 +404,6 @@ export function ScheduleBookingPanel({
             placeholder="e.g. 699"
             value={unitPrice}
             onChange={(e) => setUnitPrice(e.target.value)}
-          />
-          <Input
-            id="technician"
-            label="Technician"
-            icon={Wrench}
-            placeholder="e.g. ARSHAD KHAN"
-            value={technician}
-            onChange={(e) => setTechnician(e.target.value)}
           />
         </div>
 
@@ -390,7 +506,11 @@ export function ScheduleBookingPanel({
             <span className="text-xs text-text-muted">Add a phone number to enable booking.</span>
           )}
           <div className="flex-1" />
-          <Button onClick={handleSubmit} loading={submitting} disabled={!hasPhone}>
+          <Button
+            onClick={handleSubmit}
+            loading={submitting}
+            disabled={!hasPhone || !selectedSlotId}
+          >
             <CalendarCheck size={14} strokeWidth={1.8} />
             {isUpdate ? "Update Booking" : "Create Booking"}
           </Button>
