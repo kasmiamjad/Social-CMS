@@ -63,12 +63,6 @@ export function LocationPicker({ value, onChange }: LocationPickerProps) {
       .then((L) => {
         if (cancelled || !containerRef.current || mapRef.current) return;
 
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-          iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-          shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-        });
-
         const start = value ?? DEFAULT;
         const map = L.map(containerRef.current).setView([start.lat, start.lng], value ? 16 : 11);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -76,7 +70,18 @@ export function LocationPicker({ value, onChange }: LocationPickerProps) {
           maxZoom: 19,
         }).addTo(map);
 
-        const marker = L.marker([start.lat, start.lng], { draggable: true }).addTo(map);
+        // Custom SVG pin (divIcon) — avoids Leaflet's broken default image icon.
+        const pinIcon = L.divIcon({
+          className: "",
+          html:
+            '<svg width="30" height="42" viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/svg">' +
+            '<path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="#2563eb"/>' +
+            '<circle cx="12" cy="12" r="4.5" fill="#ffffff"/></svg>',
+          iconSize: [30, 42],
+          iconAnchor: [15, 42],
+        });
+
+        const marker = L.marker([start.lat, start.lng], { draggable: true, icon: pinIcon }).addTo(map);
         marker.on("dragend", () => {
           const ll = marker.getLatLng();
           onChangeRef.current(ll.lat, ll.lng);
