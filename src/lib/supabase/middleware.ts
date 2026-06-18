@@ -33,13 +33,15 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users to login (except for auth pages and API)
+  // Redirect unauthenticated users to login (except for auth pages, API, and
+  // the public customer self-scheduling page /book/:token).
   if (
     !user &&
     !request.nextUrl.pathname.startsWith("/login") &&
     !request.nextUrl.pathname.startsWith("/signup") &&
     !request.nextUrl.pathname.startsWith("/auth") &&
     !request.nextUrl.pathname.startsWith("/api") &&
+    !request.nextUrl.pathname.startsWith("/book") &&
     request.nextUrl.pathname !== "/"
   ) {
     const url = request.nextUrl.clone();
