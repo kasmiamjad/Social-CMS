@@ -13,9 +13,9 @@ export default async function BookPage({ params }: PageProps) {
   const admin = createAdminClient();
   const { data: lead } = await admin
     .from("leads")
-    .select("client_name, product_model")
+    .select("client_name, client_phone, product_model")
     .eq("booking_token", token)
-    .maybeSingle<{ client_name: string; product_model: string | null }>();
+    .maybeSingle<{ client_name: string; client_phone: string | null; product_model: string | null }>();
 
   if (!lead) {
     return (
@@ -31,6 +31,11 @@ export default async function BookPage({ params }: PageProps) {
   }
 
   return (
-    <CustomerBooking token={token} customerName={lead.client_name} product={lead.product_model} />
+    <CustomerBooking
+      token={token}
+      customerName={lead.client_name}
+      customerPhone={lead.client_phone}
+      product={lead.product_model}
+    />
   );
 }

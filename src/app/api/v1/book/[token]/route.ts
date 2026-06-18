@@ -11,6 +11,11 @@ const BookSchema = z.object({
   slot_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   start_time: z.string().regex(TIME_RE),
   end_time: z.string().regex(TIME_RE),
+  name: z.string().min(1).max(200),
+  phone: z.string().min(5).max(40),
+  address: z.string().max(500).optional().nullable(),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
 });
 
 /** "12:00:00" → "12:00 PM". */
@@ -77,6 +82,20 @@ export async function POST(
   if (!slot) {
     return apiError("SLOT_TAKEN", "That time was just taken — please pick another.", 409);
   }
+
+  // Save the customer's confirmed details + GPS location onto the lead first,
+  // so the booking snapshot + technician get the right address.
+  await admin
+    .from("leads")
+    .update({
+      client_name: parsed.name.trim(),
+      client_phone: parsed.phone.trim(),
+      location_lat: parsed.lat,
+      location_lng: parsed.lng,
+      location_url: `https://www.google.com/maps/search/?api=1&query=${parsed.lat},${parsed.lng}`,
+      location_address: parsed.address?.trim() || null,
+    })
+    .eq("id", lead.id);
 
   const techName =
     (techs ?? []).find((t) => (t as { id: string }).id === slot.technician_id)?.name ?? null;

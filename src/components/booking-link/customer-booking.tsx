@@ -1,11 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarCheck, Clock, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  CalendarCheck,
+  Clock,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  User,
+  Phone,
+  MapPin,
+} from "lucide-react";
 
 interface CustomerBookingProps {
   token: string;
   customerName: string;
+  customerPhone: string | null;
   product: string | null;
 }
 
@@ -32,16 +42,28 @@ function riyadhToday(): string {
   }).format(new Date());
 }
 
+const inputCls =
+  "w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20";
+
 /**
- * Public self-scheduling page. The customer picks a date, sees only the open
- * 1-hour windows for that day, and confirms — booking any free technician slot.
+ * Public self-scheduling page. Collects the customer's details + GPS location
+ * (shown on a map) and an open 1-hour slot, then books any free technician slot.
+ * Location is required — submit stays disabled until it's captured.
  */
-export function CustomerBooking({ token, customerName, product }: CustomerBookingProps) {
+export function CustomerBooking({ token, customerName, customerPhone, product }: CustomerBookingProps) {
   const today = riyadhToday();
+  const [name, setName] = useState(customerName ?? "");
+  const [phone, setPhone] = useState(customerPhone ?? "");
+  const [address, setAddress] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
+
   const [date, setDate] = useState(today);
   const [times, setTimes] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<TimeSlot | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ ref: string | null; date: string; time: string } | null>(null);
@@ -64,8 +86,31 @@ export function CustomerBooking({ token, customerName, product }: CustomerBookin
     void load();
   }, [load]);
 
+  function captureLocation() {
+    if (!navigator.geolocation) {
+      setGeoError("Location isn't supported on this device.");
+      return;
+    }
+    setGeoLoading(true);
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoLoading(false);
+      },
+      () => {
+        setGeoError("Couldn't get your location. Please allow location access and try again.");
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  const canConfirm =
+    Boolean(selected) && name.trim().length > 0 && phone.trim().length >= 5 && coords !== null;
+
   async function confirm() {
-    if (!selected) return;
+    if (!selected || !coords) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -76,12 +121,17 @@ export function CustomerBooking({ token, customerName, product }: CustomerBookin
           slot_date: date,
           start_time: selected.start_time,
           end_time: selected.end_time,
+          name: name.trim(),
+          phone: phone.trim(),
+          address: address.trim() || null,
+          lat: coords.lat,
+          lng: coords.lng,
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
         setError(json.error?.message ?? "Could not book — please try again.");
-        if (res.status === 409) void load(); // refresh availability
+        if (res.status === 409) void load();
         return;
       }
       setDone({ ref: json.data.booking_ref, date: json.data.date, time: json.data.time });
@@ -99,17 +149,13 @@ export function CustomerBooking({ token, customerName, product }: CustomerBookin
           <div className="text-center py-4">
             <CheckCircle size={44} strokeWidth={1.6} className="text-success mx-auto mb-3" />
             <h1 className="text-xl font-bold text-foreground">You&apos;re booked! 🎉</h1>
-            <p className="text-sm text-text-muted mt-2">
-              Your installation is confirmed for
-            </p>
+            <p className="text-sm text-text-muted mt-2">Your installation is confirmed for</p>
             <p className="text-base font-semibold text-foreground mt-1">
               {done.date} at {done.time}
             </p>
-            {done.ref && (
-              <p className="text-xs text-text-muted mt-3 font-mono">Ref: {done.ref}</p>
-            )}
+            {done.ref && <p className="text-xs text-text-muted mt-3 font-mono">Ref: {done.ref}</p>}
             <p className="text-xs text-text-muted mt-4">
-              Our technician will arrive at your address. Thank you!
+              Our technician will arrive at your location. Thank you!
             </p>
           </div>
         ) : (
@@ -119,24 +165,74 @@ export function CustomerBooking({ token, customerName, product }: CustomerBookin
               <h1 className="text-lg font-bold text-foreground">Schedule your installation</h1>
             </div>
             <p className="text-sm text-text-muted">
-              Hi {customerName.split(" ")[0]}, pick a time that works for you
+              Hi {(name || customerName).split(" ")[0]}, fill in your details and pick a time
               {product ? ` to install your ${product}` : ""}.
             </p>
 
+            {/* Details */}
+            <div className="mt-6 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Your name</label>
+                <div className="relative">
+                  <User size={15} strokeWidth={1.8} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                  <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputCls} pl-9`} placeholder="Full name" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Phone number</label>
+                <div className="relative">
+                  <Phone size={15} strokeWidth={1.8} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={`${inputCls} pl-9`} placeholder="+9665XXXXXXXX" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Address details <span className="text-text-muted font-normal">(optional)</span>
+                </label>
+                <input value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} placeholder="Building, floor, landmark…" />
+              </div>
+            </div>
+
+            {/* Location */}
+            <label className="block text-sm font-medium text-foreground mt-5 mb-1.5">
+              Your location <span className="text-error">*</span>
+            </label>
+            {coords ? (
+              <div className="space-y-2">
+                <div className="overflow-hidden rounded-lg border border-border h-40">
+                  <iframe
+                    title="Your location"
+                    className="w-full h-full"
+                    src={`https://maps.google.com/maps?q=${coords.lat},${coords.lng}&z=16&output=embed`}
+                  />
+                </div>
+                <button type="button" onClick={captureLocation} className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                  <MapPin size={12} strokeWidth={1.8} /> Re-capture location
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={captureLocation}
+                disabled={geoLoading}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-border hover:border-primary text-foreground text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {geoLoading ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} strokeWidth={1.8} />}
+                {geoLoading ? "Getting your location…" : "📍 Share my current location"}
+              </button>
+            )}
+            {geoError && (
+              <p className="flex items-center gap-1.5 text-xs text-error mt-2">
+                <AlertCircle size={13} strokeWidth={1.8} /> {geoError}
+              </p>
+            )}
+
             {/* Date */}
-            <label className="block text-sm font-medium text-foreground mt-6 mb-1.5">Date</label>
-            <input
-              type="date"
-              min={today}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
+            <label className="block text-sm font-medium text-foreground mt-5 mb-1.5">Date</label>
+            <input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
 
             {/* Times */}
-            <label className="block text-sm font-medium text-foreground mt-5 mb-2">
-              Available times
-            </label>
+            <label className="block text-sm font-medium text-foreground mt-5 mb-2">Available times</label>
             {loading ? (
               <div className="flex items-center justify-center py-8 text-text-muted">
                 <Loader2 size={20} className="animate-spin" />
@@ -155,9 +251,7 @@ export function CustomerBooking({ token, customerName, product }: CustomerBookin
                       type="button"
                       onClick={() => setSelected(t)}
                       className={`inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-                        isSel
-                          ? "border-primary bg-primary text-white"
-                          : "border-border hover:border-primary text-foreground"
+                        isSel ? "border-primary bg-primary text-white" : "border-border hover:border-primary text-foreground"
                       }`}
                     >
                       <Clock size={13} strokeWidth={1.8} />
@@ -177,11 +271,15 @@ export function CustomerBooking({ token, customerName, product }: CustomerBookin
             <button
               type="button"
               onClick={confirm}
-              disabled={!selected || submitting}
+              disabled={!canConfirm || submitting}
               className="w-full mt-6 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <CalendarCheck size={16} strokeWidth={1.8} />}
-              {selected ? `Confirm ${fmtTime(selected.start_time)}` : "Pick a time"}
+              {!coords
+                ? "Share your location to continue"
+                : !selected
+                  ? "Pick a time"
+                  : `Confirm ${fmtTime(selected.start_time)}`}
             </button>
           </>
         )}
