@@ -757,6 +757,8 @@ export class WhatsAppAutoReplyService {
     total_amount: number | null;
     currency: string;
     slot_label: string | null;
+    technician_id: string | null;
+    slot_id: string | null;
   } | null> {
     const supabase = createAdminClient();
     const { data: lead } = await supabase
@@ -771,7 +773,7 @@ export class WhatsAppAutoReplyService {
     const { data: booking } = await supabase
       .from("bookings")
       .select(
-        "id, lead_id, scheduled_at, pending_reschedule_at, booking_ref, product_snapshot, qty_snapshot, total_amount, currency, slot_label"
+        "id, lead_id, scheduled_at, pending_reschedule_at, booking_ref, product_snapshot, qty_snapshot, total_amount, currency, slot_label, technician_id, slot_id"
       )
       .eq("user_id", userId)
       .eq("lead_id", lead.id)
@@ -782,6 +784,137 @@ export class WhatsAppAutoReplyService {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (booking as any) ?? null;
+  }
+
+  /** Open (unbooked) slots for a technician on a date, ordered by start time. */
+  private async getOpenSlots(
+    userId: string,
+    technicianId: string,
+    date: string
+  ): Promise<Array<{ id: string; start_time: string; end_time: string }>> {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("technician_slots")
+      .select("id, start_time, end_time")
+      .eq("user_id", userId)
+      .eq("technician_id", technicianId)
+      .eq("slot_date", date)
+      .is("booking_id", null)
+      .order("start_time", { ascending: true });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data as any) ?? [];
+  }
+
+  /** Claims a free slot for a booking (race-safe). */
+  private async claimSlotInline(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    userId: string,
+    slotId: string,
+    bookingId: string
+  ): Promise<boolean> {
+    const { data } = await supabase
+      .from("technician_slots")
+      .update({ booking_id: bookingId })
+      .eq("id", slotId)
+      .eq("user_id", userId)
+      .is("booking_id", null)
+      .select("id");
+    return Array.isArray(data) && data.length > 0;
+  }
+
+  /** Releases a slot back to the open pool. */
+  private async freeSlotInline(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    userId: string,
+    slotId: string
+  ): Promise<void> {
+    await supabase
+      .from("technician_slots")
+      .update({ booking_id: null })
+      .eq("id", slotId)
+      .eq("user_id", userId);
+  }
+
+  /**
+   * Slot-aware reschedule proposal: matches the customer's requested time to an
+   * open slot for the booking's technician. Sets pending if matched; otherwise
+   * offers the open slots (or says the day is full). Returns the reply text.
+   */
+  private async proposeSlotReschedule(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    userId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    booking: any,
+    iso: string
+  ): Promise<string> {
+    const { date, hhmm } = riyadhDateAndTime(iso);
+    const open = await this.getOpenSlots(userId, booking.technician_id, date);
+    const match = open.find((s) => String(s.start_time).slice(0, 5) === hhmm);
+
+    if (match) {
+      await supabase.from("bookings").update({ pending_reschedule_at: iso }).eq("id", booking.id);
+      return `📅 I can move your SA'DA H2O installation to *${formatBookingDate(iso)} at ${fmtSlotTime(
+        match.start_time
+      )}–${fmtSlotTime(match.end_time)}*.\n\nReply *YES* to confirm.`;
+    }
+
+    await supabase.from("bookings").update({ pending_reschedule_at: null }).eq("id", booking.id);
+    if (open.length) {
+      return `That time isn't available on *${formatBookingDate(
+        iso
+      )}*.\n\nOpen slots: ${formatSlotList(open)}.\n\nReply with one of these times.`;
+    }
+    return `We're fully booked on *${formatBookingDate(iso)}* 😔 Could you try another day?`;
+  }
+
+  /**
+   * Slot-aware confirm: re-resolves the pending slot, claims it (race-safe),
+   * frees the old slot, and updates the booking. Returns the reply text.
+   */
+  private async confirmSlotReschedule(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    userId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    booking: any,
+    contactName: string | null,
+    contactPhone: string
+  ): Promise<string> {
+    const p = booking.pending_reschedule_at as string;
+    const { date, hhmm } = riyadhDateAndTime(p);
+    const open = await this.getOpenSlots(userId, booking.technician_id, date);
+    const match = open.find((s) => String(s.start_time).slice(0, 5) === hhmm);
+
+    const cannot = async (): Promise<string> => {
+      await supabase.from("bookings").update({ pending_reschedule_at: null }).eq("id", booking.id);
+      return open.length
+        ? `Sorry, that slot was just taken. On *${formatBookingDate(p)}* I now have: ${formatSlotList(
+            open
+          )}. Which works?`
+        : `Sorry, that slot was just taken and we're now full on *${formatBookingDate(
+            p
+          )}*. Could you pick another day?`;
+    };
+
+    if (!match) return cannot();
+    const claimed = await this.claimSlotInline(supabase, userId, match.id, booking.id);
+    if (!claimed) return cannot();
+    if (booking.slot_id) await this.freeSlotInline(supabase, userId, booking.slot_id);
+
+    const slotLabel = `${fmtSlotTime(match.start_time)}–${fmtSlotTime(match.end_time)}`;
+    await supabase
+      .from("bookings")
+      .update({ scheduled_at: p, slot_id: match.id, slot_label: slotLabel, pending_reschedule_at: null })
+      .eq("id", booking.id);
+    await supabase
+      .from("leads")
+      .update({ installation_date: p.slice(0, 10) })
+      .eq("id", booking.lead_id);
+
+    return buildBookingFreeText(rescheduleFields(booking, p, contactName, contactPhone, slotLabel));
   }
 
   /**
@@ -811,15 +944,22 @@ export class WhatsAppAutoReplyService {
     const affirmative = /^\s*(yes|yep|yeah|ok|okay|okey|confirm|sure|نعم|تمام|اوكي|أوكي|اوك)\b/i.test(text);
     const negative = /^\s*(no|nope|cancel|keep|لا|كنسل|الغاء|إلغاء)\b/i.test(text);
     const hasPending = Boolean(booking.pending_reschedule_at);
+    // Slot-aware when the booking has an assigned technician; otherwise fall back
+    // to the legacy free-time behaviour (older bookings with no technician).
+    const slotAware = Boolean(booking.technician_id);
 
     const stays = () =>
       `No problem 👍 Your installation stays on *${formatBookingDate(booking.scheduled_at)} at ${
         booking.slot_label?.trim() || formatBookingTime(booking.scheduled_at)
       }*.`;
-    const proposeMsg = (iso: string) =>
-      `📅 I can move your SA'DA H2O installation to *${formatBookingDate(iso)} at ${formatBookingTime(iso)}*.\n\nReply *YES* to confirm, or send a different date & time.`;
+    const clearPending = async (): Promise<void> => {
+      await supabase.from("bookings").update({ pending_reschedule_at: null }).eq("id", booking.id);
+    };
 
-    const applyConfirm = async (newAt: string): Promise<string> => {
+    // ── Legacy (no technician) helpers ──
+    const legacyProposeMsg = (iso: string) =>
+      `📅 I can move your SA'DA H2O installation to *${formatBookingDate(iso)} at ${formatBookingTime(iso)}*.\n\nReply *YES* to confirm, or send a different date & time.`;
+    const legacyApplyConfirm = async (newAt: string): Promise<string> => {
       await supabase
         .from("bookings")
         .update({ scheduled_at: newAt, slot_label: null, pending_reschedule_at: null })
@@ -830,8 +970,10 @@ export class WhatsAppAutoReplyService {
         .eq("id", booking.lead_id);
       return buildBookingFreeText(rescheduleFields(booking, newAt, contactName, contactPhone));
     };
-    const setPending = async (iso: string): Promise<void> => {
+    const propose = async (iso: string): Promise<string> => {
+      if (slotAware) return this.proposeSlotReschedule(supabase, userId, booking, iso);
       await supabase.from("bookings").update({ pending_reschedule_at: iso }).eq("id", booking.id);
+      return legacyProposeMsg(iso);
     };
 
     let replyText: string;
@@ -840,22 +982,24 @@ export class WhatsAppAutoReplyService {
       // Mid-confirmation: handle deterministically. NEVER fall through to the
       // AI's free text here — gpt-4o-mini will falsely claim it rescheduled.
       if (affirmative || intent === "confirm") {
-        replyText = await applyConfirm(booking.pending_reschedule_at as string);
+        replyText = slotAware
+          ? await this.confirmSlotReschedule(supabase, userId, booking, contactName, contactPhone)
+          : await legacyApplyConfirm(booking.pending_reschedule_at as string);
       } else if (negative || intent === "cancel") {
-        await supabase.from("bookings").update({ pending_reschedule_at: null }).eq("id", booking.id);
+        await clearPending();
         replyText = stays();
       } else if (newIso) {
-        // Customer adjusted the proposed slot (e.g. "make it 7:30pm") — re-propose.
-        await setPending(newIso);
-        replyText = proposeMsg(newIso);
+        // Customer adjusted the proposed time (e.g. "make it 7:30pm") — re-propose.
+        replyText = await propose(newIso);
       } else {
         // Couldn't parse a new time — re-ask without claiming anything happened.
         const p = booking.pending_reschedule_at as string;
-        replyText = `You have a pending change to *${formatBookingDate(p)} at ${formatBookingTime(p)}*.\n\nReply *YES* to confirm, or send the full new date & time.`;
+        replyText = `You have a pending change to *${formatBookingDate(p)} at ${
+          booking.slot_label?.trim() || formatBookingTime(p)
+        }*.\n\nReply *YES* to confirm, or send the full new date & time.`;
       }
     } else if (intent === "propose" && newIso) {
-      await setPending(newIso);
-      replyText = proposeMsg(newIso);
+      replyText = await propose(newIso);
     } else if (intent === "propose") {
       replyText = "Sure — what date and time works best for your installation?";
     } else if (intent === "cancel") {
@@ -943,7 +1087,8 @@ function rescheduleFields(
   booking: any,
   atIso: string,
   contactName: string | null,
-  contactPhone: string
+  contactPhone: string,
+  timeOverride?: string
 ): BookingMessageFields {
   return {
     clientName: contactName?.trim() || contactPhone,
@@ -954,8 +1099,40 @@ function rescheduleFields(
       booking.total_amount != null ? Number(booking.total_amount).toLocaleString("en-US") : "—",
     currency: booking.currency ?? "SAR",
     dateFormatted: formatBookingDate(atIso),
-    timeFormatted: formatBookingTime(atIso),
+    timeFormatted: timeOverride ?? formatBookingTime(atIso),
   };
+}
+
+/** Splits an ISO timestamp into Riyadh-local date (YYYY-MM-DD) and time (HH:MM). */
+function riyadhDateAndTime(iso: string): { date: string; hhmm: string } {
+  const d = new Date(iso);
+  const date = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  const hhmm = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Riyadh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+  return { date, hhmm };
+}
+
+/** "12:00:00" → "12:00 PM". */
+function fmtSlotTime(t: string): string {
+  const [h, m] = t.split(":");
+  const hour = Number(h);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h12}:${m} ${ampm}`;
+}
+
+/** "12:00 PM–1:00 PM, 2:00 PM–3:00 PM" for a list of slots. */
+function formatSlotList(slots: Array<{ start_time: string; end_time: string }>): string {
+  return slots.map((s) => `${fmtSlotTime(s.start_time)}–${fmtSlotTime(s.end_time)}`).join(", ");
 }
 
 function extractMessagePreview(message: WhatsAppIncomingMessage): string {
