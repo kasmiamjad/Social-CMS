@@ -312,7 +312,9 @@ export class BookingService {
 
     if (error) throw new Error(error.message);
     if (!lead) throw new Error("LEAD_NOT_FOUND");
-    if (!lead.client_phone?.trim()) throw new Error("LEAD_NO_PHONE");
+    // No phone check here — a phone is only needed to SEND a WhatsApp
+    // confirmation (best-effort/optional). Booking itself doesn't require it,
+    // so Messenger leads (which have no phone) can still be scheduled.
     return lead;
   }
 

@@ -118,6 +118,7 @@ export async function POST(
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error("Public booking failed", { token, msg, err });
     if (msg === "SLOT_TAKEN") {
       return apiError("SLOT_TAKEN", "That time was just taken — please pick another.", 409);
     }
