@@ -209,8 +209,9 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
         </CardHeader>
       </Card>
 
-      {/* Section cards in a 2-column grid on large screens to use the width */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+      {/* Section cards in a masonry-style 2-column flow so short cards don't
+          leave big gaps (packs tightly by height). */}
+      <div className="columns-1 xl:columns-2 gap-6 [&>*]:mb-6 [&>*]:break-inside-avoid">
       {/* Customer info */}
       <Card>
         <CardHeader>
