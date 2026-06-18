@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LeadForm, type Lead } from "@/components/leads/lead-form";
-import { ScheduleBookingPanel } from "@/components/bookings/schedule-booking-panel";
+import { BookingDrawer } from "@/components/bookings/booking-drawer";
 import { ArrowLeft } from "lucide-react";
 
 interface PageProps {
@@ -55,17 +55,15 @@ export default async function LeadDetailPage({ params }: PageProps) {
 
   return (
     <div>
-      <Link
-        href="/leads"
-        className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-foreground mb-4 transition-colors"
-      >
-        <ArrowLeft size={14} strokeWidth={1.8} />
-        Back to leads
-      </Link>
-      <LeadForm mode="edit" initialLead={lead} />
-
-      <div className="mt-6 max-w-4xl">
-        <ScheduleBookingPanel
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Link
+          href="/leads"
+          className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-foreground transition-colors"
+        >
+          <ArrowLeft size={14} strokeWidth={1.8} />
+          Back to leads
+        </Link>
+        <BookingDrawer
           leadId={lead.id!}
           hasPhone={Boolean(lead.client_phone?.trim())}
           productModel={lead.product_model ?? null}
@@ -85,6 +83,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
           }
         />
       </div>
+      <LeadForm mode="edit" initialLead={lead} />
     </div>
   );
 }
