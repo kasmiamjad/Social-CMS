@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, MessageCircle } from "lucide-react";
+import { ChevronRight, MessageCircle, MapPin, ExternalLink } from "lucide-react";
 import { ChatDrawer, type ActiveChat } from "@/components/leads/chat-drawer";
 
 export interface BookingRow {
@@ -19,7 +19,12 @@ export interface BookingRow {
   technician: string | null;
   status: string;
   lead_id: string;
-  lead: { client_name: string; client_phone: string | null } | null;
+  lead: {
+    client_name: string;
+    client_phone: string | null;
+    location_url?: string | null;
+    location_address?: string | null;
+  } | null;
   /** Last customer message from the linked chat, if any. */
   last_customer_msg?: string | null;
   chat_count?: number;
@@ -87,6 +92,7 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
               <th className="px-4 py-3 font-semibold">Product</th>
               <th className="px-4 py-3 font-semibold">Total</th>
               <th className="px-4 py-3 font-semibold">Technician</th>
+              <th className="px-4 py-3 font-semibold">Location</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 font-semibold w-8"></th>
             </tr>
@@ -152,6 +158,23 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
                     : "—"}
                 </td>
                 <td className="px-4 py-3 text-text-muted text-xs">{b.technician ?? "—"}</td>
+                <td className="px-4 py-3">
+                  {b.lead?.location_url ? (
+                    <a
+                      href={b.lead.location_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover text-xs"
+                    >
+                      <MapPin size={11} strokeWidth={2} />
+                      Map <ExternalLink size={9} strokeWidth={2} />
+                    </a>
+                  ) : b.lead?.location_address ? (
+                    <span className="text-text-muted text-xs">{b.lead.location_address}</span>
+                  ) : (
+                    <span className="text-text-muted">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <Badge variant={STATUS_VARIANT[b.status] ?? "default"}>
                     {b.status.replace("_", " ")}

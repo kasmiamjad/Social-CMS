@@ -25,7 +25,7 @@ export default async function BookingsPage() {
   const { data } = await admin
     .from("bookings")
     .select(
-      "id, booking_ref, scheduled_at, slot_label, product_snapshot, qty_snapshot, total_amount, currency, technician, status, lead_id, lead:leads(client_name, client_phone, whatsapp_conversation_id, messenger_conversation_id)"
+      "id, booking_ref, scheduled_at, slot_label, product_snapshot, qty_snapshot, total_amount, currency, technician, status, lead_id, lead:leads(client_name, client_phone, whatsapp_conversation_id, messenger_conversation_id, location_url, location_address)"
     )
     .eq("user_id", user.id)
     .order("scheduled_at", { ascending: true })
@@ -38,6 +38,8 @@ export default async function BookingsPage() {
           client_phone: string | null;
           whatsapp_conversation_id: string | null;
           messenger_conversation_id: string | null;
+          location_url: string | null;
+          location_address: string | null;
         }
       | null;
   };
