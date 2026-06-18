@@ -13,7 +13,6 @@ import {
   Calendar,
   Clock,
   Wrench,
-  DollarSign,
   CheckCircle,
   AlertCircle,
   Copy,
@@ -133,10 +132,6 @@ export function ScheduleBookingPanel({
   const [slots, setSlots] = useState<SlotOption[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(existingBooking?.slot_id ?? null);
-  // Update mode keeps the booking's saved price; create mode prefills from the
-  // selected model's catalog price (operator can still override).
-  const prefillPrice = existingBooking?.unit_price ?? defaultPriceForModel(productModel);
-  const [unitPrice, setUnitPrice] = useState(prefillPrice != null ? String(prefillPrice) : "");
   const [notes, setNotes] = useState(existingBooking?.notes ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -211,8 +206,10 @@ export function ScheduleBookingPanel({
   }
 
   const qty = productQty || 1;
-  const priceNum = unitPrice === "" ? null : Number(unitPrice);
-  const total = priceNum !== null && !Number.isNaN(priceNum) ? priceNum * qty : null;
+  // Price comes from the selected model's catalog price (kept on the booking +
+  // confirmation); there's no manual price entry on this panel.
+  const priceNum = existingBooking?.unit_price ?? defaultPriceForModel(productModel);
+  const total = priceNum != null ? priceNum * qty : null;
   const alreadyBooked = leadStatus === "scheduled" || leadStatus === "installed";
 
   async function handleSubmit() {
@@ -393,19 +390,6 @@ export function ScheduleBookingPanel({
             </div>
           </>
         )}
-
-        <div className="max-w-xs">
-          <Input
-            id="unit_price"
-            label="Unit price (SAR)"
-            type="number"
-            min={0}
-            icon={DollarSign}
-            placeholder="e.g. 699"
-            value={unitPrice}
-            onChange={(e) => setUnitPrice(e.target.value)}
-          />
-        </div>
 
         {/* Order summary preview */}
         <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text-muted">
