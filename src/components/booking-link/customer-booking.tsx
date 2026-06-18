@@ -9,8 +9,8 @@ import {
   AlertCircle,
   User,
   Phone,
-  MapPin,
 } from "lucide-react";
+import { LocationPicker } from "./location-picker";
 
 interface CustomerBookingProps {
   token: string;
@@ -56,8 +56,6 @@ export function CustomerBooking({ token, customerName, customerPhone, product }:
   const [phone, setPhone] = useState(customerPhone ?? "");
   const [address, setAddress] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [geoLoading, setGeoLoading] = useState(false);
-  const [geoError, setGeoError] = useState<string | null>(null);
 
   const [date, setDate] = useState(today);
   const [times, setTimes] = useState<TimeSlot[]>([]);
@@ -85,26 +83,6 @@ export function CustomerBooking({ token, customerName, customerPhone, product }:
   useEffect(() => {
     void load();
   }, [load]);
-
-  function captureLocation() {
-    if (!navigator.geolocation) {
-      setGeoError("Location isn't supported on this device.");
-      return;
-    }
-    setGeoLoading(true);
-    setGeoError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setGeoLoading(false);
-      },
-      () => {
-        setGeoError("Couldn't get your location. Please allow location access and try again.");
-        setGeoLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }
 
   const canConfirm =
     Boolean(selected) && name.trim().length > 0 && phone.trim().length >= 5 && coords !== null;
@@ -197,35 +175,7 @@ export function CustomerBooking({ token, customerName, customerPhone, product }:
             <label className="block text-sm font-medium text-foreground mt-5 mb-1.5">
               Your location <span className="text-error">*</span>
             </label>
-            {coords ? (
-              <div className="space-y-2">
-                <div className="overflow-hidden rounded-lg border border-border h-40">
-                  <iframe
-                    title="Your location"
-                    className="w-full h-full"
-                    src={`https://maps.google.com/maps?q=${coords.lat},${coords.lng}&z=16&output=embed`}
-                  />
-                </div>
-                <button type="button" onClick={captureLocation} className="text-xs text-primary hover:underline inline-flex items-center gap-1">
-                  <MapPin size={12} strokeWidth={1.8} /> Re-capture location
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={captureLocation}
-                disabled={geoLoading}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-border hover:border-primary text-foreground text-sm font-medium transition-colors disabled:opacity-50"
-              >
-                {geoLoading ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} strokeWidth={1.8} />}
-                {geoLoading ? "Getting your location…" : "📍 Share my current location"}
-              </button>
-            )}
-            {geoError && (
-              <p className="flex items-center gap-1.5 text-xs text-error mt-2">
-                <AlertCircle size={13} strokeWidth={1.8} /> {geoError}
-              </p>
-            )}
+            <LocationPicker value={coords} onChange={(lat, lng) => setCoords({ lat, lng })} />
 
             {/* Date */}
             <label className="block text-sm font-medium text-foreground mt-5 mb-1.5">Date</label>
