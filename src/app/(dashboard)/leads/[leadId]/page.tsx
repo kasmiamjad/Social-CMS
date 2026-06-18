@@ -54,7 +54,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
     .order("name", { ascending: true });
 
   return (
-    <div>
+    <div className="max-w-6xl">
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link
           href="/leads"

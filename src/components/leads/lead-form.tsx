@@ -172,7 +172,7 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-6xl">
       {/* Header card */}
       <Card>
         <CardHeader>
@@ -209,6 +209,8 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
         </CardHeader>
       </Card>
 
+      {/* Section cards in a 2-column grid on large screens to use the width */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
       {/* Customer info */}
       <Card>
         <CardHeader>
@@ -458,6 +460,7 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
           />
         </div>
       </Card>
+      </div>
 
       {/* Footer actions */}
       <div className="flex items-center gap-3 pt-2">
