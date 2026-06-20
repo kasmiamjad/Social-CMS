@@ -19,6 +19,7 @@ import {
 import { getTechSession } from "@/lib/tech-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/badge";
+import { JobStatusActions } from "@/components/tech/job-status-actions";
 import {
   BOOKING_DATE_LONG_FMT,
   BOOKING_TIME_FMT,
@@ -51,6 +52,10 @@ interface JobDetail {
   address_snapshot: string | null;
   notes: string | null;
   status: string;
+  on_the_way_at: string | null;
+  arrived_at: string | null;
+  completed_at: string | null;
+  completion_notes: string | null;
   lead: JobDetailLead | null;
 }
 
@@ -100,7 +105,7 @@ export default async function TechJobDetailPage({
   const { data } = await admin
     .from("bookings")
     .select(
-      "id, booking_ref, scheduled_at, slot_label, product_snapshot, qty_snapshot, total_amount, currency, address_snapshot, notes, status, lead:leads(client_name, client_phone, client_email, client_business_type, scope, remarks, location_address, location_url, location_lat, location_lng)"
+      "id, booking_ref, scheduled_at, slot_label, product_snapshot, qty_snapshot, total_amount, currency, address_snapshot, notes, status, on_the_way_at, arrived_at, completed_at, completion_notes, lead:leads(client_name, client_phone, client_email, client_business_type, scope, remarks, location_address, location_url, location_lat, location_lng)"
     )
     .eq("id", id)
     .eq("user_id", session.uid)
@@ -167,6 +172,19 @@ export default async function TechJobDetailPage({
           )}
         </div>
       </div>
+
+      {/* Status / field actions */}
+      <section className="rounded-xl border border-border bg-surface-elevated p-4">
+        <div className="text-[11px] uppercase tracking-wide text-text-muted mb-3">Job status</div>
+        <JobStatusActions
+          bookingId={job.id}
+          status={job.status}
+          onTheWayAt={job.on_the_way_at}
+          arrivedAt={job.arrived_at}
+          completedAt={job.completed_at}
+          completionNotes={job.completion_notes}
+        />
+      </section>
 
       {/* Schedule */}
       <section className="rounded-xl border border-border bg-surface-elevated px-4 divide-y divide-border">

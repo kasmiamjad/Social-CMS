@@ -39,6 +39,8 @@ interface BookingsTableProps {
 const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "error" | "processing"> = {
   scheduled: "processing",
   confirmed: "success",
+  on_the_way: "warning",
+  arrived: "warning",
   completed: "success",
   cancelled: "error",
   no_show: "warning",
