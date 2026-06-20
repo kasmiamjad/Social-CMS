@@ -32,10 +32,11 @@ A **Next.js 16 SaaS CRM + multi-channel AI bot** for **SA'DA H2O Purifiers** (wa
 ---
 
 ## Latest git state
-Latest commit: `5310037` — "Technician panel phase 3: job status updates + timestamps".
+Latest commit: `a71a8ac` — "Technician panel phase 4: site photo upload + before/after gallery".
 
 This session's work (newest → oldest), all on `main`:
 ```
+a71a8ac Technician panel phase 4: site photo upload + before/after gallery (migration 021)
 5310037 Technician panel phase 3: job status updates + timestamps (migration 020)
 e2dd1aa Technician panel phase 2: job detail screen (job detail at /tech/bookings/[id])
 575c419 Technician panel phase 1: passcode auth + mobile shell + Today/Bookings
@@ -76,13 +77,13 @@ dd768d2 Leads list: drop Qty/Installed/Next service, add "Added by"
 ---
 
 ## ⚠️ PENDING — run these on the VPS / Supabase (if not already done)
-Confirm all migrations **011 → 020** have been run in Supabase. The most recent ones:
+Confirm all migrations **011 → 021** have been run in Supabase. The most recent ones:
 ```sql
 -- 013_bookings.sql, 014_messenger.sql, 015_booking_pending_reschedule.sql,
 -- 016_enable_realtime.sql, 017_technicians.sql, 018_lead_booking_token.sql,
--- 019_technician_auth.sql, 020_booking_status_progress.sql
+-- 019_technician_auth.sql, 020_booking_status_progress.sql, 021_booking_photos.sql
 ```
-**⚠️ 020 is NEW (Phase 3) and must be run before deploying** — the tech status PATCH writes the new columns and uses the new statuses.
+**⚠️ 020 + 021 are NEW (Phases 3 & 4) and must be run before deploying** — 020 backs the tech status PATCH; 021 creates `booking_photos` + the `booking-photos` bucket the photo upload writes to.
 Quick re-runnable essentials if unsure:
 ```sql
 -- 018: public booking link token
@@ -100,6 +101,7 @@ ALTER TABLE public.bookings DROP CONSTRAINT IF EXISTS bookings_status_check;
 ALTER TABLE public.bookings ADD CONSTRAINT bookings_status_check
   CHECK (status IN ('scheduled','confirmed','on_the_way','arrived','completed','cancelled','no_show'));
 ```
+For **021** (table + bucket + RLS) run the full file `supabase/migrations/021_booking_photos.sql` — it's not a one-liner. It creates `public.booking_photos`, its owner RLS policies, and inserts the `booking-photos` storage bucket with a public-read policy.
 Then **deploy** the latest commit (`git pull && npm run build && pm2 restart social-cms`).
 
 Optional VPS env var: `TECH_SESSION_SECRET=<long random string>` (signs technician cookies; falls back to the service-role key if unset).
@@ -143,12 +145,13 @@ Also pending from earlier (WhatsApp template path is OFF by design): the `bookin
 - ✅ **Phase 1 (DONE, commit `575c419`)** — passcode auth (`src/lib/tech-auth.ts`, scrypt + signed cookie), `/api/v1/tech/login` + `/logout`, middleware allows public `/tech`, `/tech/login` page, gated mobile shell (`src/components/tech/tech-shell.tsx`, top bar + bottom nav), **Today** (`/tech`) and **All bookings** (`/tech/bookings`) job lists (tap-to-call, open-in-Maps, status badge), `/tech/schedule` stub, admin passcode setter on the Technicians page.
 - ✅ **Phase 2 (DONE, commit `e2dd1aa`)** — Job **detail** screen (`/tech/(app)/bookings/[id]/page.tsx`): full customer info (name, phone tap-to-call, email, business type), schedule (long date + time/slot), product + qty + total, scope, address with a **no-API-key OpenStreetMap embed** (when lead has lat/lng), and booking/lead notes. Tapping a `JobCard` body now opens the detail (`src/components/tech/job-card.tsx`). Shared status variant/label + Riyadh date/time formatters extracted to **`src/lib/booking-display.ts`** (reused by card + detail). Bottom-nav active state now matches nested routes (`tech-shell.tsx`). **No new migration** — reads existing booking/lead columns only.
 - ✅ **Phase 3 (DONE, commit `5310037`)** — Job **status updates + timestamps**. **Migration `020_booking_status_progress.sql`** adds `on_the_way_at`, `arrived_at`, `completed_at`, `completion_notes` to `bookings` and extends the `bookings_status_check` with `on_the_way` + `arrived`. Tech advances the job from the detail screen's "Job status" action area (`src/components/tech/job-status-actions.tsx`): On my way → Arrived → Completed / No-show, with a visit timeline + a notes panel on Complete/No-show. New tech-scoped **PATCH `/api/v1/tech/bookings/[id]`** (`route.ts`) — validates the target status (tech-settable: on_the_way/arrived/completed/no_show), stamps the step's timestamp once, locks `completed`/`cancelled`, gated by the tech cookie + scoped to uid+tid. Admin `bookings-table.tsx` badge map now covers the new statuses.
-- ⬜ **Phase 4** — Site photo upload (next).
+- ✅ **Phase 4 (DONE, commit `a71a8ac`)** — Site **photo upload + before/after gallery**. **Migration `021_booking_photos.sql`** adds the `booking_photos` table (owner SELECT/DELETE RLS; cols `booking_id`, `technician_id`, `storage_path`, `url`, `kind` before/after/other, `caption`) and the **public `booking-photos` storage bucket** (public read; writes via service role). Constants in `src/lib/booking-photo-constants.ts` (image-only incl. HEIC, 15MB cap, path `{user_id}/{booking_id}/{kind}_{ts}_{name}`). New tech routes: **POST `/api/v1/tech/bookings/[id]/photos`** (multipart upload via admin storage, validates type/size, rolls back the orphaned object if the row insert fails) and **DELETE `/api/v1/tech/bookings/[id]/photos/[photoId]`** (storage + row, scoped to the tech's booking). `src/components/tech/job-photos.tsx` — Before/After kind toggle, phone-camera capture (`accept="image/*" capture="environment"`, multi-pick), grid grouped by kind, lightbox with delete. Detail page fetches photos server-side. **Not yet shown in the admin panel** (office-side photo viewer is a future add).
+- ⬜ **Phase 5** — Technician day calendar / schedule view (next).
 - ⬜ **Phase 3** — **Status updates + timestamps** (On my way → Arrived → Completed/No-show; add `arrived_at`, `completed_at`, `completion_notes` to bookings + statuses `on_the_way`, `arrived` to the bookings CHECK). Wire into the detail screen's header action area. Feeds back to admin Bookings. The detail page already renders `on_the_way`/`arrived` via `bookingStatusVariant`, so only the migration + a status-action component + a tech-scoped PATCH route are needed.
 - ⬜ **Phase 4** — **Site photo upload** (before/after): new `booking_photos` table + Supabase Storage bucket `booking-photos`; tech uploads from phone; admin sees the gallery on the booking. Optional require-photo-to-complete.
 - ⬜ **Phase 5** — Technician **calendar/schedule** view (replace the stub).
 
-**Next action:** build Phase 4 (site photo upload), then 5 (calendar). Keep each phase a separate commit; mobile-first; tech queries are scoped to `session.tid` (technician id) + `session.uid` (owner) via the admin client (RLS bypassed, gated by the tech cookie). Tech write APIs live under `/api/v1/tech/**` and re-verify `getTechSession()` server-side.
+**Next action:** build Phase 5 (technician day calendar / schedule view). Keep each phase a separate commit; mobile-first; tech queries are scoped to `session.tid` (technician id) + `session.uid` (owner) via the admin client (RLS bypassed, gated by the tech cookie). Tech write APIs live under `/api/v1/tech/**` and re-verify `getTechSession()` server-side.
 
 ---
 
@@ -175,9 +178,9 @@ Also pending from earlier (WhatsApp template path is OFF by design): the `bookin
 - `src/app/api/v1/book/[token]/(route|slots/route).ts`
 
 **Technician panel**
-- `src/lib/tech-auth.ts`, `src/app/api/v1/tech/{login,logout}/route.ts`, `src/app/api/v1/tech/bookings/[id]/route.ts` (PATCH status)
+- `src/lib/tech-auth.ts`, `src/app/api/v1/tech/{login,logout}/route.ts`, `src/app/api/v1/tech/bookings/[id]/route.ts` (PATCH status), `src/app/api/v1/tech/bookings/[id]/photos/{route,[photoId]/route}.ts` (photo upload/delete)
 - `src/app/tech/login/page.tsx`, `src/app/tech/(app)/{layout,page,bookings/page,bookings/[id]/page,schedule/page}.tsx`
-- `src/components/tech/{tech-shell,job-card,job-status-actions}.tsx`, `src/lib/booking-display.ts` (status + date/time helpers)
+- `src/components/tech/{tech-shell,job-card,job-status-actions,job-photos}.tsx`, `src/lib/{booking-display,booking-photo-constants}.ts`
 
 **Infra**
 - `src/proxy.ts` + `src/lib/supabase/middleware.ts` — auth redirect; public paths: `/login,/signup,/auth,/api,/book,/tech,/`
