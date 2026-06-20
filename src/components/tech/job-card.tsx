@@ -1,5 +1,12 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Phone, MapPin, Clock, ExternalLink, Package } from "lucide-react";
+import { Phone, MapPin, Clock, ExternalLink, Package, ChevronRight } from "lucide-react";
+import {
+  BOOKING_DATE_FMT,
+  BOOKING_TIME_FMT,
+  bookingStatusLabel,
+  bookingStatusVariant,
+} from "@/lib/booking-display";
 
 export interface TechJob {
   id: string;
@@ -16,61 +23,46 @@ export interface TechJob {
   } | null;
 }
 
-const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "error" | "processing"> = {
-  scheduled: "processing",
-  confirmed: "processing",
-  on_the_way: "warning",
-  arrived: "warning",
-  completed: "success",
-  cancelled: "error",
-  no_show: "error",
-};
-
-const DATE_FMT = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Asia/Riyadh",
-  weekday: "short",
-  day: "2-digit",
-  month: "short",
-});
-const TIME_FMT = new Intl.DateTimeFormat("en-US", {
-  timeZone: "Asia/Riyadh",
-  hour: "numeric",
-  minute: "2-digit",
-  hour12: true,
-});
-
 export function JobCard({ job, showDate }: { job: TechJob; showDate?: boolean }) {
   const when = new Date(job.scheduled_at);
-  const time = job.slot_label?.trim() || TIME_FMT.format(when);
+  const time = job.slot_label?.trim() || BOOKING_TIME_FMT.format(when);
 
   return (
     <div className="rounded-xl border border-border bg-surface-elevated p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-base font-semibold text-foreground truncate">
-            {job.lead?.client_name ?? "Customer"}
+      {/* Tapping the card body opens the full job detail. The Call/Maps actions
+          live outside this Link so we don't nest interactive <a> elements. */}
+      <Link href={`/tech/bookings/${job.id}`} className="block group">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-base font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+              {job.lead?.client_name ?? "Customer"}
+            </div>
+            <div className="text-xs text-text-muted flex items-center gap-1 mt-0.5">
+              <Clock size={12} strokeWidth={1.8} />
+              {showDate ? `${BOOKING_DATE_FMT.format(when)} · ${time}` : time}
+            </div>
           </div>
-          <div className="text-xs text-text-muted flex items-center gap-1 mt-0.5">
-            <Clock size={12} strokeWidth={1.8} />
-            {showDate ? `${DATE_FMT.format(when)} · ${time}` : time}
+          <div className="flex items-center gap-1 shrink-0">
+            <Badge variant={bookingStatusVariant(job.status)}>
+              {bookingStatusLabel(job.status)}
+            </Badge>
+            <ChevronRight size={16} strokeWidth={1.8} className="text-text-muted" />
           </div>
         </div>
-        <Badge variant={STATUS_VARIANT[job.status] ?? "default"}>
-          {job.status.replace("_", " ")}
-        </Badge>
-      </div>
 
-      <div className="text-sm text-foreground mt-2 flex items-center gap-1.5">
-        <Package size={14} strokeWidth={1.8} className="text-text-muted" />
-        {job.product_snapshot ?? "Water purifier"} <span className="text-text-muted">×{job.qty_snapshot}</span>
-      </div>
-
-      {job.lead?.location_address && (
-        <div className="text-xs text-text-muted mt-1.5 flex items-start gap-1.5">
-          <MapPin size={13} strokeWidth={1.8} className="mt-0.5 shrink-0" />
-          <span>{job.lead.location_address}</span>
+        <div className="text-sm text-foreground mt-2 flex items-center gap-1.5">
+          <Package size={14} strokeWidth={1.8} className="text-text-muted" />
+          {job.product_snapshot ?? "Water purifier"}{" "}
+          <span className="text-text-muted">×{job.qty_snapshot}</span>
         </div>
-      )}
+
+        {job.lead?.location_address && (
+          <div className="text-xs text-text-muted mt-1.5 flex items-start gap-1.5">
+            <MapPin size={13} strokeWidth={1.8} className="mt-0.5 shrink-0" />
+            <span>{job.lead.location_address}</span>
+          </div>
+        )}
+      </Link>
 
       {/* Quick actions */}
       <div className="flex items-center gap-2 mt-3">

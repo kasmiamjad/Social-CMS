@@ -42,7 +42,12 @@ export function TechShell({ techName, children }: { techName: string; children: 
       <nav className="fixed bottom-0 inset-x-0 z-20 bg-surface-elevated border-t border-border">
         <div className="max-w-lg mx-auto grid grid-cols-3">
           {NAV.map((item) => {
-            const active = pathname === item.href;
+            // "/tech" is exact (everything starts with it); the rest match nested
+            // routes too, so /tech/bookings/[id] keeps the Bookings tab active.
+            const active =
+              item.href === "/tech"
+                ? pathname === "/tech"
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}
