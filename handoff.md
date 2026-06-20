@@ -32,10 +32,11 @@ A **Next.js 16 SaaS CRM + multi-channel AI bot** for **SA'DA H2O Purifiers** (wa
 ---
 
 ## Latest git state
-Latest commit: `e2dd1aa` — "Technician panel phase 2: job detail screen".
+Latest commit: `5310037` — "Technician panel phase 3: job status updates + timestamps".
 
 This session's work (newest → oldest), all on `main`:
 ```
+5310037 Technician panel phase 3: job status updates + timestamps (migration 020)
 e2dd1aa Technician panel phase 2: job detail screen (job detail at /tech/bookings/[id])
 575c419 Technician panel phase 1: passcode auth + mobile shell + Today/Bookings
 35886cc Booking map: custom SVG pin (fix broken marker)
@@ -75,12 +76,13 @@ dd768d2 Leads list: drop Qty/Installed/Next service, add "Added by"
 ---
 
 ## ⚠️ PENDING — run these on the VPS / Supabase (if not already done)
-Confirm all migrations **011 → 019** have been run in Supabase. The most recent ones this session:
+Confirm all migrations **011 → 020** have been run in Supabase. The most recent ones:
 ```sql
 -- 013_bookings.sql, 014_messenger.sql, 015_booking_pending_reschedule.sql,
 -- 016_enable_realtime.sql, 017_technicians.sql, 018_lead_booking_token.sql,
--- 019_technician_auth.sql
+-- 019_technician_auth.sql, 020_booking_status_progress.sql
 ```
+**⚠️ 020 is NEW (Phase 3) and must be run before deploying** — the tech status PATCH writes the new columns and uses the new statuses.
 Quick re-runnable essentials if unsure:
 ```sql
 -- 018: public booking link token
@@ -88,6 +90,15 @@ ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS booking_token UUID NOT NULL DE
 CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_booking_token ON public.leads(booking_token);
 -- 019: technician login
 ALTER TABLE public.technicians ADD COLUMN IF NOT EXISTS passcode_hash TEXT;
+-- 020: technician job status progression
+ALTER TABLE public.bookings
+  ADD COLUMN IF NOT EXISTS on_the_way_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS arrived_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS completion_notes TEXT;
+ALTER TABLE public.bookings DROP CONSTRAINT IF EXISTS bookings_status_check;
+ALTER TABLE public.bookings ADD CONSTRAINT bookings_status_check
+  CHECK (status IN ('scheduled','confirmed','on_the_way','arrived','completed','cancelled','no_show'));
 ```
 Then **deploy** the latest commit (`git pull && npm run build && pm2 restart social-cms`).
 
@@ -131,12 +142,13 @@ Also pending from earlier (WhatsApp template path is OFF by design): the `bookin
 **Build phases:**
 - ✅ **Phase 1 (DONE, commit `575c419`)** — passcode auth (`src/lib/tech-auth.ts`, scrypt + signed cookie), `/api/v1/tech/login` + `/logout`, middleware allows public `/tech`, `/tech/login` page, gated mobile shell (`src/components/tech/tech-shell.tsx`, top bar + bottom nav), **Today** (`/tech`) and **All bookings** (`/tech/bookings`) job lists (tap-to-call, open-in-Maps, status badge), `/tech/schedule` stub, admin passcode setter on the Technicians page.
 - ✅ **Phase 2 (DONE, commit `e2dd1aa`)** — Job **detail** screen (`/tech/(app)/bookings/[id]/page.tsx`): full customer info (name, phone tap-to-call, email, business type), schedule (long date + time/slot), product + qty + total, scope, address with a **no-API-key OpenStreetMap embed** (when lead has lat/lng), and booking/lead notes. Tapping a `JobCard` body now opens the detail (`src/components/tech/job-card.tsx`). Shared status variant/label + Riyadh date/time formatters extracted to **`src/lib/booking-display.ts`** (reused by card + detail). Bottom-nav active state now matches nested routes (`tech-shell.tsx`). **No new migration** — reads existing booking/lead columns only.
-- ⬜ **Phase 3** — Job **status updates + timestamps** (next).
+- ✅ **Phase 3 (DONE, commit `5310037`)** — Job **status updates + timestamps**. **Migration `020_booking_status_progress.sql`** adds `on_the_way_at`, `arrived_at`, `completed_at`, `completion_notes` to `bookings` and extends the `bookings_status_check` with `on_the_way` + `arrived`. Tech advances the job from the detail screen's "Job status" action area (`src/components/tech/job-status-actions.tsx`): On my way → Arrived → Completed / No-show, with a visit timeline + a notes panel on Complete/No-show. New tech-scoped **PATCH `/api/v1/tech/bookings/[id]`** (`route.ts`) — validates the target status (tech-settable: on_the_way/arrived/completed/no_show), stamps the step's timestamp once, locks `completed`/`cancelled`, gated by the tech cookie + scoped to uid+tid. Admin `bookings-table.tsx` badge map now covers the new statuses.
+- ⬜ **Phase 4** — Site photo upload (next).
 - ⬜ **Phase 3** — **Status updates + timestamps** (On my way → Arrived → Completed/No-show; add `arrived_at`, `completed_at`, `completion_notes` to bookings + statuses `on_the_way`, `arrived` to the bookings CHECK). Wire into the detail screen's header action area. Feeds back to admin Bookings. The detail page already renders `on_the_way`/`arrived` via `bookingStatusVariant`, so only the migration + a status-action component + a tech-scoped PATCH route are needed.
 - ⬜ **Phase 4** — **Site photo upload** (before/after): new `booking_photos` table + Supabase Storage bucket `booking-photos`; tech uploads from phone; admin sees the gallery on the booking. Optional require-photo-to-complete.
 - ⬜ **Phase 5** — Technician **calendar/schedule** view (replace the stub).
 
-**Next action:** build Phase 3 (status updates), then 4 (photos), then 5 (calendar). Keep each phase a separate commit; mobile-first; tech queries are scoped to `session.tid` (technician id) + `session.uid` (owner) via the admin client (RLS bypassed, gated by the tech cookie).
+**Next action:** build Phase 4 (site photo upload), then 5 (calendar). Keep each phase a separate commit; mobile-first; tech queries are scoped to `session.tid` (technician id) + `session.uid` (owner) via the admin client (RLS bypassed, gated by the tech cookie). Tech write APIs live under `/api/v1/tech/**` and re-verify `getTechSession()` server-side.
 
 ---
 
@@ -163,9 +175,9 @@ Also pending from earlier (WhatsApp template path is OFF by design): the `bookin
 - `src/app/api/v1/book/[token]/(route|slots/route).ts`
 
 **Technician panel**
-- `src/lib/tech-auth.ts`, `src/app/api/v1/tech/{login,logout}/route.ts`
+- `src/lib/tech-auth.ts`, `src/app/api/v1/tech/{login,logout}/route.ts`, `src/app/api/v1/tech/bookings/[id]/route.ts` (PATCH status)
 - `src/app/tech/login/page.tsx`, `src/app/tech/(app)/{layout,page,bookings/page,bookings/[id]/page,schedule/page}.tsx`
-- `src/components/tech/{tech-shell,job-card}.tsx`, `src/lib/booking-display.ts` (status + date/time helpers)
+- `src/components/tech/{tech-shell,job-card,job-status-actions}.tsx`, `src/lib/booking-display.ts` (status + date/time helpers)
 
 **Infra**
 - `src/proxy.ts` + `src/lib/supabase/middleware.ts` — auth redirect; public paths: `/login,/signup,/auth,/api,/book,/tech,/`
