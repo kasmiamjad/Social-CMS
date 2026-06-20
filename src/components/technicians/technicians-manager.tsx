@@ -18,6 +18,8 @@ import {
   CalendarPlus,
   Key,
   Check,
+  Pencil,
+  X,
 } from "lucide-react";
 
 export interface Technician {
@@ -64,7 +66,47 @@ export function TechniciansManager({ initialTechnicians }: { initialTechnicians:
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Inline edit of an existing technician's name/phone.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
   const selected = technicians.find((t) => t.id === selectedId) ?? null;
+
+  function startEdit(t: Technician) {
+    setEditingId(t.id);
+    setEditName(t.name);
+    setEditPhone(t.phone ?? "");
+    setError(null);
+  }
+
+  async function saveEdit() {
+    if (!editingId || !editName.trim()) return;
+    setSavingEdit(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/technicians/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editName.trim(), phone: editPhone.trim() || null }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.error?.message ?? "Failed to update");
+        return;
+      }
+      const updated = json.data.technician as Technician;
+      setTechnicians((prev) =>
+        prev.map((t) => (t.id === updated.id ? updated : t)).sort((a, b) => a.name.localeCompare(b.name))
+      );
+      setEditingId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   async function addTechnician() {
     if (!name.trim()) return;
@@ -114,32 +156,77 @@ export function TechniciansManager({ initialTechnicians }: { initialTechnicians:
           {technicians.length === 0 && (
             <p className="px-2 text-sm text-text-muted">No technicians yet. Add one below.</p>
           )}
-          {technicians.map((t) => (
-            <div
-              key={t.id}
-              className={`flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-colors ${
-                selectedId === t.id ? "bg-primary/10" : "hover:bg-surface"
-              }`}
-              onClick={() => setSelectedId(t.id)}
-            >
-              <User size={16} strokeWidth={1.8} className="text-text-muted shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-foreground truncate">{t.name}</div>
-                {t.phone && <div className="text-[10px] text-text-muted font-mono">{t.phone}</div>}
+          {technicians.map((t) =>
+            editingId === t.id ? (
+              <div key={t.id} className="px-2 py-2 rounded-lg bg-surface space-y-2">
+                <Input
+                  id={`edit_name_${t.id}`}
+                  icon={Wrench}
+                  placeholder="Name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+                <Input
+                  id={`edit_phone_${t.id}`}
+                  icon={Phone}
+                  placeholder="Phone (optional)"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={saveEdit}
+                    loading={savingEdit}
+                    disabled={!editName.trim()}
+                    className="flex-1"
+                  >
+                    <Check size={14} strokeWidth={1.8} />
+                    Save
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} disabled={savingEdit}>
+                    <X size={14} strokeWidth={1.8} />
+                    Cancel
+                  </Button>
+                </div>
               </div>
-              {!t.is_active && <Badge variant="default">inactive</Badge>}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void deleteTechnician(t.id);
-                }}
-                className="p-1 rounded hover:bg-error/10 text-text-muted hover:text-error"
-                title="Delete"
+            ) : (
+              <div
+                key={t.id}
+                className={`flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-colors ${
+                  selectedId === t.id ? "bg-primary/10" : "hover:bg-surface"
+                }`}
+                onClick={() => setSelectedId(t.id)}
               >
-                <Trash2 size={13} strokeWidth={1.8} />
-              </button>
-            </div>
-          ))}
+                <User size={16} strokeWidth={1.8} className="text-text-muted shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-foreground truncate">{t.name}</div>
+                  {t.phone && <div className="text-[10px] text-text-muted font-mono">{t.phone}</div>}
+                </div>
+                {!t.is_active && <Badge variant="default">inactive</Badge>}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startEdit(t);
+                  }}
+                  className="p-1 rounded hover:bg-primary/10 text-text-muted hover:text-primary"
+                  title="Edit"
+                >
+                  <Pencil size={13} strokeWidth={1.8} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void deleteTechnician(t.id);
+                  }}
+                  className="p-1 rounded hover:bg-error/10 text-text-muted hover:text-error"
+                  title="Delete"
+                >
+                  <Trash2 size={13} strokeWidth={1.8} />
+                </button>
+              </div>
+            )
+          )}
         </div>
 
         <div className="mt-4 pt-4 border-t border-border space-y-2">
