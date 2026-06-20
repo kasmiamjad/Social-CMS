@@ -32,10 +32,11 @@ A **Next.js 16 SaaS CRM + multi-channel AI bot** for **SA'DA H2O Purifiers** (wa
 ---
 
 ## Latest git state
-Latest commit: `575c419` — "Technician panel phase 1: passcode auth + mobile shell + Today/Bookings".
+Latest commit: `e2dd1aa` — "Technician panel phase 2: job detail screen".
 
 This session's work (newest → oldest), all on `main`:
 ```
+e2dd1aa Technician panel phase 2: job detail screen (job detail at /tech/bookings/[id])
 575c419 Technician panel phase 1: passcode auth + mobile shell + Today/Bookings
 35886cc Booking map: custom SVG pin (fix broken marker)
 c67d89a Booking link: draggable map pin (Leaflet/OSM, no API key)
@@ -129,12 +130,13 @@ Also pending from earlier (WhatsApp template path is OFF by design): the `bookin
 
 **Build phases:**
 - ✅ **Phase 1 (DONE, commit `575c419`)** — passcode auth (`src/lib/tech-auth.ts`, scrypt + signed cookie), `/api/v1/tech/login` + `/logout`, middleware allows public `/tech`, `/tech/login` page, gated mobile shell (`src/components/tech/tech-shell.tsx`, top bar + bottom nav), **Today** (`/tech`) and **All bookings** (`/tech/bookings`) job lists (tap-to-call, open-in-Maps, status badge), `/tech/schedule` stub, admin passcode setter on the Technicians page.
-- ⬜ **Phase 2** — Job **detail** screen (`/tech/bookings/[id]`): full customer info, map, scope/notes, action area.
-- ⬜ **Phase 3** — **Status updates + timestamps** (On my way → Arrived → Completed/No-show; add `arrived_at`, `completed_at`, `completion_notes` to bookings + statuses `on_the_way`, `arrived` to the bookings CHECK). Feeds back to admin Bookings.
+- ✅ **Phase 2 (DONE, commit `e2dd1aa`)** — Job **detail** screen (`/tech/(app)/bookings/[id]/page.tsx`): full customer info (name, phone tap-to-call, email, business type), schedule (long date + time/slot), product + qty + total, scope, address with a **no-API-key OpenStreetMap embed** (when lead has lat/lng), and booking/lead notes. Tapping a `JobCard` body now opens the detail (`src/components/tech/job-card.tsx`). Shared status variant/label + Riyadh date/time formatters extracted to **`src/lib/booking-display.ts`** (reused by card + detail). Bottom-nav active state now matches nested routes (`tech-shell.tsx`). **No new migration** — reads existing booking/lead columns only.
+- ⬜ **Phase 3** — Job **status updates + timestamps** (next).
+- ⬜ **Phase 3** — **Status updates + timestamps** (On my way → Arrived → Completed/No-show; add `arrived_at`, `completed_at`, `completion_notes` to bookings + statuses `on_the_way`, `arrived` to the bookings CHECK). Wire into the detail screen's header action area. Feeds back to admin Bookings. The detail page already renders `on_the_way`/`arrived` via `bookingStatusVariant`, so only the migration + a status-action component + a tech-scoped PATCH route are needed.
 - ⬜ **Phase 4** — **Site photo upload** (before/after): new `booking_photos` table + Supabase Storage bucket `booking-photos`; tech uploads from phone; admin sees the gallery on the booking. Optional require-photo-to-complete.
 - ⬜ **Phase 5** — Technician **calendar/schedule** view (replace the stub).
 
-**Next action:** build Phase 2 (job detail), then 3 (status), then 4 (photos), then 5 (calendar). Keep each phase a separate commit; mobile-first; tech queries are scoped to `session.tid` (technician id) + `session.uid` (owner) via the admin client (RLS bypassed, gated by the tech cookie).
+**Next action:** build Phase 3 (status updates), then 4 (photos), then 5 (calendar). Keep each phase a separate commit; mobile-first; tech queries are scoped to `session.tid` (technician id) + `session.uid` (owner) via the admin client (RLS bypassed, gated by the tech cookie).
 
 ---
 
@@ -162,8 +164,8 @@ Also pending from earlier (WhatsApp template path is OFF by design): the `bookin
 
 **Technician panel**
 - `src/lib/tech-auth.ts`, `src/app/api/v1/tech/{login,logout}/route.ts`
-- `src/app/tech/login/page.tsx`, `src/app/tech/(app)/{layout,page,bookings/page,schedule/page}.tsx`
-- `src/components/tech/{tech-shell,job-card}.tsx`
+- `src/app/tech/login/page.tsx`, `src/app/tech/(app)/{layout,page,bookings/page,bookings/[id]/page,schedule/page}.tsx`
+- `src/components/tech/{tech-shell,job-card}.tsx`, `src/lib/booking-display.ts` (status + date/time helpers)
 
 **Infra**
 - `src/proxy.ts` + `src/lib/supabase/middleware.ts` — auth redirect; public paths: `/login,/signup,/auth,/api,/book,/tech,/`
