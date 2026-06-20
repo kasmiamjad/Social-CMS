@@ -15,11 +15,13 @@ import {
   Wrench,
   StickyNote,
   Hash,
+  Camera,
 } from "lucide-react";
 import { getTechSession } from "@/lib/tech-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/badge";
 import { JobStatusActions } from "@/components/tech/job-status-actions";
+import { JobPhotos, type JobPhoto } from "@/components/tech/job-photos";
 import {
   BOOKING_DATE_LONG_FMT,
   BOOKING_TIME_FMT,
@@ -118,6 +120,15 @@ export default async function TechJobDetailPage({
   const job = data as unknown as JobDetail;
   const lead = job.lead;
   const when = new Date(job.scheduled_at);
+
+  // Site photos for this booking (newest first), scoped to the owner.
+  const { data: photoRows } = await admin
+    .from("booking_photos")
+    .select("id, url, kind, caption, created_at")
+    .eq("booking_id", job.id)
+    .eq("user_id", session.uid)
+    .order("created_at", { ascending: false });
+  const photos = (photoRows ?? []) as JobPhoto[];
   const time = job.slot_label?.trim() || BOOKING_TIME_FMT.format(when);
   const address = lead?.location_address ?? job.address_snapshot;
   const total = formatMoney(job.total_amount, job.currency);
@@ -184,6 +195,14 @@ export default async function TechJobDetailPage({
           completedAt={job.completed_at}
           completionNotes={job.completion_notes}
         />
+      </section>
+
+      {/* Site photos */}
+      <section className="rounded-xl border border-border bg-surface-elevated p-4">
+        <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-text-muted mb-3">
+          <Camera size={13} strokeWidth={1.8} /> Site photos
+        </div>
+        <JobPhotos bookingId={job.id} photos={photos} />
       </section>
 
       {/* Schedule */}
