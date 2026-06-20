@@ -16,6 +16,8 @@ import {
   Loader2,
   AlertCircle,
   CalendarPlus,
+  Key,
+  Check,
 } from "lucide-react";
 
 export interface Technician {
@@ -191,6 +193,8 @@ function AvailabilityEditor({ technician }: { technician: Technician }) {
   const [end, setEnd] = useState("13:00");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passcode, setPasscode] = useState("");
+  const [pcState, setPcState] = useState<"idle" | "saving" | "saved">("idle");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -268,6 +272,29 @@ function AvailabilityEditor({ technician }: { technician: Technician }) {
     setSlots((prev) => prev.filter((s) => s.id !== id));
   }
 
+  async function savePasscode() {
+    if (passcode.length < 4) {
+      setError("Passcode must be at least 4 characters.");
+      return;
+    }
+    setPcState("saving");
+    setError(null);
+    const res = await fetch(`/api/v1/technicians/${technician.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ passcode }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      setError(json.error?.message ?? "Failed to set passcode");
+      setPcState("idle");
+      return;
+    }
+    setPasscode("");
+    setPcState("saved");
+    setTimeout(() => setPcState("idle"), 2500);
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -281,6 +308,42 @@ function AvailabilityEditor({ technician }: { technician: Technician }) {
       </CardHeader>
 
       <div className="space-y-5">
+        {/* Technician login */}
+        <div className="rounded-lg border border-border bg-surface px-4 py-3">
+          <div className="text-sm font-medium text-foreground mb-1">Technician login</div>
+          <p className="text-[11px] text-text-muted mb-2">
+            They sign in at <span className="font-mono">/tech</span> with their phone
+            {technician.phone ? ` (${technician.phone})` : ""} + this passcode.
+          </p>
+          <div className="flex items-end gap-2 flex-wrap">
+            <Input
+              id="passcode"
+              label="Set / reset passcode"
+              type="text"
+              icon={Key}
+              placeholder="e.g. 4821"
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              className="!w-auto"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={savePasscode}
+              loading={pcState === "saving"}
+              disabled={!passcode}
+            >
+              {pcState === "saved" ? <Check size={14} strokeWidth={1.8} /> : <Key size={14} strokeWidth={1.8} />}
+              {pcState === "saved" ? "Saved" : "Save passcode"}
+            </Button>
+          </div>
+          {!technician.phone && (
+            <p className="text-[11px] text-warning mt-1.5">
+              Add a phone number to this technician so they can log in.
+            </p>
+          )}
+        </div>
+
         {/* Date picker */}
         <div className="max-w-xs">
           <Input

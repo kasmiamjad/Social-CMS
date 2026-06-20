@@ -3,11 +3,13 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
 import { apiError, apiSuccess } from "@/lib/api-response";
+import { hashPasscode } from "@/lib/tech-auth";
 
 const UpdateTechnicianSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   phone: z.string().max(40).nullable().optional(),
   is_active: z.boolean().optional(),
+  passcode: z.string().min(4).max(64).optional(),
 });
 
 /** PATCH /api/v1/technicians/:technicianId */
@@ -34,6 +36,7 @@ export async function PATCH(
   if (parsed.name !== undefined) payload.name = parsed.name.trim();
   if (parsed.phone !== undefined) payload.phone = parsed.phone?.trim() || null;
   if (parsed.is_active !== undefined) payload.is_active = parsed.is_active;
+  if (parsed.passcode !== undefined) payload.passcode_hash = hashPasscode(parsed.passcode);
   if (Object.keys(payload).length === 0) {
     return apiError("NO_CHANGES", "Provide at least one field to update.", 400);
   }
