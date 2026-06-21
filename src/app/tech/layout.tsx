@@ -10,6 +10,10 @@ export const metadata: Metadata = {
   title: "a3sixty Technician",
   description: "Your installation jobs, daily schedule and site photos.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/icon-180.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
