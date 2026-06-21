@@ -1,0 +1,27 @@
+{
+  "name": "a3sixty Technician",
+  "short_name": "a3 Tech",
+  "description": "Your installation jobs, daily schedule and site photos.",
+  "id": "/tech",
+  "start_url": "/tech",
+  "scope": "/tech",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFFFF",
+  "theme_color": "#1A56DB",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
