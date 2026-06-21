@@ -106,7 +106,7 @@ export default async function TechJobDetailPage({
 
   const { id } = await params;
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("bookings")
     .select(
       "id, booking_ref, scheduled_at, slot_label, product_snapshot, qty_snapshot, total_amount, currency, address_snapshot, notes, tech_notes, status, on_the_way_at, arrived_at, completed_at, completion_notes, lead:leads(client_name, client_phone, client_email, client_business_type, scope, remarks, location_address, location_url, location_lat, location_lng)"
@@ -116,7 +116,12 @@ export default async function TechJobDetailPage({
     .eq("technician_id", session.tid)
     .maybeSingle();
 
-  // notFound() also covers bookings that exist but aren't assigned to this tech.
+  // A query error (e.g. schema drift — a column not yet migrated) is NOT the same
+  // as a missing booking. Surface it loudly instead of rendering a misleading 404.
+  if (error) {
+    throw new Error(`Failed to load booking ${id}: ${error.message}`);
+  }
+  // notFound() covers a real missing booking, or one not assigned to this tech.
   if (!data) notFound();
 
   const job = data as unknown as JobDetail;
