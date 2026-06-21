@@ -30,15 +30,26 @@ export async function POST(request: NextRequest) {
     .select("id, user_id, name, phone, passcode_hash, is_active")
     .eq("phone", phone);
 
-  const match = (techs ?? []).find(
+  const matches = (techs ?? []).filter(
     (t) =>
       (t as { is_active: boolean }).is_active &&
       verifyPasscode(parsed.passcode, (t as { passcode_hash: string | null }).passcode_hash)
-  ) as { id: string; user_id: string; name: string } | undefined;
+  ) as { id: string; user_id: string; name: string }[];
 
-  if (!match) {
+  if (matches.length === 0) {
     return apiError("INVALID_CREDENTIALS", "Wrong phone or passcode.", 401);
   }
+  // Phone+passcode must identify exactly one technician. If two share both, we
+  // cannot know who is signing in — refuse rather than guess. (Creation/edit now
+  // block duplicate phones, but this guards any pre-existing duplicate data.)
+  if (matches.length > 1) {
+    return apiError(
+      "AMBIGUOUS_LOGIN",
+      "This phone and passcode match more than one technician. Ask your admin to give each technician a unique phone or passcode.",
+      409
+    );
+  }
+  const match = matches[0];
 
   const token = signTechSession(match.id, match.user_id);
   const res = apiSuccess({ technician: { id: match.id, name: match.name } });

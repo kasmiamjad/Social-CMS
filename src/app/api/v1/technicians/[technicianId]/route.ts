@@ -42,6 +42,24 @@ export async function PATCH(
   }
 
   const supabase = createAdminClient();
+
+  // Keep phone unique per owner so phone+passcode stays an unambiguous login id.
+  if (payload.phone) {
+    const { data: existing } = await supabase
+      .from("technicians")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("phone", payload.phone as string)
+      .neq("id", technicianId)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      return apiError(
+        "DUPLICATE_PHONE",
+        "Another technician already uses this phone number. Each technician needs a unique phone to log in.",
+        409
+      );
+    }
+  }
   const { data, error } = await supabase
     .from("technicians")
     .update(payload)

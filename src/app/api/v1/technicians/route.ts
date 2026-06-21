@@ -43,12 +43,32 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const phone = parsed.phone?.trim() || null;
+
+  // Phone is the technician's login id, so it must be unique within this owner —
+  // otherwise phone+passcode can't tell two technicians apart at /tech login.
+  if (phone) {
+    const { data: existing } = await supabase
+      .from("technicians")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("phone", phone)
+      .limit(1);
+    if (existing && existing.length > 0) {
+      return apiError(
+        "DUPLICATE_PHONE",
+        "Another technician already uses this phone number. Each technician needs a unique phone to log in.",
+        409
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from("technicians")
     .insert({
       user_id: userId,
       name: parsed.name.trim(),
-      phone: parsed.phone?.trim() || null,
+      phone,
       is_active: parsed.is_active ?? true,
     })
     .select("id, name, phone, is_active, created_at")
