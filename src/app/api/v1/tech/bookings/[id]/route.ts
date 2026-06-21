@@ -20,15 +20,19 @@ const STATUS_TIMESTAMP: Record<string, string> = {
 };
 
 const PatchSchema = z.object({
-  status: z.enum(TECH_SETTABLE),
+  // All optional: a request may change status, edit job notes, or both.
+  status: z.enum(TECH_SETTABLE).optional(),
   completion_notes: z.string().trim().max(2000).optional(),
+  tech_notes: z.string().trim().max(4000).optional(),
 });
 
 /**
  * PATCH /api/v1/tech/bookings/[id]
- * Lets the assigned technician advance their own booking's status and stamp the
- * matching timestamp. Scoped to the tech session (owner + technician id); no
- * Supabase auth — the signed tech cookie gates access, the admin client writes.
+ * Lets the assigned technician advance their own booking's status (stamping the
+ * matching timestamp) and/or save working notes. Scoped to the tech session
+ * (owner + technician id); no Supabase auth — the signed tech cookie gates
+ * access, the admin client writes. Notes can be edited even on locked jobs; only
+ * status transitions are blocked once a job is completed/cancelled.
  */
 export async function PATCH(
   request: NextRequest,
@@ -43,7 +47,11 @@ export async function PATCH(
   try {
     parsed = PatchSchema.parse(await request.json());
   } catch {
-    return apiError("INVALID_REQUEST", "A valid status is required.", 400);
+    return apiError("INVALID_REQUEST", "Invalid request body.", 400);
+  }
+
+  if (parsed.status === undefined && parsed.tech_notes === undefined && parsed.completion_notes === undefined) {
+    return apiError("NO_CHANGES", "Nothing to update.", 400);
   }
 
   const { id } = await params;
@@ -67,25 +75,31 @@ export async function PATCH(
   if (!existing) {
     return apiError("NOT_FOUND", "Booking not found.", 404);
   }
-  if (LOCKED_STATUSES.includes(existing.status)) {
+  // A locked job blocks *status* changes only — notes stay editable.
+  if (parsed.status !== undefined && LOCKED_STATUSES.includes(existing.status)) {
     return apiError(
       "STATUS_LOCKED",
-      `This job is ${existing.status.replace(/_/g, " ")} and can no longer be changed here.`,
+      `This job is ${existing.status.replace(/_/g, " ")} and its status can no longer be changed here.`,
       409
     );
   }
 
-  const nowIso = new Date().toISOString();
-  const update: Record<string, string | null> = { status: parsed.status };
+  const update: Record<string, string | null> = {};
 
-  // Stamp the step's timestamp the first time we reach it (idempotent re-taps
-  // keep the original moment).
-  const tsCol = STATUS_TIMESTAMP[parsed.status];
-  if (tsCol && !existing[tsCol as keyof typeof existing]) {
-    update[tsCol] = nowIso;
+  if (parsed.status !== undefined) {
+    update.status = parsed.status;
+    // Stamp the step's timestamp the first time we reach it (idempotent re-taps
+    // keep the original moment).
+    const tsCol = STATUS_TIMESTAMP[parsed.status];
+    if (tsCol && !existing[tsCol as keyof typeof existing]) {
+      update[tsCol] = new Date().toISOString();
+    }
   }
   if (parsed.completion_notes !== undefined) {
     update.completion_notes = parsed.completion_notes || null;
+  }
+  if (parsed.tech_notes !== undefined) {
+    update.tech_notes = parsed.tech_notes || null;
   }
 
   const { data: updated, error } = await admin
@@ -94,11 +108,11 @@ export async function PATCH(
     .eq("id", id)
     .eq("user_id", session.uid)
     .eq("technician_id", session.tid)
-    .select("id, status, on_the_way_at, arrived_at, completed_at, completion_notes")
+    .select("id, status, on_the_way_at, arrived_at, completed_at, completion_notes, tech_notes")
     .single();
 
   if (error) {
-    return apiError("UPDATE_FAILED", "Could not update the job status.", 500, error.message);
+    return apiError("UPDATE_FAILED", "Could not save the changes.", 500, error.message);
   }
 
   return apiSuccess({ booking: updated });

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Trash2, Loader2, ImageOff, X } from "lucide-react";
+import { Camera, ImagePlus, Trash2, Loader2, ImageOff, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { BookingPhotoKind } from "@/lib/booking-photo-constants";
 
@@ -32,17 +32,21 @@ const SECTIONS: { key: string; label: string }[] = [
 
 /**
  * Site-photo gallery + uploader for the job detail screen. The technician tags a
- * shot as Before/After, captures it from the phone camera (or picks from the
- * gallery), and can delete mistakes. Uploads hit the tech-scoped photos API.
+ * shot as Before/After, then either takes one from the phone camera or uploads
+ * several from the gallery at once. Each photo can carry a caption, edited in the
+ * lightbox. Uploads hit the tech-scoped photos API.
  */
 export function JobPhotos({ bookingId, photos }: JobPhotosProps) {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<BookingPhotoKind>("before");
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<JobPhoto | null>(null);
+  const [caption, setCaption] = useState("");
+  const [savingCaption, setSavingCaption] = useState(false);
 
   async function onFilesPicked(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -68,7 +72,37 @@ export function JobPhotos({ bookingId, photos }: JobPhotosProps) {
       setError("Network error — please try again.");
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (cameraRef.current) cameraRef.current.value = "";
+      if (galleryRef.current) galleryRef.current.value = "";
+    }
+  }
+
+  function openLightbox(photo: JobPhoto) {
+    setLightbox(photo);
+    setCaption(photo.caption ?? "");
+  }
+
+  async function saveCaption() {
+    if (!lightbox) return;
+    setSavingCaption(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/tech/bookings/${bookingId}/photos/${lightbox.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ caption: caption.trim() || null }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json?.error?.message ?? "Could not save caption.");
+        return;
+      }
+      setLightbox(null);
+      router.refresh();
+    } catch {
+      setError("Network error — please try again.");
+    } finally {
+      setSavingCaption(false);
     }
   }
 
@@ -95,37 +129,56 @@ export function JobPhotos({ bookingId, photos }: JobPhotosProps) {
 
   return (
     <div className="space-y-3">
-      {/* Kind selector + capture */}
+      {/* Kind selector */}
+      <div className="inline-flex rounded-lg border border-border p-0.5 bg-surface">
+        {KIND_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setKind(t.key)}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-xs font-semibold transition-colors",
+              kind === t.key ? "bg-primary text-white" : "text-text-muted hover:text-foreground"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Capture (camera) + Upload (gallery, multi-select) */}
       <div className="flex items-center gap-2">
-        <div className="inline-flex rounded-lg border border-border p-0.5 bg-surface">
-          {KIND_TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setKind(t.key)}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-semibold transition-colors",
-                kind === t.key ? "bg-primary text-white" : "text-text-muted hover:text-foreground"
-              )}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
         <button
           type="button"
           disabled={uploading}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => cameraRef.current?.click()}
           className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-60"
         >
           {uploading ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} strokeWidth={1.8} />}
-          Add {kind} photo
+          Take {kind} photo
         </button>
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => galleryRef.current?.click()}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-border text-foreground text-sm font-semibold hover:bg-surface disabled:opacity-60"
+        >
+          <ImagePlus size={15} strokeWidth={1.8} />
+          Upload
+        </button>
+        {/* Camera: single capture. Gallery: multiple files. */}
         <input
-          ref={fileInputRef}
+          ref={cameraRef}
           type="file"
           accept="image/*"
           capture="environment"
+          className="hidden"
+          onChange={(e) => void onFilesPicked(e.target.files)}
+        />
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*"
           multiple
           className="hidden"
           onChange={(e) => void onFilesPicked(e.target.files)}
@@ -153,16 +206,23 @@ export function JobPhotos({ bookingId, photos }: JobPhotosProps) {
                   <button
                     key={photo.id}
                     type="button"
-                    onClick={() => setLightbox(photo)}
-                    className="relative aspect-square rounded-lg overflow-hidden bg-surface border border-border"
+                    onClick={() => openLightbox(photo)}
+                    className="text-left"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.url}
-                      alt={photo.caption ?? `${section.label} photo`}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
+                    <div className="relative aspect-square rounded-lg overflow-hidden bg-surface border border-border">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photo.url}
+                        alt={photo.caption ?? `${section.label} photo`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    {photo.caption && (
+                      <p className="text-[10px] text-text-muted mt-1 line-clamp-2 leading-snug">
+                        {photo.caption}
+                      </p>
+                    )}
                   </button>
                 ))}
               </div>
@@ -189,25 +249,45 @@ export function JobPhotos({ bookingId, photos }: JobPhotosProps) {
           <img
             src={lightbox.url}
             alt={lightbox.caption ?? "Site photo"}
-            className="max-w-full max-h-[78vh] object-contain rounded-lg"
+            className="max-w-full max-h-[60vh] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
           />
-          <button
-            type="button"
-            disabled={deleting === lightbox.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              void onDelete(lightbox.id);
-            }}
-            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-error/90 hover:bg-error text-white text-sm font-semibold disabled:opacity-60"
-          >
-            {deleting === lightbox.id ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <Trash2 size={15} strokeWidth={1.8} />
-            )}
-            Delete photo
-          </button>
+
+          {/* Caption editor + actions */}
+          <div className="w-full max-w-md mt-4 space-y-2" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="text"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              maxLength={500}
+              placeholder="Add a caption (e.g. kitchen tap, before)"
+              className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={savingCaption || deleting === lightbox.id}
+                onClick={saveCaption}
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-60"
+              >
+                {savingCaption ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={1.8} />}
+                Save caption
+              </button>
+              <button
+                type="button"
+                disabled={deleting === lightbox.id || savingCaption}
+                onClick={() => void onDelete(lightbox.id)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-error/90 hover:bg-error text-white text-sm font-semibold disabled:opacity-60"
+              >
+                {deleting === lightbox.id ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Trash2 size={15} strokeWidth={1.8} />
+                )}
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

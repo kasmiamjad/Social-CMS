@@ -22,6 +22,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/badge";
 import { JobStatusActions } from "@/components/tech/job-status-actions";
 import { JobPhotos, type JobPhoto } from "@/components/tech/job-photos";
+import { JobNotes } from "@/components/tech/job-notes";
 import {
   BOOKING_DATE_LONG_FMT,
   BOOKING_TIME_FMT,
@@ -53,6 +54,7 @@ interface JobDetail {
   currency: string;
   address_snapshot: string | null;
   notes: string | null;
+  tech_notes: string | null;
   status: string;
   on_the_way_at: string | null;
   arrived_at: string | null;
@@ -107,7 +109,7 @@ export default async function TechJobDetailPage({
   const { data } = await admin
     .from("bookings")
     .select(
-      "id, booking_ref, scheduled_at, slot_label, product_snapshot, qty_snapshot, total_amount, currency, address_snapshot, notes, status, on_the_way_at, arrived_at, completed_at, completion_notes, lead:leads(client_name, client_phone, client_email, client_business_type, scope, remarks, location_address, location_url, location_lat, location_lng)"
+      "id, booking_ref, scheduled_at, slot_label, product_snapshot, qty_snapshot, total_amount, currency, address_snapshot, notes, tech_notes, status, on_the_way_at, arrived_at, completed_at, completion_notes, lead:leads(client_name, client_phone, client_email, client_business_type, scope, remarks, location_address, location_url, location_lat, location_lng)"
     )
     .eq("id", id)
     .eq("user_id", session.uid)
@@ -203,6 +205,14 @@ export default async function TechJobDetailPage({
           <Camera size={13} strokeWidth={1.8} /> Site photos
         </div>
         <JobPhotos bookingId={job.id} photos={photos} />
+      </section>
+
+      {/* Job notes (technician-editable) */}
+      <section className="rounded-xl border border-border bg-surface-elevated p-4">
+        <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-text-muted mb-3">
+          <StickyNote size={13} strokeWidth={1.8} /> Job notes
+        </div>
+        <JobNotes bookingId={job.id} initialNotes={job.tech_notes} />
       </section>
 
       {/* Schedule */}
