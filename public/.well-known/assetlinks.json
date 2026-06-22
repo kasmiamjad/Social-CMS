@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.a3sixty.crm.twa",
+      "sha256_cert_fingerprints": [
+        "BD:5F:7C:DA:23:46:D8:65:B7:C1:F8:5C:8E:69:18:E0:1C:FF:6D:13:14:4D:DC:0D:0B:DC:0B:EF:63:C5:BA:43"
+      ]
+    }
+  }
+]
