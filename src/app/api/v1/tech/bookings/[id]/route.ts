@@ -60,12 +60,13 @@ export async function PATCH(
   // Load the booking scoped to this technician so they can't touch others' jobs.
   const { data: existing } = await admin
     .from("bookings")
-    .select("id, status, on_the_way_at, arrived_at, completed_at")
+    .select("id, lead_id, status, on_the_way_at, arrived_at, completed_at")
     .eq("id", id)
     .eq("user_id", session.uid)
     .eq("technician_id", session.tid)
     .maybeSingle<{
       id: string;
+      lead_id: string;
       status: string;
       on_the_way_at: string | null;
       arrived_at: string | null;
@@ -113,6 +114,17 @@ export async function PATCH(
 
   if (error) {
     return apiError("UPDATE_FAILED", "Could not save the changes.", 500, error.message);
+  }
+
+  // When the visit is completed, advance the lead to 'installed' so the pipeline
+  // and the Customers (installed-base) page reflect it. Best-effort: a failure
+  // here shouldn't fail the tech's status update.
+  if (parsed.status === "completed" && existing.status !== "completed") {
+    await admin
+      .from("leads")
+      .update({ status: "installed" })
+      .eq("id", existing.lead_id)
+      .eq("user_id", session.uid);
   }
 
   return apiSuccess({ booking: updated });
