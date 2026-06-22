@@ -1,29 +1,31 @@
 @import "tailwindcss";
 
 :root {
-  /* SA'DA H2O brand colours (from h2o.sadawater.com) */
+  /* SA'DA H2O — premium DARK theme (from h2o.sadawater.com) */
+  color-scheme: dark;
+
   --color-blue: #0EA5E9;        /* sky accent */
   --color-dark-blue: #0284C7;   /* accent deep */
   --color-medium-blue: #7DD3FC; /* accent light */
-  --color-teal: #14B8A6;
+  --color-teal: #2DD4BF;
   --color-deep-navy: #080C14;   /* brand near-black */
-  --color-light-grey: #F1F5F9;
-  --color-orange: #F59E0B;
+  --color-light-grey: #1E293B;
+  --color-orange: #FBBF24;
   --color-charcoal: #0F172A;
 
-  /* Semantic Colors */
+  /* Semantic Colors (dark) */
   --color-primary: #0EA5E9;
-  --color-primary-hover: #0284C7;
+  --color-primary-hover: #38BDF8;
   --color-primary-muted: #7DD3FC;
-  --background: #FFFFFF;
-  --surface: #F1F5F9;
-  --surface-elevated: #FFFFFF;
-  --foreground: #0F172A;
-  --text-muted: #64748B;
-  --border: #E2E8F0;
-  --success: #14B8A6;
-  --warning: #F59E0B;
-  --error: #EF4444;
+  --background: #080C14;          /* page */
+  --surface: #111A2B;            /* subtle fills, hovers, table headers */
+  --surface-elevated: #141B2D;   /* cards */
+  --foreground: #F1F5F9;
+  --text-muted: #94A3B8;
+  --border: #1E293B;
+  --success: #2DD4BF;
+  --warning: #FBBF24;
+  --error: #F87171;
 }
 
 @theme inline {
