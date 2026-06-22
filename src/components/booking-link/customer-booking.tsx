@@ -9,14 +9,23 @@ import {
   AlertCircle,
   User,
   Phone,
+  CalendarClock,
 } from "lucide-react";
 import { LocationPicker } from "./location-picker";
+
+interface ExistingBooking {
+  ref: string | null;
+  dateLabel: string;
+  timeLabel: string;
+  status: string;
+}
 
 interface CustomerBookingProps {
   token: string;
   customerName: string;
   customerPhone: string | null;
   product: string | null;
+  existingBooking?: ExistingBooking | null;
 }
 
 interface TimeSlot {
@@ -50,8 +59,17 @@ const inputCls =
  * (shown on a map) and an open 1-hour slot, then books any free technician slot.
  * Location is required — submit stays disabled until it's captured.
  */
-export function CustomerBooking({ token, customerName, customerPhone, product }: CustomerBookingProps) {
+export function CustomerBooking({
+  token,
+  customerName,
+  customerPhone,
+  product,
+  existingBooking,
+}: CustomerBookingProps) {
   const today = riyadhToday();
+  // A finished install is read-only; an active booking becomes a reschedule.
+  const isCompleted = existingBooking?.status === "completed";
+  const isReschedule = Boolean(existingBooking) && !isCompleted;
   const [name, setName] = useState(customerName ?? "");
   const [phone, setPhone] = useState(customerPhone ?? "");
   const [address, setAddress] = useState("");
@@ -123,11 +141,26 @@ export function CustomerBooking({ token, customerName, customerPhone, product }:
   return (
     <main className="min-h-screen bg-surface flex items-start sm:items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md rounded-2xl border border-border bg-surface-elevated shadow-sm p-6 sm:p-8">
-        {done ? (
+        {isCompleted && existingBooking ? (
           <div className="text-center py-4">
             <CheckCircle size={44} strokeWidth={1.6} className="text-success mx-auto mb-3" />
-            <h1 className="text-xl font-bold text-foreground">You&apos;re booked! 🎉</h1>
-            <p className="text-sm text-text-muted mt-2">Your installation is confirmed for</p>
+            <h1 className="text-xl font-bold text-foreground">Installation complete</h1>
+            <p className="text-sm text-text-muted mt-2">Your installation was completed on</p>
+            <p className="text-base font-semibold text-foreground mt-1">{existingBooking.dateLabel}</p>
+            {existingBooking.ref && (
+              <p className="text-xs text-text-muted mt-3 font-mono">Ref: {existingBooking.ref}</p>
+            )}
+            <p className="text-xs text-text-muted mt-4">Thank you for choosing SA&apos;DA H2O. 💧</p>
+          </div>
+        ) : done ? (
+          <div className="text-center py-4">
+            <CheckCircle size={44} strokeWidth={1.6} className="text-success mx-auto mb-3" />
+            <h1 className="text-xl font-bold text-foreground">
+              {isReschedule ? "Updated! 🎉" : "You're booked! 🎉"}
+            </h1>
+            <p className="text-sm text-text-muted mt-2">
+              {isReschedule ? "Your installation has been moved to" : "Your installation is confirmed for"}
+            </p>
             <p className="text-base font-semibold text-foreground mt-1">
               {done.date} at {done.time}
             </p>
@@ -140,12 +173,32 @@ export function CustomerBooking({ token, customerName, customerPhone, product }:
           <>
             <div className="flex items-center gap-2 mb-1">
               <CalendarCheck size={20} strokeWidth={1.8} className="text-primary" />
-              <h1 className="text-lg font-bold text-foreground">Schedule your installation</h1>
+              <h1 className="text-lg font-bold text-foreground">
+                {isReschedule ? "Reschedule your installation" : "Schedule your installation"}
+              </h1>
             </div>
             <p className="text-sm text-text-muted">
-              Hi {(name || customerName).split(" ")[0]}, fill in your details and pick a time
-              {product ? ` to install your ${product}` : ""}.
+              {isReschedule
+                ? `Hi ${(name || customerName).split(" ")[0]}, pick a new time below to change your appointment.`
+                : `Hi ${(name || customerName).split(" ")[0]}, fill in your details and pick a time${
+                    product ? ` to install your ${product}` : ""
+                  }.`}
             </p>
+
+            {/* Already-scheduled banner → reschedule, not a new booking */}
+            {isReschedule && existingBooking && (
+              <div className="mt-4 flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5">
+                <CalendarClock size={16} strokeWidth={1.8} className="text-primary mt-0.5 shrink-0" />
+                <div className="text-xs text-foreground">
+                  You&apos;re already scheduled for{" "}
+                  <span className="font-semibold">
+                    {existingBooking.dateLabel} at {existingBooking.timeLabel}
+                  </span>
+                  . Picking a new time below will <span className="font-semibold">update</span> this
+                  appointment — it won&apos;t create a second one.
+                </div>
+              </div>
+            )}
 
             {/* Details */}
             <div className="mt-6 space-y-3">
@@ -229,7 +282,9 @@ export function CustomerBooking({ token, customerName, customerPhone, product }:
                 ? "Share your location to continue"
                 : !selected
                   ? "Pick a time"
-                  : `Confirm ${fmtTime(selected.start_time)}`}
+                  : isReschedule
+                    ? `Update to ${fmtTime(selected.start_time)}`
+                    : `Confirm ${fmtTime(selected.start_time)}`}
             </button>
           </>
         )}
