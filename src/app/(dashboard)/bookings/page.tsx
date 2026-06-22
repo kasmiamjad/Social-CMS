@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BookingsTable, type BookingRow } from "@/components/bookings/bookings-table";
@@ -66,13 +67,17 @@ export default async function BookingsPage() {
     };
   });
 
-  // Stats
+  // Stats (computed across all bookings)
   const total = bookings.length;
   const upcoming = bookings.filter((b) => ["scheduled", "confirmed"].includes(b.status)).length;
   const completed = bookings.filter((b) => b.status === "completed").length;
   const revenue = bookings
     .filter((b) => b.status !== "cancelled")
     .reduce((sum, b) => sum + (b.total_amount ?? 0), 0);
+
+  // Completed installs graduate to the Customers (installed-base) page, so the
+  // active Bookings table only shows jobs still in progress.
+  const activeBookings = bookings.filter((b) => b.status !== "completed");
 
   return (
     <div>
@@ -90,21 +95,39 @@ export default async function BookingsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Total" value={String(total)} />
         <StatCard label="Upcoming" value={String(upcoming)} hint="scheduled / confirmed" />
-        <StatCard label="Completed" value={String(completed)} />
+        <StatCard label="Completed" value={String(completed)} hint="view in Customers →" href="/customers" />
         <StatCard label="Pipeline value" value={`SAR ${revenue.toLocaleString("en-US")}`} hint="excludes cancelled" />
       </div>
 
-      <BookingsTable bookings={bookings} />
+      <BookingsTable bookings={activeBookings} />
     </div>
   );
 }
 
-function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-surface-elevated p-4">
+function StatCard({
+  label,
+  value,
+  hint,
+  href,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  href?: string;
+}) {
+  const body = (
+    <>
       <div className="text-[10px] uppercase tracking-wider text-text-muted">{label}</div>
       <div className="text-2xl font-bold text-foreground mt-1">{value}</div>
       {hint && <div className="text-[10px] text-text-muted mt-1">{hint}</div>}
-    </div>
+    </>
+  );
+  const className = "block rounded-xl border border-border bg-surface-elevated p-4";
+  return href ? (
+    <Link href={href} className={`${className} hover:border-primary/40 transition-colors`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={className}>{body}</div>
   );
 }
