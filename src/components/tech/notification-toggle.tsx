@@ -63,7 +63,9 @@ export function TechNotificationToggle() {
         (await reg.pushManager.getSubscription()) ??
         (await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+          // Cast: TS now types Uint8Array generic over its buffer; the Push API
+          // accepts any BufferSource, and ours is plain ArrayBuffer-backed.
+          applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
         }));
       const json = sub.toJSON();
       const res = await fetch("/api/v1/tech/push/subscribe", {
