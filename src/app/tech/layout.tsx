@@ -7,7 +7,7 @@ import { TechSwRegister } from "@/components/tech/sw-register";
  * still owns <html>/<body>; this only adds head metadata and the SW registrar.
  */
 export const metadata: Metadata = {
-  title: "a3sixty Technician",
+  title: "SA'DA H2O Technician",
   description: "Your installation jobs, daily schedule and site photos.",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -17,12 +17,12 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "a3 Tech",
+    title: "SA'DA Tech",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1A56DB",
+  themeColor: "#0EA5E9",
 };
 
 export default function TechRootLayout({ children }: { children: React.ReactNode }) {

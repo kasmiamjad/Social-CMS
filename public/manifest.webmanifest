@@ -1,6 +1,6 @@
 {
-  "name": "a3sixty Technician",
-  "short_name": "a3 Tech",
+  "name": "SA'DA H2O Technician",
+  "short_name": "SA'DA Tech",
   "description": "Your installation jobs, daily schedule and site photos.",
   "id": "/tech",
   "start_url": "/tech",
@@ -8,7 +8,7 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FFFFFF",
-  "theme_color": "#1A56DB",
+  "theme_color": "#0EA5E9",
   "categories": ["business", "productivity"],
   "icons": [
     {
@@ -28,12 +28,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "/icons/app-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ]
 }
