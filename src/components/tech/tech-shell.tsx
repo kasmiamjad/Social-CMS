@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LogOut, CalendarDays, ClipboardList, CalendarRange } from "lucide-react";
+import { TechNotificationToggle } from "@/components/tech/notification-toggle";
 
 const NAV = [
   { label: "Today", href: "/tech", icon: CalendarDays },
@@ -29,12 +30,15 @@ export function TechShell({ techName, children }: { techName: string; children: 
           <div className="text-[11px] text-text-muted leading-none">Technician</div>
           <div className="text-sm font-bold text-foreground truncate">{techName}</div>
         </div>
-        <button
-          onClick={logout}
-          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-foreground px-2 py-1 rounded-lg hover:bg-surface"
-        >
-          <LogOut size={15} strokeWidth={1.8} /> Logout
-        </button>
+        <div className="flex items-center gap-1">
+          <TechNotificationToggle />
+          <button
+            onClick={logout}
+            className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-foreground px-2 py-1 rounded-lg hover:bg-surface"
+          >
+            <LogOut size={15} strokeWidth={1.8} /> Logout
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 p-4 pb-24 max-w-lg w-full mx-auto">{children}</main>

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendPushToTechnician } from "@/lib/web-push";
 import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
 import {
@@ -170,6 +171,16 @@ export class BookingService {
     });
     const confirmation = await this.finalizeConfirmation(supabase, userId, lead, booking.id, fields);
 
+    // Push the assigned technician on their PWA (best-effort).
+    if (input.technicianId) {
+      await this.notifyTechnicianAssigned(input.technicianId, {
+        clientName: lead.client_name,
+        bookingId: booking.id as string,
+        scheduledAt: input.scheduledAt,
+        slotLabel: input.slotLabel ?? null,
+      });
+    }
+
     return { booking, ...confirmation };
   }
 
@@ -189,13 +200,19 @@ export class BookingService {
 
     const { data: current } = await supabase
       .from("bookings")
-      .select("id, lead_id, booking_ref, slot_id")
+      .select("id, lead_id, booking_ref, slot_id, technician_id")
       .eq("id", bookingId)
       .eq("user_id", userId)
       .maybeSingle();
 
     if (!current) throw new Error("BOOKING_NOT_FOUND");
-    const cur = current as { id: string; lead_id: string; booking_ref: string; slot_id: string | null };
+    const cur = current as {
+      id: string;
+      lead_id: string;
+      booking_ref: string;
+      slot_id: string | null;
+      technician_id: string | null;
+    };
 
     const lead = await this.loadLead(supabase, userId, cur.lead_id);
 
@@ -258,10 +275,40 @@ export class BookingService {
     });
     const confirmation = await this.finalizeConfirmation(supabase, userId, lead, booking.id, fields);
 
+    // Notify the technician only when this update (re)assigns them to the job —
+    // not on every price/time edit to the same technician.
+    if (!cancelling && input.technicianId && input.technicianId !== cur.technician_id) {
+      await this.notifyTechnicianAssigned(input.technicianId, {
+        clientName: lead.client_name,
+        bookingId: cur.id,
+        scheduledAt: input.scheduledAt,
+        slotLabel: input.slotLabel ?? null,
+      });
+    }
+
     return { booking, ...confirmation };
   }
 
   // ── Shared helpers ─────────────────────────────────────────────────────────
+
+  /** Best-effort Web Push to the assigned technician's PWA. Never throws. */
+  private async notifyTechnicianAssigned(
+    technicianId: string,
+    params: { clientName: string; bookingId: string; scheduledAt: string; slotLabel: string | null }
+  ): Promise<void> {
+    try {
+      const dateLabel = formatBookingDate(params.scheduledAt);
+      const timeLabel = params.slotLabel?.trim() || formatBookingTime(params.scheduledAt);
+      await sendPushToTechnician(technicianId, {
+        title: "New installation assigned",
+        body: `${params.clientName} · ${dateLabel}, ${timeLabel}`,
+        url: `/tech/bookings/${params.bookingId}`,
+        tag: `booking-${params.bookingId}`,
+      });
+    } catch (err) {
+      console.error("tech assignment push failed", { technicianId, bookingId: params.bookingId, err });
+    }
+  }
 
   /** Claims a free availability slot for a booking (race-safe). Returns false if taken. */
   private async claimSlot(
