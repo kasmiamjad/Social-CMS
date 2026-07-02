@@ -475,28 +475,37 @@ export class InstagramEngagementAutoReplyService {
     conversationId: string,
     contact: { username: string | null; name: string | null; igId: string; preview: string }
   ): Promise<void> {
+    // Best real name we could resolve this time (null if Meta returned nothing).
+    const resolvedName =
+      contact.name?.trim() || (contact.username ? `@${contact.username}` : null);
+    const fallbackName = `Instagram ${contact.igId.slice(-6)}`;
+
     const { data: existing } = await supabase
       .from("leads")
-      .select("id")
+      .select("id, client_name")
       .eq("user_id", userId)
       .eq("instagram_conversation_id", conversationId)
       .limit(1)
-      .maybeSingle<{ id: string }>();
-    if (existing) return;
+      .maybeSingle<{ id: string; client_name: string | null }>();
+
+    if (existing) {
+      // Backfill the real name over the "Instagram <id>" fallback once Meta
+      // starts returning it (e.g. after Advanced Access is granted).
+      if (resolvedName && /^Instagram \S+$/.test(existing.client_name ?? "")) {
+        await supabase.from("leads").update({ client_name: resolvedName }).eq("id", existing.id);
+      }
+      return;
+    }
 
     const { data: nextNoData } = await supabase
       .rpc("next_lead_serial_no", { p_user_id: userId })
       .single<number>();
     const serial_no = typeof nextNoData === "number" ? nextNoData : 1;
 
-    const clientName =
-      contact.name?.trim() ||
-      (contact.username ? `@${contact.username}` : `Instagram ${contact.igId.slice(-6)}`);
-
     await supabase.from("leads").insert({
       user_id: userId,
       serial_no,
-      client_name: clientName,
+      client_name: resolvedName || fallbackName,
       status: "new",
       source: "instagram",
       instagram_conversation_id: conversationId,
