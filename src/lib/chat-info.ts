@@ -12,7 +12,7 @@ export function uniqueConversationIds(ids: Array<string | null>): string[] {
  */
 export async function buildChatInfo(
   admin: ReturnType<typeof createAdminClient>,
-  table: "whatsapp_messages" | "messenger_messages",
+  table: "whatsapp_messages" | "messenger_messages" | "instagram_dm_messages",
   conversationIds: string[]
 ): Promise<Map<string, { lastCustomerMsg: string | null; count: number }>> {
   const map = new Map<string, { lastCustomerMsg: string | null; count: number }>();

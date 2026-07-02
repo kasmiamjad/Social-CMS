@@ -44,7 +44,7 @@ export default async function LeadsPage() {
   const { data } = await admin
     .from("leads")
     .select(
-      "id, serial_no, client_code, client_name, client_phone, client_business_type, product_qty, product_model, installation_date, next_service_date, scope, installed_by, location_address, location_url, status, source, remarks, created_at, whatsapp_conversation_id, messenger_conversation_id"
+      "id, serial_no, client_code, client_name, client_phone, client_business_type, product_qty, product_model, installation_date, next_service_date, scope, installed_by, location_address, location_url, status, source, remarks, created_at, whatsapp_conversation_id, messenger_conversation_id, instagram_conversation_id"
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
@@ -54,15 +54,18 @@ export default async function LeadsPage() {
     LeadRow & {
       whatsapp_conversation_id: string | null;
       messenger_conversation_id: string | null;
+      instagram_conversation_id: string | null;
     }
   >;
 
   // Pull last-customer-message + total chat count for leads linked to a chat.
   const waIds = uniqueConversationIds(rawLeads.map((l) => l.whatsapp_conversation_id));
   const msgrIds = uniqueConversationIds(rawLeads.map((l) => l.messenger_conversation_id));
-  const [waChat, msgrChat] = await Promise.all([
+  const igIds = uniqueConversationIds(rawLeads.map((l) => l.instagram_conversation_id));
+  const [waChat, msgrChat, igChat] = await Promise.all([
     buildChatInfo(admin, "whatsapp_messages", waIds),
     buildChatInfo(admin, "messenger_messages", msgrIds),
+    buildChatInfo(admin, "instagram_dm_messages", igIds),
   ]);
 
   const leads: LeadRow[] = rawLeads.map((l) => {
@@ -70,7 +73,9 @@ export default async function LeadsPage() {
       ? waChat.get(l.whatsapp_conversation_id)
       : l.messenger_conversation_id
         ? msgrChat.get(l.messenger_conversation_id)
-        : undefined;
+        : l.instagram_conversation_id
+          ? igChat.get(l.instagram_conversation_id)
+          : undefined;
     return {
       ...l,
       last_customer_msg: chat?.lastCustomerMsg ?? null,
@@ -79,8 +84,11 @@ export default async function LeadsPage() {
         ? ("whatsapp" as const)
         : l.messenger_conversation_id
           ? ("messenger" as const)
-          : null,
-      chat_conversation_id: l.whatsapp_conversation_id ?? l.messenger_conversation_id ?? null,
+          : l.instagram_conversation_id
+            ? ("instagram" as const)
+            : null,
+      chat_conversation_id:
+        l.whatsapp_conversation_id ?? l.messenger_conversation_id ?? l.instagram_conversation_id ?? null,
       added_by: BOT_SOURCES.has(l.source) ? "AI Bot" : ownerName,
     };
   });
@@ -98,7 +106,7 @@ export default async function LeadsPage() {
   return (
     <div>
       {/* Realtime push — new leads/messages refresh the list instantly */}
-      <RealtimeRefresh tables={["leads", "whatsapp_messages", "messenger_messages"]} />
+      <RealtimeRefresh tables={["leads", "whatsapp_messages", "messenger_messages", "instagram_dm_messages"]} />
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { X, Send, Bot, MessageCircle, Loader2, AlertCircle } from "lucide-react";
 
 export interface ActiveChat {
-  channel: "whatsapp" | "messenger";
+  channel: "whatsapp" | "messenger" | "instagram";
   conversationId: string;
   name: string;
 }

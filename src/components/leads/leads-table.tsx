@@ -44,7 +44,7 @@ export interface LeadRow {
   /** Total messages in the linked chat (both directions). */
   chat_count?: number;
   /** Which channel the linked chat is on (for opening the chat drawer). */
-  chat_channel?: "whatsapp" | "messenger" | null;
+  chat_channel?: "whatsapp" | "messenger" | "instagram" | null;
   /** Linked conversation id (for opening the chat drawer). */
   chat_conversation_id?: string | null;
   /** Who added the lead — the user's name (manual) or "AI Bot". */
