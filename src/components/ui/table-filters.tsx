@@ -4,31 +4,27 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 
-const SOURCE_OPTIONS = [
-  { value: "", label: "All sources" },
-  { value: "whatsapp_ai", label: "WhatsApp" },
-  { value: "facebook", label: "Messenger" },
-  { value: "instagram", label: "Instagram" },
-  { value: "manual", label: "Manual" },
-];
+export interface FilterSelectConfig {
+  /** URL param this select drives (e.g. "source", "status", "warranty"). */
+  param: string;
+  ariaLabel: string;
+  options: { value: string; label: string }[];
+}
 
-const STATUS_OPTIONS = [
-  { value: "", label: "All open" },
-  { value: "new", label: "New" },
-  { value: "contacted", label: "Contacted" },
-  { value: "qualified", label: "Qualified" },
-  { value: "quoted", label: "Quoted" },
-];
+interface TableFiltersProps {
+  searchPlaceholder?: string;
+  selects?: FilterSelectConfig[];
+}
 
 const selectCls =
   "px-3 py-2 rounded-lg border border-border bg-surface-elevated text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20";
 
 /**
- * Search + source/status filters for the Leads list. Drives the server page via
- * URL params (?q, ?source, ?status); any change resets to page 1. Search is
- * debounced so it doesn't navigate on every keystroke.
+ * Generic search + dropdown filters for a server-paginated table. Drives the
+ * page via URL params (?q + each select's param); any change resets ?page.
+ * Search is debounced so it doesn't navigate on every keystroke.
  */
-export function LeadsFilters() {
+export function TableFilters({ searchPlaceholder = "Search…", selects = [] }: TableFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -52,9 +48,6 @@ export function LeadsFilters() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const source = params.get("source") ?? "";
-  const status = params.get("status") ?? "";
-
   return (
     <div className="flex flex-col sm:flex-row gap-3 mb-4">
       <div className="relative flex-1">
@@ -62,7 +55,7 @@ export function LeadsFilters() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search name or phone…"
+          placeholder={searchPlaceholder}
           className="w-full pl-9 pr-8 py-2 rounded-lg border border-border bg-surface-elevated text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
         {q && (
@@ -77,21 +70,21 @@ export function LeadsFilters() {
         )}
       </div>
 
-      <select value={source} onChange={(e) => setParam("source", e.target.value)} className={selectCls}>
-        {SOURCE_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-
-      <select value={status} onChange={(e) => setParam("status", e.target.value)} className={selectCls}>
-        {STATUS_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      {selects.map((sel) => (
+        <select
+          key={sel.param}
+          aria-label={sel.ariaLabel}
+          value={params.get(sel.param) ?? ""}
+          onChange={(e) => setParam(sel.param, e.target.value)}
+          className={selectCls}
+        >
+          {sel.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      ))}
     </div>
   );
 }

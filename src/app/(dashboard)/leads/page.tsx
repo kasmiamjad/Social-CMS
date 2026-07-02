@@ -4,8 +4,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LeadsTable, type LeadRow } from "@/components/leads/leads-table";
-import { LeadsFilters } from "@/components/leads/leads-filters";
-import { LeadsPagination } from "@/components/leads/leads-pagination";
+import { TableFilters } from "@/components/ui/table-filters";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { buildChatInfo, uniqueConversationIds } from "@/lib/chat-info";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { Plus } from "lucide-react";
@@ -161,11 +161,37 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
         <StatCard label="From WhatsApp" value={waRes.count ?? 0} />
       </div>
 
-      <LeadsFilters />
+      <TableFilters
+        searchPlaceholder="Search name or phone…"
+        selects={[
+          {
+            param: "source",
+            ariaLabel: "Source",
+            options: [
+              { value: "", label: "All sources" },
+              { value: "whatsapp_ai", label: "WhatsApp" },
+              { value: "facebook", label: "Messenger" },
+              { value: "instagram", label: "Instagram" },
+              { value: "manual", label: "Manual" },
+            ],
+          },
+          {
+            param: "status",
+            ariaLabel: "Status",
+            options: [
+              { value: "", label: "All open" },
+              { value: "new", label: "New" },
+              { value: "contacted", label: "Contacted" },
+              { value: "qualified", label: "Qualified" },
+              { value: "quoted", label: "Quoted" },
+            ],
+          },
+        ]}
+      />
 
       <LeadsTable leads={leads} />
 
-      <LeadsPagination page={page} totalPages={totalPages} total={totalMatching} />
+      <TablePagination page={page} totalPages={totalPages} total={totalMatching} noun="lead" />
     </div>
   );
 }

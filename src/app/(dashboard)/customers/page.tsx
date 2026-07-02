@@ -3,16 +3,26 @@ export const dynamic = "force-dynamic";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
+import { TableFilters } from "@/components/ui/table-filters";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { CustomersTable, type CustomerInstall, type InstallPhoto } from "@/components/customers/customers-table";
 
-/** Adds whole months to a date (keeps the same day-of-month where possible). */
+const PAGE_SIZE = 30;
+const SELECT_COLS =
+  "id, booking_ref, scheduled_at, completed_at, warranty_months, warranty_expires_at, product_snapshot, qty_snapshot, technician, completion_notes, tech_notes, on_the_way_at, arrived_at, lead:leads!inner(client_name, client_phone, location_address, location_url)";
+
+/** Adds whole months to a date (fallback for legacy rows with no completed_at). */
 function addMonths(iso: string, months: number): Date {
   const d = new Date(iso);
   d.setMonth(d.getMonth() + months);
   return d;
 }
 
-export default async function CustomersPage() {
+interface CustomersPageProps {
+  searchParams: Promise<{ page?: string; q?: string; warranty?: string }>;
+}
+
+export default async function CustomersPage({ searchParams }: CustomersPageProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -28,33 +38,65 @@ export default async function CustomersPage() {
   }
 
   const admin = createAdminClient();
-  const { data } = await admin
+  const nowIso = new Date().toISOString();
+
+  const sp = await searchParams;
+  const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
+  const q = (sp.q ?? "").trim();
+  const warranty = sp.warranty === "active" || sp.warranty === "expired" ? sp.warranty : "";
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  // Completed installs, optionally filtered by warranty state + name/phone search.
+  let query = admin
     .from("bookings")
-    .select(
-      "id, booking_ref, scheduled_at, completed_at, warranty_months, product_snapshot, qty_snapshot, technician, completion_notes, tech_notes, on_the_way_at, arrived_at, lead:leads(client_name, client_phone, location_address, location_url)"
-    )
+    .select(SELECT_COLS, { count: "exact" })
     .eq("user_id", user.id)
-    .eq("status", "completed")
+    .eq("status", "completed");
+
+  if (warranty === "active") query = query.gt("warranty_expires_at", nowIso);
+  else if (warranty === "expired") query = query.lte("warranty_expires_at", nowIso);
+  if (q) {
+    const safe = q.replace(/[,()%*]/g, " ").trim();
+    if (safe) query = query.or(`client_name.ilike.%${safe}%,client_phone.ilike.%${safe}%`, { referencedTable: "leads" });
+  }
+
+  const { data, count } = await query
     .order("completed_at", { ascending: false, nullsFirst: false })
-    .limit(500);
+    .range(from, to);
+
+  const totalMatching = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalMatching / PAGE_SIZE));
 
   type RawInstall = Omit<CustomerInstall, "warrantyExpiry" | "warrantyActive" | "installedAt" | "photos"> & {
     completed_at: string | null;
     scheduled_at: string;
     warranty_months: number;
+    warranty_expires_at: string | null;
   };
   const rows = (data ?? []) as unknown as RawInstall[];
 
-  // Photos for all listed installs, grouped by booking.
+  // ── Stat cards (across all completed installs) ──────────────────────────────
+  const [totalRes, activeRes] = await Promise.all([
+    admin.from("bookings").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "completed"),
+    admin
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("status", "completed")
+      .gt("warranty_expires_at", nowIso),
+  ]);
+  const totalInstalled = totalRes.count ?? 0;
+  const underWarranty = activeRes.count ?? 0;
+  const expired = Math.max(0, totalInstalled - underWarranty);
+
+  // Photos for this page's installs, grouped by booking.
   const photosByBooking = new Map<string, InstallPhoto[]>();
   if (rows.length > 0) {
     const { data: photoRows } = await admin
       .from("booking_photos")
       .select("id, booking_id, url, kind, caption")
-      .in(
-        "booking_id",
-        rows.map((r) => r.id)
-      )
+      .in("booking_id", rows.map((r) => r.id))
       .order("created_at", { ascending: true });
     for (const p of (photoRows ?? []) as (InstallPhoto & { booking_id: string })[]) {
       const list = photosByBooking.get(p.booking_id);
@@ -65,10 +107,10 @@ export default async function CustomersPage() {
 
   const now = Date.now();
   const installs: CustomerInstall[] = rows.map((r) => {
-    // Warranty runs from the actual install (completed_at); fall back to the
-    // scheduled date if a legacy row never stamped completion.
     const installedAt = r.completed_at ?? r.scheduled_at;
-    const expiry = addMonths(installedAt, r.warranty_months ?? 12);
+    const expiry = r.warranty_expires_at
+      ? new Date(r.warranty_expires_at)
+      : addMonths(installedAt, r.warranty_months ?? 12);
     return {
       id: r.id,
       booking_ref: r.booking_ref,
@@ -88,10 +130,6 @@ export default async function CustomersPage() {
     };
   });
 
-  const total = installs.length;
-  const underWarranty = installs.filter((i) => i.warrantyActive).length;
-  const expired = total - underWarranty;
-
   return (
     <div>
       <RealtimeRefresh tables={["bookings"]} />
@@ -105,12 +143,29 @@ export default async function CustomersPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <StatCard label="Installed" value={String(total)} />
+        <StatCard label="Installed" value={String(totalInstalled)} />
         <StatCard label="Under warranty" value={String(underWarranty)} hint="active cover" />
         <StatCard label="Warranty expired" value={String(expired)} />
       </div>
 
+      <TableFilters
+        searchPlaceholder="Search customer name or phone…"
+        selects={[
+          {
+            param: "warranty",
+            ariaLabel: "Warranty",
+            options: [
+              { value: "", label: "All warranty" },
+              { value: "active", label: "Under warranty" },
+              { value: "expired", label: "Expired" },
+            ],
+          },
+        ]}
+      />
+
       <CustomersTable installs={installs} />
+
+      <TablePagination page={page} totalPages={totalPages} total={totalMatching} noun="customer" />
     </div>
   );
 }

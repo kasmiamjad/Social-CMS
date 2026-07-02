@@ -4,17 +4,19 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-interface LeadsPaginationProps {
+interface TablePaginationProps {
   page: number;
   totalPages: number;
   total: number;
+  /** Noun for the count label, e.g. "lead", "booking", "customer". */
+  noun?: string;
 }
 
 /**
- * Prev/Next pagination for the Leads list. Preserves the current search/filter
- * params and only changes ?page. Hidden when everything fits on one page.
+ * Prev/Next pagination for a server-paginated table. Preserves the current
+ * search/filter params and only changes ?page. Hidden when nothing to show.
  */
-export function LeadsPagination({ page, totalPages, total }: LeadsPaginationProps) {
+export function TablePagination({ page, totalPages, total, noun = "result" }: TablePaginationProps) {
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -32,7 +34,8 @@ export function LeadsPagination({ page, totalPages, total }: LeadsPaginationProp
   return (
     <div className="flex items-center justify-between gap-3 mt-4">
       <span className="text-xs text-text-muted">
-        Page {Math.min(page, totalPages)} of {totalPages} · {total} lead{total === 1 ? "" : "s"}
+        Page {Math.min(page, totalPages)} of {totalPages} · {total} {noun}
+        {total === 1 ? "" : "s"}
       </span>
 
       {totalPages > 1 && (
