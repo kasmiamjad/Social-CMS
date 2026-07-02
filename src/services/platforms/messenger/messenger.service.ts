@@ -54,13 +54,23 @@ export class MessengerService {
    */
   async getUserProfile(psid: string): Promise<{ name: string | null } | null> {
     try {
-      const url = `${MESSENGER_GRAPH_BASE_URL}/${psid}?fields=name&access_token=${encodeURIComponent(
+      // The Messenger user-profile node exposes first_name/last_name — NOT a
+      // combined `name` field (requesting `name` errors and returns nothing).
+      const url = `${MESSENGER_GRAPH_BASE_URL}/${psid}?fields=first_name,last_name&access_token=${encodeURIComponent(
         this.credentials.page_access_token
       )}`;
       const res = await fetch(url);
-      if (!res.ok) return null;
-      const data = (await res.json()) as { name?: string };
-      return { name: data.name ?? null };
+      if (!res.ok) {
+        console.warn("Messenger getUserProfile failed", {
+          psid,
+          status: res.status,
+          body: await res.text().catch(() => ""),
+        });
+        return null;
+      }
+      const data = (await res.json()) as { first_name?: string; last_name?: string };
+      const name = [data.first_name, data.last_name].filter(Boolean).join(" ").trim();
+      return { name: name || null };
     } catch {
       return null;
     }
