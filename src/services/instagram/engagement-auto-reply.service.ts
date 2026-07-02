@@ -155,6 +155,19 @@ export class InstagramEngagementAutoReplyService {
       throw new Error(`Failed to persist inbound IG DM: ${inboundError?.message}`);
     }
 
+    // Surface this DM as a lead so all channels land in one Leads pipeline
+    // (mirrors WhatsApp/Messenger). Best-effort — never block the DM flow.
+    try {
+      await this.ensureLeadForDm(supabase, userId, conversation.id, {
+        username: profile.username ?? null,
+        name: profile.name ?? null,
+        igId: senderIgId,
+        preview: messagePreview,
+      });
+    } catch (err) {
+      console.error("IG DM ensureLead failed", { userId, conversationId: conversation.id, err });
+    }
+
     // Mark as seen (best-effort)
     try {
       await ig.markSeen(senderIgId);
@@ -441,6 +454,46 @@ export class InstagramEngagementAutoReplyService {
   }
 
   // ── Internal helpers ───────────────────────────────────────────────
+
+  /**
+   * Ensures an Instagram DM has a corresponding lead (created once per
+   * conversation), so it appears in the shared Leads pipeline alongside
+   * WhatsApp and Messenger. No-op if a lead already links this conversation.
+   */
+  private async ensureLeadForDm(
+    supabase: ReturnType<typeof createAdminClient>,
+    userId: string,
+    conversationId: string,
+    contact: { username: string | null; name: string | null; igId: string; preview: string }
+  ): Promise<void> {
+    const { data: existing } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("instagram_conversation_id", conversationId)
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+    if (existing) return;
+
+    const { data: nextNoData } = await supabase
+      .rpc("next_lead_serial_no", { p_user_id: userId })
+      .single<number>();
+    const serial_no = typeof nextNoData === "number" ? nextNoData : 1;
+
+    const clientName =
+      contact.name?.trim() ||
+      (contact.username ? `@${contact.username}` : `Instagram ${contact.igId.slice(-6)}`);
+
+    await supabase.from("leads").insert({
+      user_id: userId,
+      serial_no,
+      client_name: clientName,
+      status: "new",
+      source: "instagram",
+      instagram_conversation_id: conversationId,
+      remarks: contact.preview?.slice(0, 200) || null,
+    });
+  }
 
   private async getConfig(userId: string): Promise<IgAutomationConfigRow> {
     const supabase = createAdminClient();
