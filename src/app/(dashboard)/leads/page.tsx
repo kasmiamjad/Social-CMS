@@ -4,6 +4,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LeadsTable, type LeadRow } from "@/components/leads/leads-table";
+import { LeadsFilters } from "@/components/leads/leads-filters";
+import { LeadsPagination } from "@/components/leads/leads-pagination";
 import { buildChatInfo, uniqueConversationIds } from "@/lib/chat-info";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { Plus } from "lucide-react";
@@ -13,9 +15,18 @@ const BOT_SOURCES = new Set(["whatsapp_ai", "facebook", "instagram", "youtube"])
 
 /** Statuses still in the open pipeline — the only ones shown on the Leads list.
  * Scheduled/installed/in-service move to Bookings; won/lost drop out of the list. */
-const OPEN_STATUSES = new Set(["new", "contacted", "qualified", "quoted"]);
+const OPEN_STATUSES = ["new", "contacted", "qualified", "quoted"];
+const WON_STATUSES = ["won", "scheduled", "installed", "in_service"];
 
-export default async function LeadsPage() {
+const PAGE_SIZE = 30;
+const SELECT_COLS =
+  "id, serial_no, client_code, client_name, client_phone, client_business_type, product_qty, product_model, installation_date, next_service_date, scope, installed_by, location_address, location_url, status, source, remarks, created_at, whatsapp_conversation_id, messenger_conversation_id, instagram_conversation_id";
+
+interface LeadsPageProps {
+  searchParams: Promise<{ page?: string; q?: string; source?: string; status?: string }>;
+}
+
+export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -32,23 +43,43 @@ export default async function LeadsPage() {
 
   const admin = createAdminClient();
 
+  // ── Parse filters / page from the URL ──────────────────────────────────────
+  const sp = await searchParams;
+  const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
+  const q = (sp.q ?? "").trim();
+  const source = sp.source ?? "";
+  const status = sp.status && OPEN_STATUSES.includes(sp.status) ? sp.status : "";
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
   // The account owner's name, used as the "Added by" label for manual leads.
   const { data: profile } = await admin
     .from("profiles")
     .select("display_name")
     .eq("id", user.id)
     .maybeSingle<{ display_name: string | null }>();
-  const ownerName =
-    profile?.display_name?.trim() || user.email?.split("@")[0] || "Team";
+  const ownerName = profile?.display_name?.trim() || user.email?.split("@")[0] || "Team";
 
-  const { data } = await admin
+  // ── Filtered, paginated page of leads (+ total match count) ─────────────────
+  let query = admin
     .from("leads")
-    .select(
-      "id, serial_no, client_code, client_name, client_phone, client_business_type, product_qty, product_model, installation_date, next_service_date, scope, installed_by, location_address, location_url, status, source, remarks, created_at, whatsapp_conversation_id, messenger_conversation_id, instagram_conversation_id"
-    )
+    .select(SELECT_COLS, { count: "exact" })
     .eq("user_id", user.id)
+    .in("status", status ? [status] : OPEN_STATUSES);
+
+  if (source) query = query.eq("source", source);
+  if (q) {
+    // Strip characters that would break the PostgREST or() filter syntax.
+    const safe = q.replace(/[,()%*]/g, " ").trim();
+    if (safe) query = query.or(`client_name.ilike.%${safe}%,client_phone.ilike.%${safe}%`);
+  }
+
+  const { data, count } = await query
     .order("created_at", { ascending: false })
-    .limit(500);
+    .range(from, to);
+
+  const totalMatching = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalMatching / PAGE_SIZE));
 
   const rawLeads = (data ?? []) as Array<
     LeadRow & {
@@ -58,7 +89,15 @@ export default async function LeadsPage() {
     }
   >;
 
-  // Pull last-customer-message + total chat count for leads linked to a chat.
+  // ── Stat cards: counts across ALL leads, independent of the current filter ──
+  const [totalRes, openRes, wonRes, waRes] = await Promise.all([
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", OPEN_STATUSES),
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", WON_STATUSES),
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("source", "whatsapp_ai"),
+  ]);
+
+  // ── Last-customer-message + chat count for the current page's leads ─────────
   const waIds = uniqueConversationIds(rawLeads.map((l) => l.whatsapp_conversation_id));
   const msgrIds = uniqueConversationIds(rawLeads.map((l) => l.messenger_conversation_id));
   const igIds = uniqueConversationIds(rawLeads.map((l) => l.instagram_conversation_id));
@@ -93,19 +132,8 @@ export default async function LeadsPage() {
     };
   });
 
-  // Only open-pipeline leads appear in the list; the rest live on Bookings or
-  // are closed. Stats below are still computed from the full set.
-  const openLeads = leads.filter((l) => OPEN_STATUSES.has(l.status));
-
-  // Stats
-  const total = leads.length;
-  const won = leads.filter((l) => ["won", "scheduled", "installed", "in_service"].includes(l.status)).length;
-  const open = leads.filter((l) => ["new", "contacted", "qualified", "quoted"].includes(l.status)).length;
-  const fromWhatsApp = leads.filter((l) => l.source === "whatsapp_ai").length;
-
   return (
     <div>
-      {/* Realtime push — new leads/messages refresh the list instantly */}
       <RealtimeRefresh tables={["leads", "whatsapp_messages", "messenger_messages", "instagram_dm_messages"]} />
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
@@ -127,13 +155,17 @@ export default async function LeadsPage() {
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total" value={total} />
-        <StatCard label="Open" value={open} hint="new / contacted / qualified / quoted" />
-        <StatCard label="Won" value={won} hint="won / installed / in service" />
-        <StatCard label="From WhatsApp" value={fromWhatsApp} />
+        <StatCard label="Total" value={totalRes.count ?? 0} />
+        <StatCard label="Open" value={openRes.count ?? 0} hint="new / contacted / qualified / quoted" />
+        <StatCard label="Won" value={wonRes.count ?? 0} hint="won / installed / in service" />
+        <StatCard label="From WhatsApp" value={waRes.count ?? 0} />
       </div>
 
-      <LeadsTable leads={openLeads} />
+      <LeadsFilters />
+
+      <LeadsTable leads={leads} />
+
+      <LeadsPagination page={page} totalPages={totalPages} total={totalMatching} />
     </div>
   );
 }
@@ -147,4 +179,3 @@ function StatCard({ label, value, hint }: { label: string; value: number; hint?:
     </div>
   );
 }
-
