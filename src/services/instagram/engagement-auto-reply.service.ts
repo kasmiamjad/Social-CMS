@@ -76,17 +76,6 @@ export class InstagramEngagementAutoReplyService {
     const supabase = createAdminClient();
     const ig = new InstagramEngagementService(credentials);
 
-    // Skip echoes (messages WE sent that come back through webhook)
-    if (event.message?.is_echo) {
-      return {
-        conversationId: "",
-        inboundMessageId: null,
-        aiDecision: null,
-        outboundMessageId: null,
-        skippedReason: "outbound_echo",
-      };
-    }
-
     if (!event.message) {
       return {
         conversationId: "",
@@ -97,21 +86,29 @@ export class InstagramEngagementAutoReplyService {
       };
     }
 
-    const senderIgId = event.sender.id;
+    // An echo is a message WE sent — from this portal OR from Instagram's own
+    // inbox — coming back through the webhook. We store it as OUTBOUND (rather
+    // than dropping it) so the thread mirrors both sides. For an echo the
+    // "contact" is the recipient (the customer), not us.
+    const isEcho = Boolean(event.message.is_echo);
+    const contactIgId = isEcho ? event.recipient.id : event.sender.id;
 
-    // Try to look up the sender's profile (username, name) so the AI can address them.
-    const profile = await ig.fetchUserProfile(senderIgId);
+    // Profile lookup only for inbound (the customer); echoes reuse the existing
+    // conversation and must not overwrite the stored name with a blank.
+    const profile = isEcho
+      ? { username: null as string | null, name: null as string | null }
+      : await ig.fetchUserProfile(contactIgId);
 
-    // Upsert conversation
     const messagePreview = extractDmPreview(event.message);
     const { data: conversation, error: convError } = await supabase
       .from("instagram_dm_conversations")
       .upsert(
         {
           user_id: userId,
-          contact_ig_id: senderIgId,
-          contact_username: profile.username ?? null,
-          contact_name: profile.name ?? null,
+          contact_ig_id: contactIgId,
+          // Only set name/username when we actually have them — never null out.
+          ...(profile.username ? { contact_username: profile.username } : {}),
+          ...(profile.name ? { contact_name: profile.name } : {}),
           last_message_at: new Date(event.timestamp).toISOString(),
           last_message_preview: messagePreview.slice(0, 200),
         },
@@ -124,7 +121,8 @@ export class InstagramEngagementAutoReplyService {
       throw new Error(`Failed to upsert IG DM conversation: ${convError?.message}`);
     }
 
-    // Persist inbound message
+    // Persist the message (inbound customer msg, or outbound echo). Dedup on the
+    // unique ig_message_id — an echo of a portal-sent reply is skipped.
     const messageType = inferDmType(event.message);
     const { data: inbound, error: inboundError } = await supabase
       .from("instagram_dm_messages")
@@ -132,10 +130,10 @@ export class InstagramEngagementAutoReplyService {
         conversation_id: conversation.id,
         user_id: userId,
         ig_message_id: event.message.mid,
-        direction: "inbound",
+        direction: isEcho ? "outbound" : "inbound",
         message_type: messageType,
         body: messagePreview || null,
-        status: "received",
+        status: isEcho ? "sent" : "received",
         raw_payload: event,
         sent_at: new Date(event.timestamp).toISOString(),
       })
@@ -152,7 +150,18 @@ export class InstagramEngagementAutoReplyService {
           skippedReason: "duplicate_webhook",
         };
       }
-      throw new Error(`Failed to persist inbound IG DM: ${inboundError?.message}`);
+      throw new Error(`Failed to persist IG DM: ${inboundError?.message}`);
+    }
+
+    // Echoes stop here — they're our own outbound; no lead, no seen, no AI.
+    if (isEcho) {
+      return {
+        conversationId: conversation.id,
+        inboundMessageId: inbound.id,
+        aiDecision: null,
+        outboundMessageId: null,
+        skippedReason: "outbound_echo_stored",
+      };
     }
 
     // Surface this DM as a lead so all channels land in one Leads pipeline
@@ -161,7 +170,7 @@ export class InstagramEngagementAutoReplyService {
       await this.ensureLeadForDm(supabase, userId, conversation.id, {
         username: profile.username ?? null,
         name: profile.name ?? null,
-        igId: senderIgId,
+        igId: contactIgId,
         preview: messagePreview,
       });
     } catch (err) {
@@ -170,7 +179,7 @@ export class InstagramEngagementAutoReplyService {
 
     // Mark as seen (best-effort)
     try {
-      await ig.markSeen(senderIgId);
+      await ig.markSeen(contactIgId);
     } catch (err) {
       console.warn("Failed to mark IG DM seen", { mid: event.message.mid, err });
     }
