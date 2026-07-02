@@ -229,7 +229,7 @@ export class InstagramEngagementAutoReplyService {
     if (config.business_hours_enabled && !isWithinBusinessHours(config)) {
       if (config.out_of_hours_message?.trim()) {
         try {
-          const sent = await ig.sendTextDm(senderIgId, config.out_of_hours_message);
+          const sent = await ig.sendTextDm(contactIgId, config.out_of_hours_message);
           await this.persistOutboundDm(supabase, {
             conversationId: conversation.id,
             userId,
@@ -285,7 +285,7 @@ export class InstagramEngagementAutoReplyService {
 
     // Send the AI reply
     try {
-      const sent = await ig.sendTextDm(senderIgId, decision.reply);
+      const sent = await ig.sendTextDm(contactIgId, decision.reply);
       const outboundId = await this.persistOutboundDm(supabase, {
         conversationId: conversation.id,
         userId,
@@ -302,7 +302,7 @@ export class InstagramEngagementAutoReplyService {
       };
     } catch (err) {
       const reason = err instanceof InstagramEngagementApiError ? err.message : "send_failed";
-      console.error("Failed to send IG AI DM reply", { senderIgId, err });
+      console.error("Failed to send IG AI DM reply", { contactIgId, err });
       return {
         conversationId: conversation.id,
         inboundMessageId: inbound.id,
