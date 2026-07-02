@@ -128,7 +128,7 @@ function encodePNG(size, rgba) {
   return Buffer.concat([sig, chunk("IHDR", ihdr), chunk("IDAT", idat), chunk("IEND", Buffer.alloc(0))]);
 }
 
-function makeIcon(src, cov, size, pad) {
+function makeIcon(src, cov, size, pad, bg = BG) {
   const inner = size * pad;
   const scale = Math.max(src.width, src.height) / inner; // source px per output px
   const offX = (size - (src.width / scale)) / 2;
@@ -147,14 +147,16 @@ function makeIcon(src, cov, size, pad) {
       }
       c = Math.min(1, c / (ss * ss));
       const i = (y * size + x) * 4;
-      out[i] = Math.round(BG[0] * (1 - c) + FG[0] * c);
-      out[i + 1] = Math.round(BG[1] * (1 - c) + FG[1] * c);
-      out[i + 2] = Math.round(BG[2] * (1 - c) + FG[2] * c);
+      out[i] = Math.round(bg[0] * (1 - c) + FG[0] * c);
+      out[i + 1] = Math.round(bg[1] * (1 - c) + FG[1] * c);
+      out[i + 2] = Math.round(bg[2] * (1 - c) + FG[2] * c);
       out[i + 3] = 255;
     }
   }
   return out;
 }
+
+const NAVY = [0x08, 0x0c, 0x14]; // brand dark background
 
 const src = decodePNG(fs.readFileSync(path.join(process.cwd(), "brand-assets", "sada-mark.png")));
 const cov = buildCoverage(src);
@@ -162,13 +164,16 @@ const outDir = path.join(process.cwd(), "public", "icons");
 fs.mkdirSync(outDir, { recursive: true });
 
 const targets = [
-  ["icon-192.png", 192, 0.72],
-  ["icon-512.png", 512, 0.72],
-  ["icon-180.png", 180, 0.72],
-  ["maskable-512.png", 512, 0.58],
+  ["icon-192.png", 192, 0.72, BG],
+  ["icon-512.png", 512, 0.72, BG],
+  ["icon-180.png", 180, 0.72, BG],
+  ["maskable-512.png", 512, 0.58, BG],
+  // 1024px square icons for the Meta app-icon upload (sky-blue + dark variants).
+  ["app-icon-1024.png", 1024, 0.66, BG],
+  ["app-icon-dark-1024.png", 1024, 0.66, NAVY],
 ];
-for (const [file, size, pad] of targets) {
-  const png = encodePNG(size, makeIcon(src, cov, size, pad));
+for (const [file, size, pad, bg] of targets) {
+  const png = encodePNG(size, makeIcon(src, cov, size, pad, bg));
   fs.writeFileSync(path.join(outDir, file), png);
   console.log(`wrote public/icons/${file} (${size}x${size}, ${png.length} bytes)`);
 }
