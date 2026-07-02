@@ -191,14 +191,25 @@ export class MessengerAutoReplyService {
     preview: string
   ): Promise<void> {
     const supabase = createAdminClient();
+    const resolvedName = contactName?.trim() || null;
+    const fallbackName = `Messenger ${psid.slice(-6)}`;
+
     const { data: existing } = await supabase
       .from("leads")
-      .select("id")
+      .select("id, client_name")
       .eq("user_id", userId)
       .eq("messenger_conversation_id", conversationId)
       .limit(1)
-      .maybeSingle<{ id: string }>();
-    if (existing) return;
+      .maybeSingle<{ id: string; client_name: string | null }>();
+
+    if (existing) {
+      // Backfill the real name over the "Messenger <id>" fallback once the
+      // profile lookup resolves it (e.g. after Advanced Access is granted).
+      if (resolvedName && /^Messenger \S+$/.test(existing.client_name ?? "")) {
+        await supabase.from("leads").update({ client_name: resolvedName }).eq("id", existing.id);
+      }
+      return;
+    }
 
     const { data: nextNoData } = await supabase
       .rpc("next_lead_serial_no", { p_user_id: userId })
@@ -208,7 +219,7 @@ export class MessengerAutoReplyService {
     await supabase.from("leads").insert({
       user_id: userId,
       serial_no,
-      client_name: contactName?.trim() || `Messenger ${psid.slice(-6)}`,
+      client_name: resolvedName || fallbackName,
       status: "new",
       source: "facebook",
       messenger_conversation_id: conversationId,
