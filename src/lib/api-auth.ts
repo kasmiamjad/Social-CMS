@@ -20,7 +20,17 @@ export async function resolveUserId(request: NextRequest): Promise<string | null
   const supabase = await createClient();
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+
+  if (error) {
+    console.error("[resolveUserId] getUser() rejected the session cookie:", {
+      name: error.name,
+      message: error.message,
+      status: error.status,
+      code: (error as { code?: string }).code,
+    });
+  }
 
   return user?.id ?? null;
 }
