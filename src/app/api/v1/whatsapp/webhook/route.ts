@@ -4,6 +4,7 @@ import { WhatsAppService } from "@/services/platforms/whatsapp/whatsapp.service"
 import { WhatsAppAutoReplyService } from "@/services/whatsapp/auto-reply.service";
 import type {
   WhatsAppCredentials,
+  WhatsAppStatusUpdate,
   WhatsAppWebhookPayload,
 } from "@/services/platforms/whatsapp/whatsapp.types";
 
@@ -111,7 +112,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         continue;
       }
 
-      // 4. Process each incoming message (skip status updates for now)
+      // 4. Process delivery/read/failed status updates for messages we sent.
+      const statuses = value.statuses ?? [];
+      if (statuses.length > 0) {
+        await processStatusUpdates(credsRow.user_id, statuses);
+      }
+
+      // 5. Process each incoming message.
       const messages = value.messages ?? [];
       const contacts = value.contacts ?? [];
       const autoReply = new WhatsAppAutoReplyService();
@@ -138,6 +145,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   return new NextResponse("OK", { status: 200 });
+}
+
+/**
+ * Logs each status update and persists it onto the matching outbound message
+ * row so delivery failures (e.g. "failed" with a Meta error) are visible
+ * instead of silently dropped.
+ */
+async function processStatusUpdates(
+  userId: string,
+  statuses: WhatsAppStatusUpdate[]
+): Promise<void> {
+  const supabase = createAdminClient();
+
+  for (const status of statuses) {
+    if (status.status === "failed") {
+      console.error("[whatsapp/webhook] Message delivery FAILED", {
+        userId,
+        waMessageId: status.id,
+        recipient: status.recipient_id,
+        errors: status.errors,
+      });
+    } else {
+      console.log("[whatsapp/webhook] Message status update", {
+        userId,
+        waMessageId: status.id,
+        status: status.status,
+      });
+    }
+
+    const { error } = await supabase
+      .from("whatsapp_messages")
+      .update({ status: status.status })
+      .eq("wa_message_id", status.id)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("[whatsapp/webhook] Failed to persist status update", {
+        userId,
+        waMessageId: status.id,
+        error,
+      });
+    }
+  }
 }
 
 async function lookupCredentialsByPhoneNumberId(
