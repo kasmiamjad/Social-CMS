@@ -103,8 +103,16 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     if (err instanceof WhatsAppApiError) {
+      console.error("[whatsapp/send] Meta API rejected the send", {
+        userId,
+        to: parsed.to,
+        statusCode: err.statusCode,
+        message: err.message,
+        apiError: err.apiError,
+      });
       return apiError("WHATSAPP_API_ERROR", err.message, err.statusCode, err.apiError);
     }
+    console.error("[whatsapp/send] Unexpected failure", { userId, to: parsed.to, err });
     return apiError(
       "UNEXPECTED_ERROR",
       err instanceof Error ? err.message : "Unknown error",

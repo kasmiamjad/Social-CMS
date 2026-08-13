@@ -127,8 +127,21 @@ export async function POST(
     return apiSuccess({ message });
   } catch (err) {
     if (err instanceof WhatsAppApiError) {
+      console.error("[whatsapp/conversations/messages] Meta API rejected the send", {
+        userId,
+        conversationId,
+        to: conv.contact_phone,
+        statusCode: err.statusCode,
+        message: err.message,
+        apiError: err.apiError,
+      });
       return apiError("WHATSAPP_API_ERROR", err.message, err.statusCode, err.apiError);
     }
+    console.error("[whatsapp/conversations/messages] Unexpected failure", {
+      userId,
+      conversationId,
+      err,
+    });
     return apiError("SEND_FAILED", err instanceof Error ? err.message : "Send failed", 500);
   }
 }

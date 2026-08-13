@@ -11,6 +11,12 @@ export interface ActiveChat {
   name: string;
 }
 
+interface SendError {
+  code?: string;
+  message: string;
+  details?: unknown;
+}
+
 interface ChatMessage {
   id: string;
   direction: "inbound" | "outbound";
@@ -38,7 +44,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
   const [contact, setContact] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SendError | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -90,13 +96,17 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setError(json.error?.message ?? "Failed to send");
+        setError({
+          code: json.error?.code,
+          message: json.error?.message ?? `Failed to send (HTTP ${res.status})`,
+          details: json.error?.details,
+        });
         return;
       }
       setReply("");
       if (json.data.message) setMessages((prev) => [...prev, json.data.message]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
+      setError({ message: err instanceof Error ? err.message : "Network error" });
     } finally {
       setSending(false);
     }
@@ -150,9 +160,21 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
         {/* Reply */}
         <div className="border-t border-border p-3 shrink-0">
           {error && (
-            <div className="flex items-start gap-1.5 text-xs text-error mb-2">
-              <AlertCircle size={13} strokeWidth={1.8} className="mt-0.5 shrink-0" />
-              <span>{error}</span>
+            <div className="mb-2 text-xs text-error">
+              <div className="flex items-start gap-1.5">
+                <AlertCircle size={13} strokeWidth={1.8} className="mt-0.5 shrink-0" />
+                <span>
+                  {error.code && <span className="font-mono">[{error.code}]</span>} {error.message}
+                </span>
+              </div>
+              {error.details !== undefined && (
+                <details className="mt-1 ml-[18px]">
+                  <summary className="cursor-pointer text-text-muted">Show raw error details</summary>
+                  <pre className="mt-1 max-w-full overflow-x-auto rounded-md bg-surface border border-border p-2 text-[10px] text-text-muted whitespace-pre-wrap break-words">
+                    {JSON.stringify(error.details, null, 2)}
+                  </pre>
+                </details>
+              )}
             </div>
           )}
           <div className="flex items-end gap-2">

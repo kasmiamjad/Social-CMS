@@ -8,6 +8,12 @@ interface ManualReplyInputProps {
   contactPhone: string;
 }
 
+interface SendError {
+  code?: string;
+  message: string;
+  details?: unknown;
+}
+
 /**
  * Client-side reply input box. Sends a free-form WhatsApp text message via
  * /api/v1/whatsapp/send and then refreshes the thread server data so the new
@@ -20,7 +26,7 @@ interface ManualReplyInputProps {
 export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SendError | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
 
@@ -51,8 +57,11 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        const msg = json.error?.message ?? "Failed to send";
-        setError(msg);
+        setError({
+          code: json.error?.code,
+          message: json.error?.message ?? `Failed to send (HTTP ${res.status})`,
+          details: json.error?.details,
+        });
         return;
       }
 
@@ -60,7 +69,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
       // Re-fetch server data so the new outbound message appears in the thread.
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
+      setError({ message: err instanceof Error ? err.message : "Network error" });
     } finally {
       setSending(false);
     }
@@ -77,9 +86,21 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
   return (
     <div className="mt-6 pt-4 border-t border-border">
       {error && (
-        <div className="mb-2 flex items-start gap-1.5 text-xs text-error">
-          <AlertCircle size={12} strokeWidth={2} className="mt-0.5 shrink-0" />
-          <span>{error}</span>
+        <div className="mb-2 text-xs text-error">
+          <div className="flex items-start gap-1.5">
+            <AlertCircle size={12} strokeWidth={2} className="mt-0.5 shrink-0" />
+            <span>
+              {error.code && <span className="font-mono">[{error.code}]</span>} {error.message}
+            </span>
+          </div>
+          {error.details !== undefined && (
+            <details className="mt-1 ml-[18px]">
+              <summary className="cursor-pointer text-text-muted">Show raw error details</summary>
+              <pre className="mt-1 max-w-full overflow-x-auto rounded-md bg-surface border border-border p-2 text-[10px] text-text-muted whitespace-pre-wrap break-words">
+                {JSON.stringify(error.details, null, 2)}
+              </pre>
+            </details>
+          )}
         </div>
       )}
 
