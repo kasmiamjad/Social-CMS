@@ -90,6 +90,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const signatureHeader = request.headers.get("x-hub-signature-256");
 
+  console.log("[whatsapp/webhook] Received event", {
+    entries: payload.entry?.length ?? 0,
+    changes: payload.entry?.flatMap((e) => e.changes ?? []).length ?? 0,
+  });
+
   // Process each entry/change
   for (const entry of payload.entry ?? []) {
     for (const change of entry.changes ?? []) {
@@ -97,6 +102,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const value = change.value;
       const phoneNumberId = value?.metadata?.phone_number_id;
       if (!phoneNumberId) continue;
+
+      console.log("[whatsapp/webhook] Change payload", {
+        phoneNumberId,
+        messageCount: value.messages?.length ?? 0,
+        statusCount: value.statuses?.length ?? 0,
+        fromNumbers: value.messages?.map((m) => m.from),
+      });
 
       // 2. Look up user via phone_number_id
       const credsRow = await lookupCredentialsByPhoneNumberId(phoneNumberId);
@@ -108,7 +120,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // 3. Verify signature using THIS user's app_secret
       const wa = new WhatsAppService(credsRow.credentials);
       if (!wa.verifyWebhookSignature(rawBody, signatureHeader)) {
-        console.warn("WhatsApp webhook: invalid signature for user", credsRow.user_id);
+        console.warn("WhatsApp webhook: invalid signature for user", credsRow.user_id, {
+          phoneNumberId,
+          userId: credsRow.user_id,
+        });
         continue;
       }
 
@@ -132,6 +147,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             contact,
             message
           );
+          console.log("[whatsapp/webhook] Inbound message processed OK", {
+            userId: credsRow.user_id,
+            from: message.from,
+            messageId: message.id,
+          });
         } catch (err) {
           console.error("WhatsApp webhook: processIncomingMessage failed", {
             userId: credsRow.user_id,
