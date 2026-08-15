@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateOpenRouterJsonResponse } from "@/lib/openrouter";
+import { uploadMediaBuffer } from "@/services/media.service";
 import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import {
   DEFAULT_WHATSAPP_SIGNATURE_SUFFIX,
@@ -120,6 +121,7 @@ export class WhatsAppAutoReplyService {
     }
 
     // 2. Persist inbound message
+    const mediaUrl = await downloadInboundMedia(wa, userId, message);
     const { data: inbound, error: inboundError } = await supabase
       .from("whatsapp_messages")
       .insert({
@@ -129,6 +131,7 @@ export class WhatsAppAutoReplyService {
         direction: "inbound",
         message_type: message.type,
         body: messagePreview || null,
+        media_url: mediaUrl,
         status: "received",
         raw_payload: message,
         sent_at: new Date(Number(message.timestamp) * 1000).toISOString(),
@@ -1133,6 +1136,41 @@ function fmtSlotTime(t: string): string {
 /** "12:00 PM–1:00 PM, 2:00 PM–3:00 PM" for a list of slots. */
 function formatSlotList(slots: Array<{ start_time: string; end_time: string }>): string {
   return slots.map((s) => `${fmtSlotTime(s.start_time)}–${fmtSlotTime(s.end_time)}`).join(", ");
+}
+
+/**
+ * Downloads and re-hosts an inbound image/sticker/video/audio/document so it
+ * can be displayed in the CRM — Meta's own media URLs expire within minutes.
+ * Returns null (never throws) for text/location/interactive messages, or if
+ * the download fails, so a media hiccup never blocks the rest of the pipeline.
+ */
+async function downloadInboundMedia(
+  wa: WhatsAppService,
+  userId: string,
+  message: WhatsAppIncomingMessage
+): Promise<string | null> {
+  const mediaId =
+    message.image?.id ??
+    message.sticker?.id ??
+    message.video?.id ??
+    message.audio?.id ??
+    message.document?.id ??
+    null;
+  if (!mediaId) return null;
+
+  try {
+    const { buffer, contentType } = await wa.downloadMedia(mediaId);
+    const { url } = await uploadMediaBuffer(userId, "whatsapp-inbound", buffer, contentType);
+    return url;
+  } catch (err) {
+    console.error("Failed to download/store inbound WhatsApp media", {
+      userId,
+      messageType: message.type,
+      mediaId,
+      err,
+    });
+    return null;
+  }
 }
 
 function extractMessagePreview(message: WhatsAppIncomingMessage): string {

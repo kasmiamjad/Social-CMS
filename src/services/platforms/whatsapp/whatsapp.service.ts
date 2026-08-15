@@ -197,6 +197,26 @@ export class WhatsAppService {
     return data.url;
   }
 
+  /**
+   * Downloads the raw bytes of an inbound media message (image, sticker,
+   * video, audio, document). Meta's media URLs expire within minutes and
+   * require the same Bearer token as the Graph API itself, so this must be
+   * called promptly after receiving the webhook and the bytes re-hosted
+   * (e.g. to Supabase Storage) if you want to keep them.
+   */
+  async downloadMedia(mediaId: string): Promise<{ buffer: Buffer; contentType: string }> {
+    const mediaUrl = await this.getMediaUrl(mediaId);
+    const res = await fetch(mediaUrl, {
+      headers: { Authorization: `Bearer ${this.credentials.access_token}` },
+    });
+    if (!res.ok) {
+      throw new WhatsAppApiError(`Failed to download media (HTTP ${res.status})`, res.status);
+    }
+    const contentType = res.headers.get("content-type") ?? "application/octet-stream";
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return { buffer, contentType };
+  }
+
   // ── Internal Graph API helper ────────────────────────────────────────────
 
   private async graphPost<T>(path: string, payload: unknown): Promise<T> {

@@ -38,7 +38,7 @@ export async function GET(
 
   const { data: messages } = await supabase
     .from("whatsapp_messages")
-    .select("id, direction, message_type, body, ai_generated, status, sent_at, created_at")
+    .select("id, direction, message_type, body, media_url, ai_generated, status, sent_at, created_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
     .limit(500);
@@ -113,7 +113,7 @@ export async function POST(
         ai_generated: false,
         sent_at: new Date().toISOString(),
       })
-      .select("id, direction, message_type, body, ai_generated, status, sent_at, created_at")
+      .select("id, direction, message_type, body, media_url, ai_generated, status, sent_at, created_at")
       .single();
 
     await supabase

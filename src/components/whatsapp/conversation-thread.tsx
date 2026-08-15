@@ -108,31 +108,19 @@ function MessageBubble({ message }: { message: WhatsAppMessageRow }) {
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-[75%] ${isOutbound ? "items-end" : "items-start"} flex flex-col gap-1`}>
         <div
-          className={`rounded-2xl px-4 py-2.5 ${
+          className={`rounded-2xl overflow-hidden ${
+            message.media_url ? "p-1.5" : "px-4 py-2.5"
+          } ${
             isOutbound
               ? "bg-primary text-white rounded-br-sm"
               : "bg-surface-elevated border border-border text-foreground rounded-bl-sm"
           }`}
         >
-          {message.body ? (
-            <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
-          ) : (
-            <p className="text-sm italic opacity-70">
-              {message.message_type === "image"
-                ? "📷 Image"
-                : message.message_type === "video"
-                ? "🎥 Video"
-                : message.message_type === "audio"
-                ? "🎙️ Audio"
-                : message.message_type === "document"
-                ? "📎 Document"
-                : message.message_type === "sticker"
-                ? "🎨 Sticker"
-                : message.message_type === "location"
-                ? "📍 Location"
-                : "(media)"}
-            </p>
-          )}
+          <MediaContent message={message} />
+          {message.body &&
+            !["image", "sticker", "video", "audio", "document"].includes(message.message_type) && (
+              <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
+            )}
         </div>
         <div
           className={`flex items-center gap-2 text-[10px] text-text-muted px-1 ${
@@ -153,6 +141,70 @@ function MessageBubble({ message }: { message: WhatsAppMessageRow }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Renders the actual media for image/sticker/video/audio/document messages.
+ * Falls back to a text placeholder if the media couldn't be downloaded and
+ * re-hosted (media_url is null) — e.g. a transient fetch failure.
+ */
+function MediaContent({ message }: { message: WhatsAppMessageRow }) {
+  const { message_type, media_url, body } = message;
+
+  if (media_url) {
+    switch (message_type) {
+      case "image":
+      case "sticker":
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={media_url}
+            alt={body || message_type}
+            className="max-w-full max-h-72 rounded-xl object-contain"
+          />
+        );
+      case "video":
+        return (
+          <video controls className="max-w-full max-h-72 rounded-xl">
+            <source src={media_url} />
+          </video>
+        );
+      case "audio":
+        return <audio controls src={media_url} className="max-w-full" />;
+      case "document":
+        return (
+          <a
+            href={media_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-2 py-1.5 text-sm underline underline-offset-2"
+          >
+            📎 {body?.replace(/^📎 /, "") || "Document"}
+          </a>
+        );
+    }
+  }
+
+  // No media_url yet (download failed, or a non-media type) — text placeholder.
+  if (["image", "video", "audio", "document", "sticker"].includes(message_type)) {
+    const label =
+      message_type === "image"
+        ? "📷 Image"
+        : message_type === "video"
+        ? "🎥 Video"
+        : message_type === "audio"
+        ? "🎙️ Audio"
+        : message_type === "document"
+        ? "📎 Document"
+        : "🎨 Sticker";
+    return <p className="text-sm italic opacity-70">{body || label}</p>;
+  }
+
+  if (message_type === "location") {
+    return <p className="text-sm italic opacity-70">{body || "📍 Location"}</p>;
+  }
+
+  return null;
 }
 
 function formatTime(iso: string): string {

@@ -54,3 +54,48 @@ export async function uploadMedia(
 
   return { url: publicUrl, path };
 }
+
+const CONTENT_TYPE_TO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "video/mp4": "mp4",
+  "video/3gpp": "3gp",
+  "audio/ogg": "ogg",
+  "audio/opus": "opus",
+  "audio/mpeg": "mp3",
+  "audio/aac": "aac",
+  "application/pdf": "pdf",
+};
+
+/**
+ * Re-hosts a media buffer (e.g. downloaded from an inbound WhatsApp/Messenger
+ * media message) into Supabase Storage and returns its permanent public URL.
+ *
+ * Unlike `uploadMedia`, this accepts any content type — it's for archiving
+ * whatever a customer sent us, not validating an outbound post's media.
+ */
+export async function uploadMediaBuffer(
+  userId: string,
+  subfolder: string,
+  buffer: Buffer,
+  contentType: string
+): Promise<{ url: string; path: string }> {
+  const supabase = createAdminClient();
+  const ext = CONTENT_TYPE_TO_EXT[contentType] ?? "bin";
+  const path = `${userId}/${subfolder}/${Date.now()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(POST_MEDIA_BUCKET)
+    .upload(path, buffer, { contentType, upsert: false });
+
+  if (error) {
+    throw new MediaUploadError(`Upload failed: ${error.message}`);
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(POST_MEDIA_BUCKET).getPublicUrl(path);
+
+  return { url: publicUrl, path };
+}

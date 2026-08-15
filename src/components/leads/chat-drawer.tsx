@@ -22,6 +22,7 @@ interface ChatMessage {
   direction: "inbound" | "outbound";
   message_type: string;
   body: string | null;
+  media_url?: string | null;
   ai_generated: boolean;
   status: string;
   sent_at: string | null;
@@ -208,17 +209,13 @@ function Bubble({ message }: { message: ChatMessage }) {
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-[80%] flex flex-col gap-1 ${isOutbound ? "items-end" : "items-start"}`}>
         <div
-          className={`rounded-2xl px-3.5 py-2 ${
+          className={`rounded-2xl overflow-hidden ${message.media_url ? "p-1.5" : "px-3.5 py-2"} ${
             isOutbound
               ? "bg-primary text-white rounded-br-sm"
               : "bg-surface border border-border text-foreground rounded-bl-sm"
           }`}
         >
-          {message.body ? (
-            <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
-          ) : (
-            <p className="text-sm italic opacity-70">({message.message_type})</p>
-          )}
+          <ChatMediaContent message={message} />
         </div>
         <div className={`flex items-center gap-1.5 text-[10px] text-text-muted px-1 ${isOutbound ? "flex-row-reverse" : ""}`}>
           <span>{formatTime(timestamp)}</span>
@@ -231,6 +228,57 @@ function Bubble({ message }: { message: ChatMessage }) {
         </div>
       </div>
     </div>
+  );
+}
+
+const MEDIA_TYPES = ["image", "sticker", "video", "audio", "document"];
+
+/** Same media-rendering logic as the main WhatsApp thread, adapted for this drawer's ChatMessage shape. */
+function ChatMediaContent({ message }: { message: ChatMessage }) {
+  const { message_type, media_url, body } = message;
+
+  if (media_url) {
+    switch (message_type) {
+      case "image":
+      case "sticker":
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={media_url}
+            alt={body || message_type}
+            className="max-w-full max-h-64 rounded-xl object-contain"
+          />
+        );
+      case "video":
+        return (
+          <video controls className="max-w-full max-h-64 rounded-xl">
+            <source src={media_url} />
+          </video>
+        );
+      case "audio":
+        return <audio controls src={media_url} className="max-w-full" />;
+      case "document":
+        return (
+          <a
+            href={media_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-2 py-1.5 text-sm underline underline-offset-2"
+          >
+            📎 {body?.replace(/^📎 /, "") || "Document"}
+          </a>
+        );
+    }
+  }
+
+  if (MEDIA_TYPES.includes(message_type)) {
+    return <p className="text-sm italic opacity-70">{body || `(${message_type})`}</p>;
+  }
+
+  return message.body ? (
+    <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
+  ) : (
+    <p className="text-sm italic opacity-70">({message_type})</p>
   );
 }
 
