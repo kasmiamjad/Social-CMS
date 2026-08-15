@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Loader2, AlertCircle } from "lucide-react";
+import { Send, Loader2, AlertCircle, Paperclip } from "lucide-react";
+
+const ATTACHMENT_ACCEPT =
+  "image/jpeg,image/png,audio/aac,audio/mp4,audio/mpeg,audio/amr,audio/ogg";
 
 interface ManualReplyInputProps {
   contactPhone: string;
@@ -28,6 +31,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<SendError | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   // Auto-resize textarea as user types (up to a max height).
@@ -83,6 +87,46 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
     }
   }
 
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file || sending) return;
+
+    setSending(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("to", contactPhone);
+      formData.append("file", file);
+      if (file.type.startsWith("image/") && text.trim()) {
+        formData.append("caption", text.trim());
+      }
+
+      const res = await fetch("/api/v1/whatsapp/send-media", {
+        method: "POST",
+        body: formData,
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        setError({
+          code: json.error?.code,
+          message: json.error?.message ?? `Failed to send (HTTP ${res.status})`,
+          details: json.error?.details,
+        });
+        return;
+      }
+
+      setText("");
+      router.refresh();
+    } catch (err) {
+      setError({ message: err instanceof Error ? err.message : "Network error" });
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div className="mt-6 pt-4 border-t border-border">
       {error && (
@@ -105,6 +149,22 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
       )}
 
       <div className="flex items-end gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ATTACHMENT_ACCEPT}
+          onChange={handleFileSelected}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sending}
+          className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-border text-text-muted hover:text-foreground hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
+          title="Attach image or voice clip"
+        >
+          <Paperclip size={16} strokeWidth={1.8} />
+        </button>
         <textarea
           ref={textareaRef}
           value={text}
@@ -137,6 +197,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
       <p className="mt-1.5 text-[10px] text-text-muted">
         Free-form messages work only within the 24-hour customer service window.
         Outside that window, only pre-approved templates will deliver.
+        Attachments: JPEG/PNG images, AAC/MP4/MP3/AMR/OGG audio — max 16MB.
       </p>
     </div>
   );

@@ -86,6 +86,32 @@ export class WhatsAppService {
   }
 
   /**
+   * Sends a voice/audio clip to a customer by public URL.
+   * The URL must be publicly accessible over HTTPS — Meta fetches it directly.
+   */
+  async sendAudioMessage(toPhone: string, audioUrl: string): Promise<WhatsAppSendTextResult> {
+    const normalizedPhone = normalizePhoneNumber(toPhone);
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: normalizedPhone,
+      type: "audio",
+      audio: { link: audioUrl },
+    };
+
+    const res = await this.graphPost<WhatsAppSendApiResponse>(
+      `/${this.credentials.phone_number_id}/messages`,
+      payload
+    );
+
+    const messageId = res.messages?.[0]?.id;
+    if (!messageId) {
+      throw new WhatsAppApiError("WhatsApp audio send returned no message ID", 500, res);
+    }
+    return { messageId };
+  }
+
+  /**
    * Sends a pre-approved template message.
    * Required for outbound messages outside the 24-hour window.
    */

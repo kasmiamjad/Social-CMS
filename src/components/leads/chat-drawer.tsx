@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Send, Bot, MessageCircle, Loader2, AlertCircle } from "lucide-react";
+import { X, Send, Bot, MessageCircle, Loader2, AlertCircle, Paperclip } from "lucide-react";
+
+const ATTACHMENT_ACCEPT =
+  "image/jpeg,image/png,audio/aac,audio/mp4,audio/mpeg,audio/amr,audio/ogg";
 
 export interface ActiveChat {
   channel: "whatsapp" | "messenger" | "instagram";
@@ -47,6 +50,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<SendError | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -94,6 +98,42 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: text }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError({
+          code: json.error?.code,
+          message: json.error?.message ?? `Failed to send (HTTP ${res.status})`,
+          details: json.error?.details,
+        });
+        return;
+      }
+      setReply("");
+      if (json.data.message) setMessages((prev) => [...prev, json.data.message]);
+    } catch (err) {
+      setError({ message: err instanceof Error ? err.message : "Network error" });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || sending) return;
+
+    setSending(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (file.type.startsWith("image/") && reply.trim()) {
+        formData.append("caption", reply.trim());
+      }
+
+      const res = await fetch(`/api/v1/whatsapp/conversations/${chat.conversationId}/media`, {
+        method: "POST",
+        body: formData,
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -179,6 +219,26 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
             </div>
           )}
           <div className="flex items-end gap-2">
+            {chat.channel === "whatsapp" && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ATTACHMENT_ACCEPT}
+                  onChange={handleFileSelected}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={sending}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border text-text-muted hover:text-foreground hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
+                  title="Attach image or voice clip"
+                >
+                  <Paperclip size={15} strokeWidth={1.8} />
+                </button>
+              </>
+            )}
             <textarea
               value={reply}
               onChange={(e) => setReply(e.target.value)}

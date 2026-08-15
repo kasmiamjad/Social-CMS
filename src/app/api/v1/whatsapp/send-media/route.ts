@@ -1,0 +1,128 @@
+import { type NextRequest } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveUserId } from "@/lib/api-auth";
+import { apiError, apiSuccess } from "@/lib/api-response";
+import { uploadMediaBuffer } from "@/services/media.service";
+import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
+import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
+
+interface PlatformCredentialsRow {
+  credentials: WhatsAppCredentials;
+}
+
+const IMAGE_TYPES = ["image/jpeg", "image/png"];
+const AUDIO_TYPES = ["audio/aac", "audio/mp4", "audio/mpeg", "audio/amr", "audio/ogg"];
+const MAX_BYTES = 16 * 1024 * 1024;
+
+/**
+ * POST /api/v1/whatsapp/send-media
+ *
+ * Manually send an image or voice clip to a contact from the main WhatsApp
+ * tab. multipart/form-data body: to, file, caption? (images only).
+ * NOTE: Only allowed inside the 24-hour customer service window.
+ */
+export async function POST(request: NextRequest) {
+  const userId = await resolveUserId(request);
+  if (!userId) {
+    return apiError("UNAUTHORIZED", "Authentication required", 401);
+  }
+
+  const form = await request.formData();
+  const to = form.get("to");
+  const file = form.get("file");
+  const caption = form.get("caption");
+
+  if (typeof to !== "string" || !/^\+?\d{8,20}$/.test(to)) {
+    return apiError("INVALID_REQUEST", "Missing or invalid 'to' phone number", 400);
+  }
+  if (!(file instanceof File)) {
+    return apiError("INVALID_REQUEST", "Missing 'file'", 400);
+  }
+  if (file.size > MAX_BYTES) {
+    return apiError("INVALID_REQUEST", `File too large: max ${MAX_BYTES / 1024 / 1024}MB`, 400);
+  }
+
+  const isImage = IMAGE_TYPES.includes(file.type);
+  const isAudio = AUDIO_TYPES.includes(file.type);
+  if (!isImage && !isAudio) {
+    return apiError(
+      "INVALID_REQUEST",
+      `Unsupported file type: ${file.type || "(unknown)"}. Allowed: ${[...IMAGE_TYPES, ...AUDIO_TYPES].join(", ")}`,
+      400
+    );
+  }
+
+  const supabase = createAdminClient();
+  const { data: credsRow, error: credsError } = await supabase
+    .from("platform_credentials")
+    .select("credentials")
+    .eq("user_id", userId)
+    .eq("platform", "whatsapp")
+    .eq("is_active", true)
+    .maybeSingle<PlatformCredentialsRow>();
+
+  if (credsError || !credsRow) {
+    return apiError(
+      "WHATSAPP_NOT_CONNECTED",
+      "Connect WhatsApp Cloud API credentials in Settings first.",
+      400
+    );
+  }
+
+  const wa = new WhatsAppService(credsRow.credentials);
+  const contactPhone = to.startsWith("+") ? to : `+${to}`;
+  const captionText = typeof caption === "string" ? caption.trim() : "";
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { url } = await uploadMediaBuffer(userId, "whatsapp-outbound", buffer, file.type);
+
+    const result = isImage
+      ? await wa.sendImageMessage(contactPhone, url, captionText || undefined)
+      : await wa.sendAudioMessage(contactPhone, url);
+
+    const { data: conversation } = await supabase
+      .from("whatsapp_conversations")
+      .upsert(
+        {
+          user_id: userId,
+          contact_phone: contactPhone,
+          last_message_at: new Date().toISOString(),
+          last_message_preview: isImage ? captionText || "📷 Image" : "🎙️ Audio",
+        },
+        { onConflict: "user_id,contact_phone" }
+      )
+      .select("id")
+      .single<{ id: string }>();
+
+    if (conversation) {
+      await supabase.from("whatsapp_messages").insert({
+        conversation_id: conversation.id,
+        user_id: userId,
+        wa_message_id: result.messageId,
+        direction: "outbound",
+        message_type: isImage ? "image" : "audio",
+        body: isImage ? captionText || null : null,
+        media_url: url,
+        status: "sent",
+        ai_generated: false,
+        sent_at: new Date().toISOString(),
+      });
+    }
+
+    return apiSuccess({ message_id: result.messageId, to: contactPhone, media_url: url });
+  } catch (err) {
+    if (err instanceof WhatsAppApiError) {
+      console.error("[whatsapp/send-media] Meta API rejected the send", {
+        userId,
+        to: contactPhone,
+        statusCode: err.statusCode,
+        message: err.message,
+        apiError: err.apiError,
+      });
+      return apiError("WHATSAPP_API_ERROR", err.message, err.statusCode, err.apiError);
+    }
+    console.error("[whatsapp/send-media] Unexpected failure", { userId, to: contactPhone, err });
+    return apiError("UNEXPECTED_ERROR", err instanceof Error ? err.message : "Unknown error", 500);
+  }
+}
