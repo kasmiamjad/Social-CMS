@@ -16,7 +16,6 @@ import {
   User,
   Phone,
   Mail,
-  Hash,
   Building2,
   Package,
   Calendar,
@@ -60,18 +59,6 @@ export interface Lead {
   remarks?: string | null;
   internal_notes?: string | null;
 }
-
-const STATUS_OPTIONS = [
-  { value: "new", label: "New" },
-  { value: "contacted", label: "Contacted" },
-  { value: "qualified", label: "Qualified" },
-  { value: "quoted", label: "Quoted" },
-  { value: "won", label: "Won" },
-  { value: "lost", label: "Lost" },
-  { value: "scheduled", label: "Scheduled" },
-  { value: "installed", label: "Installed" },
-  { value: "in_service", label: "In Service" },
-];
 
 const CITY_OPTIONS = ["Riyadh", "Jeddah", "Dammam"];
 
@@ -366,7 +353,7 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
                 {`Lead #${lead.serial_no ?? ""} — ${lead.client_name}`}
               </CardTitle>
               <CardDescription>
-                {`Source: ${lead.source ?? "manual"} · Stage: ${lead.status}`}
+                {`Source: ${lead.source ?? "manual"}`}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -374,13 +361,14 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
                 <Badge variant="processing">From WhatsApp</Badge>
               )}
               <select
-                value={lead.status ?? "new"}
-                onChange={(e) => update("status", e.target.value)}
+                value={lead.call_status ?? ""}
+                onChange={(e) => update("call_status", e.target.value || null)}
                 className="px-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                {STATUS_OPTIONS.map((s) => (
+                <option value="">Status: (unset)</option>
+                {CALL_STATUS_OPTIONS.map((s) => (
                   <option key={s.value} value={s.value}>
-                    Stage: {s.label}
+                    Status: {s.label}
                   </option>
                 ))}
               </select>
@@ -446,24 +434,7 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
                 </select>
               </div>
             </div>
-            <Input
-              id="client_code"
-              label="Client code"
-              icon={Hash}
-              placeholder="e.g. KBR0018"
-              value={lead.client_code ?? ""}
-              onChange={(e) => update("client_code", e.target.value)}
-            />
-            <Input
-              id="qr_code"
-              label="S.No."
-              icon={Hash}
-              placeholder="e.g. 1024"
-              value={lead.qr_code ?? ""}
-              onChange={(e) => update("qr_code", e.target.value)}
-            />
             {assignedToField}
-            {callStatusField}
           </div>
         </div>
       </Card>
@@ -578,9 +549,7 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
       <Card>
         <CardHeader>
           <CardTitle>Location</CardTitle>
-          <CardDescription>
-            Paste a Google Maps share link OR enter the address. Lat/Lng optional for future map view.
-          </CardDescription>
+          <CardDescription>Paste a Google Maps share link OR enter the address.</CardDescription>
         </CardHeader>
         <div className="space-y-4">
           {cityField}
@@ -599,26 +568,6 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
             value={lead.location_url ?? ""}
             onChange={(e) => update("location_url", e.target.value)}
           />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              id="location_lat"
-              label="Latitude (optional)"
-              type="number"
-              value={lead.location_lat?.toString() ?? ""}
-              onChange={(e) =>
-                update("location_lat", e.target.value === "" ? null : Number(e.target.value))
-              }
-            />
-            <Input
-              id="location_lng"
-              label="Longitude (optional)"
-              type="number"
-              value={lead.location_lng?.toString() ?? ""}
-              onChange={(e) =>
-                update("location_lng", e.target.value === "" ? null : Number(e.target.value))
-              }
-            />
-          </div>
         </div>
       </Card>
 
