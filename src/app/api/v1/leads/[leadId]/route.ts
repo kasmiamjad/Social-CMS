@@ -8,6 +8,8 @@ const STATUS_VALUES = [
   "new", "contacted", "qualified", "quoted", "won", "lost", "scheduled", "installed", "in_service",
 ] as const;
 
+const CALL_STATUS_VALUES = ["not_interested", "unanswered", "follow_up", "converted"] as const;
+
 const UpdateLeadSchema = z.object({
   client_name: z.string().min(1).max(200).optional(),
   client_phone: z.string().max(40).nullable().optional(),
@@ -26,6 +28,9 @@ const UpdateLeadSchema = z.object({
   location_url: z.string().max(1000).nullable().optional(),
   location_lat: z.number().nullable().optional(),
   location_lng: z.number().nullable().optional(),
+  city: z.string().max(100).nullable().optional(),
+  assigned_to: z.string().max(100).nullable().optional(),
+  call_status: z.enum(CALL_STATUS_VALUES).nullable().optional(),
   status: z.enum(STATUS_VALUES).optional(),
   remarks: z.string().max(2000).nullable().optional(),
   internal_notes: z.string().max(4000).nullable().optional(),

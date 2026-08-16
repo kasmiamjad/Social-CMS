@@ -16,6 +16,8 @@ const STATUS_VALUES = [
   "in_service",
 ] as const;
 
+const CALL_STATUS_VALUES = ["not_interested", "unanswered", "follow_up", "converted"] as const;
+
 const SOURCE_VALUES = [
   "manual",
   "whatsapp_ai",
@@ -45,6 +47,9 @@ const CreateLeadSchema = z.object({
   location_url: z.string().max(1000).optional().nullable(),
   location_lat: z.number().optional().nullable(),
   location_lng: z.number().optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  assigned_to: z.string().max(100).optional().nullable(),
+  call_status: z.enum(CALL_STATUS_VALUES).optional().nullable(),
   status: z.enum(STATUS_VALUES).optional(),
   source: z.enum(SOURCE_VALUES).optional(),
   whatsapp_conversation_id: z.string().uuid().optional().nullable(),
@@ -148,6 +153,9 @@ export async function POST(request: NextRequest) {
     location_url: parsed.location_url ?? null,
     location_lat: parsed.location_lat ?? null,
     location_lng: parsed.location_lng ?? null,
+    city: parsed.city ?? null,
+    assigned_to: parsed.assigned_to ?? null,
+    call_status: parsed.call_status ?? null,
     status: parsed.status ?? "new",
     source: parsed.source ?? "manual",
     whatsapp_conversation_id: parsed.whatsapp_conversation_id ?? null,

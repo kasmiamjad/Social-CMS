@@ -23,6 +23,8 @@ import {
   Globe2,
   Loader2,
   Trash2,
+  UserCheck,
+  PhoneCall,
 } from "lucide-react";
 
 export interface Lead {
@@ -45,6 +47,9 @@ export interface Lead {
   location_url?: string | null;
   location_lat?: number | null;
   location_lng?: number | null;
+  city?: string | null;
+  assigned_to?: string | null;
+  call_status?: string | null;
   status?: string;
   source?: string;
   whatsapp_conversation_id?: string | null;
@@ -65,6 +70,15 @@ const STATUS_OPTIONS = [
   { value: "installed", label: "Installed" },
   { value: "in_service", label: "In Service" },
 ];
+
+const CALL_STATUS_OPTIONS = [
+  { value: "not_interested", label: "Not interested" },
+  { value: "unanswered", label: "Unanswered" },
+  { value: "follow_up", label: "Follow-up" },
+  { value: "converted", label: "Converted" },
+];
+
+const CITY_OPTIONS = ["Riyadh", "Jeddah", "Dammam"];
 
 const BUSINESS_TYPE_OPTIONS = [
   "Coffee shop",
@@ -283,6 +297,38 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
               value={lead.qr_code ?? ""}
               onChange={(e) => update("qr_code", e.target.value)}
             />
+            <Input
+              id="assigned_to"
+              label="Assigned to"
+              icon={UserCheck}
+              placeholder="e.g. Nahan"
+              value={lead.assigned_to ?? ""}
+              onChange={(e) => update("assigned_to", e.target.value)}
+            />
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Call status
+              </label>
+              <div className="relative">
+                <PhoneCall
+                  size={16}
+                  strokeWidth={1.8}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                />
+                <select
+                  value={lead.call_status ?? ""}
+                  onChange={(e) => update("call_status", e.target.value || null)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">(select)</option>
+                  {CALL_STATUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         </div>
       </Card>
@@ -402,6 +448,31 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
           </CardDescription>
         </CardHeader>
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">City</label>
+            <div className="relative">
+              <MapPin
+                size={16}
+                strokeWidth={1.8}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+              />
+              <select
+                value={lead.city ?? ""}
+                onChange={(e) => update("city", e.target.value || null)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">(select)</option>
+                {lead.city && !CITY_OPTIONS.includes(lead.city) && (
+                  <option value={lead.city}>{lead.city}</option>
+                )}
+                {CITY_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           <Input
             id="location_address"
             label="Address"
