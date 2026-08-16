@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
+import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
 import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
 
@@ -78,8 +79,16 @@ export async function POST(request: NextRequest) {
   const captionText = typeof caption === "string" ? caption.trim() : "";
 
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const { url } = await uploadMediaBuffer(userId, "whatsapp-outbound", buffer, file.type);
+    let buffer = Buffer.from(await file.arrayBuffer());
+    let contentType = file.type;
+    if (isAudio) {
+      // Normalize every audio source (browser recordings, phone voice memos,
+      // etc.) to WhatsApp's own OGG/Opus voice-note format — see
+      // audio-transcode.ts for why this can't just pass the file through.
+      buffer = await transcodeToOggOpus(buffer);
+      contentType = "audio/ogg";
+    }
+    const { url } = await uploadMediaBuffer(userId, "whatsapp-outbound", buffer, contentType);
 
     const result = isImage
       ? await wa.sendImageMessage(contactPhone, url, captionText || undefined)
@@ -116,6 +125,10 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess({ message_id: result.messageId, to: contactPhone, media_url: url });
   } catch (err) {
+    if (err instanceof TranscodeError) {
+      console.error("[whatsapp/send-media] Audio transcode failed", { userId, to: contactPhone, err });
+      return apiError("AUDIO_TRANSCODE_FAILED", err.message, 500);
+    }
     if (err instanceof WhatsAppApiError) {
       console.error("[whatsapp/send-media] Meta API rejected the send", {
         userId,
