@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PRODUCT_MODEL_OPTIONS } from "@/lib/products";
+import { TEAM_MEMBERS, TEAM_MEMBER_COLORS, getActingAs, type TeamMember } from "@/lib/team";
+import { CALL_STATUS_OPTIONS, CALL_STATUS_COLORS } from "@/lib/lead-status";
 import {
   AlertCircle,
   CheckCircle,
@@ -69,13 +71,6 @@ const STATUS_OPTIONS = [
   { value: "scheduled", label: "Scheduled" },
   { value: "installed", label: "Installed" },
   { value: "in_service", label: "In Service" },
-];
-
-const CALL_STATUS_OPTIONS = [
-  { value: "not_interested", label: "Not interested" },
-  { value: "unanswered", label: "Unanswered" },
-  { value: "follow_up", label: "Follow-up" },
-  { value: "converted", label: "Converted" },
 ];
 
 const CITY_OPTIONS = ["Riyadh", "Jeddah", "Dammam"];
@@ -186,20 +181,71 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
     }
   }
 
+  // Opening an unread lead claims it: auto-assign to whoever this device is
+  // "acting as" and flip it to read. Best-effort — if no one has picked a
+  // name on this device yet, the lead just stays unread until someone does.
+  useEffect(() => {
+    if (mode !== "edit" || !initialLead?.id || initialLead.call_status !== "unread") return;
+    const actingAs = getActingAs();
+    if (!actingAs) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/v1/leads/${initialLead.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assigned_to: actingAs, call_status: "read" }),
+        });
+        const json = await res.json();
+        if (!cancelled && res.ok && json.success) {
+          setLead((prev) => ({ ...prev, assigned_to: actingAs, call_status: "read" }));
+        }
+      } catch {
+        // Best-effort — leave it unread if this fails, no user-facing error needed.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, initialLead?.id, initialLead?.call_status]);
+
   const assignedToField = (
-    <Input
-      id="assigned_to"
-      label="Assigned to"
-      icon={UserCheck}
-      placeholder="e.g. Nahan"
-      value={lead.assigned_to ?? ""}
-      onChange={(e) => update("assigned_to", e.target.value)}
-    />
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-1.5">Assigned to</label>
+      <div className="relative">
+        <UserCheck
+          size={16}
+          strokeWidth={1.8}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+        />
+        <select
+          value={lead.assigned_to ?? ""}
+          onChange={(e) => update("assigned_to", e.target.value || null)}
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+        >
+          <option value="">(unassigned)</option>
+          {lead.assigned_to && !TEAM_MEMBERS.includes(lead.assigned_to as TeamMember) && (
+            <option value={lead.assigned_to}>{lead.assigned_to}</option>
+          )}
+          {TEAM_MEMBERS.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+      </div>
+      {lead.assigned_to && (
+        <Badge className={`mt-1.5 ${TEAM_MEMBER_COLORS[lead.assigned_to] ?? "bg-surface text-text-muted"}`}>
+          {lead.assigned_to}
+        </Badge>
+      )}
+    </div>
   );
 
   const callStatusField = (
     <div>
-      <label className="block text-sm font-medium text-foreground mb-1.5">Call status</label>
+      <label className="block text-sm font-medium text-foreground mb-1.5">Status</label>
       <div className="relative">
         <PhoneCall
           size={16}
@@ -219,6 +265,11 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
           ))}
         </select>
       </div>
+      {lead.call_status && (
+        <Badge className={`mt-1.5 ${CALL_STATUS_COLORS[lead.call_status] ?? "bg-surface text-text-muted"}`}>
+          {CALL_STATUS_OPTIONS.find((o) => o.value === lead.call_status)?.label ?? lead.call_status}
+        </Badge>
+      )}
     </div>
   );
 

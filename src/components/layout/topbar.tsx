@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogOut } from "lucide-react";
+import { ActingAsSwitcher } from "./acting-as-switcher";
 
 interface TopbarProps {
   userEmail?: string;
@@ -22,6 +23,7 @@ export function Topbar({ userEmail }: TopbarProps) {
     <header className="h-14 border-b border-border bg-surface-elevated flex items-center justify-between px-6">
       <div />
       <div className="flex items-center gap-4">
+        <ActingAsSwitcher />
         {userEmail && (
           <span className="text-sm text-text-muted">{userEmail}</span>
         )}

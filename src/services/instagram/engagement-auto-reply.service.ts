@@ -507,6 +507,7 @@ export class InstagramEngagementAutoReplyService {
       serial_no,
       client_name: resolvedName || fallbackName,
       status: "new",
+      call_status: "unread",
       source: "instagram",
       instagram_conversation_id: conversationId,
       remarks: contact.preview?.slice(0, 200) || null,

@@ -20,7 +20,7 @@ const WON_STATUSES = ["won", "scheduled", "installed", "in_service"];
 
 const PAGE_SIZE = 30;
 const SELECT_COLS =
-  "id, serial_no, client_code, client_name, client_phone, client_business_type, product_qty, product_model, installation_date, next_service_date, scope, installed_by, location_address, location_url, status, source, remarks, created_at, whatsapp_conversation_id, messenger_conversation_id, instagram_conversation_id";
+  "id, serial_no, client_code, client_name, client_phone, client_business_type, product_qty, product_model, installation_date, next_service_date, scope, installed_by, location_address, location_url, city, assigned_to, call_status, status, source, remarks, created_at, whatsapp_conversation_id, messenger_conversation_id, instagram_conversation_id";
 
 interface LeadsPageProps {
   searchParams: Promise<{ page?: string; q?: string; source?: string; status?: string }>;

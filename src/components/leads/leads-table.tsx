@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChatDrawer, type ActiveChat } from "./chat-drawer";
+import { TEAM_MEMBER_COLORS } from "@/lib/team";
+import { CALL_STATUS_OPTIONS, CALL_STATUS_COLORS } from "@/lib/lead-status";
 import {
   ChevronRight,
   ExternalLink,
@@ -35,6 +37,9 @@ export interface LeadRow {
   installed_by: string | null;
   location_address: string | null;
   location_url: string | null;
+  city?: string | null;
+  assigned_to?: string | null;
+  call_status?: string | null;
   status: string;
   source: string;
   remarks: string | null;
@@ -116,8 +121,10 @@ export function LeadsTable({ leads }: LeadsTableProps) {
               <th className="px-4 py-3 font-semibold">Type</th>
               <th className="px-4 py-3 font-semibold">Unit</th>
               <th className="px-4 py-3 font-semibold">Added by</th>
+              <th className="px-4 py-3 font-semibold">Assigned</th>
               <th className="px-4 py-3 font-semibold">Location</th>
               <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Stage</th>
               <th className="px-4 py-3 font-semibold w-8"></th>
             </tr>
           </thead>
@@ -186,6 +193,15 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
                   {lead.added_by ?? "—"}
                 </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {lead.assigned_to ? (
+                    <Badge className={TEAM_MEMBER_COLORS[lead.assigned_to] ?? "bg-surface text-text-muted"}>
+                      {lead.assigned_to}
+                    </Badge>
+                  ) : (
+                    <span className="text-text-muted">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   {lead.location_url ? (
                     <a
@@ -199,6 +215,15 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                     </a>
                   ) : lead.location_address ? (
                     <span className="text-text-muted text-xs">{lead.location_address}</span>
+                  ) : (
+                    <span className="text-text-muted">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {lead.call_status ? (
+                    <Badge className={CALL_STATUS_COLORS[lead.call_status] ?? "bg-surface text-text-muted"}>
+                      {CALL_STATUS_OPTIONS.find((o) => o.value === lead.call_status)?.label ?? lead.call_status}
+                    </Badge>
                   ) : (
                     <span className="text-text-muted">—</span>
                   )}

@@ -3,12 +3,11 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
 import { apiError, apiSuccess } from "@/lib/api-response";
+import { CALL_STATUS_VALUES } from "@/lib/lead-status";
 
 const STATUS_VALUES = [
   "new", "contacted", "qualified", "quoted", "won", "lost", "scheduled", "installed", "in_service",
 ] as const;
-
-const CALL_STATUS_VALUES = ["not_interested", "unanswered", "follow_up", "converted"] as const;
 
 const UpdateLeadSchema = z.object({
   client_name: z.string().min(1).max(200).optional(),
