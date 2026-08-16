@@ -3,9 +3,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Send, Bot, MessageCircle, Loader2, AlertCircle, Paperclip } from "lucide-react";
+import { X, Send, Bot, MessageCircle, Loader2, AlertCircle, Paperclip, Mic, Square, Trash2 } from "lucide-react";
 
 const ATTACHMENT_ACCEPT = "image/jpeg,image/png,audio/*";
+
+/** Picks the best audio mimeType this browser's MediaRecorder actually supports. */
+function pickRecorderMimeType(): string {
+  const candidates = ["audio/ogg;codecs=opus", "audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  for (const type of candidates) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return "";
+}
+
+function formatSeconds(total: number): string {
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 export interface ActiveChat {
   channel: "whatsapp" | "messenger" | "instagram";
@@ -48,8 +63,16 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<SendError | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -116,11 +139,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
     }
   }
 
-  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || sending) return;
-
+  async function sendMediaFile(file: File) {
     setSending(true);
     setError(null);
     try {
@@ -151,6 +170,90 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
       setSending(false);
     }
   }
+
+  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || sending) return;
+    void sendMediaFile(file);
+  }
+
+  // ── Voice recording ──────────────────────────────────────────────────────
+
+  const clearRecordingTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }, []);
+
+  async function startRecording() {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mimeType = pickRecorderMimeType();
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      recordedChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        setRecordedBlob(blob);
+        setRecordedUrl(URL.createObjectURL(blob));
+        stopStream();
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+      setRecordSeconds(0);
+      timerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+    } catch {
+      setError({
+        message:
+          "Couldn't access your microphone. Check the browser's mic permission for this site and try again.",
+      });
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    setRecording(false);
+    clearRecordingTimer();
+  }
+
+  function discardRecording() {
+    setRecordedBlob(null);
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    setRecordedUrl(null);
+    setRecordSeconds(0);
+  }
+
+  async function sendRecording() {
+    if (!recordedBlob) return;
+    const ext = recordedBlob.type.includes("ogg") ? "ogg" : recordedBlob.type.includes("mp4") ? "m4a" : "webm";
+    const file = new File([recordedBlob], `voice-note.${ext}`, { type: recordedBlob.type });
+    discardRecording();
+    await sendMediaFile(file);
+  }
+
+  // Clean up mic stream / timer / object URL if the component unmounts mid-flow.
+  useEffect(() => {
+    return () => {
+      clearRecordingTimer();
+      stopStream();
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -217,44 +320,94 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
               )}
             </div>
           )}
-          <div className="flex items-end gap-2">
-            {chat.channel === "whatsapp" && (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={ATTACHMENT_ACCEPT}
-                  onChange={handleFileSelected}
-                  className="hidden"
-                />
+          {recording ? (
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-error/40 bg-error/5">
+              <span className="w-2 h-2 rounded-full bg-error animate-pulse shrink-0" />
+              <span className="text-sm text-foreground font-mono">{formatSeconds(recordSeconds)}</span>
+              <span className="text-xs text-text-muted flex-1">Recording…</span>
+              <button
+                type="button"
+                onClick={stopRecording}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white hover:bg-primary-hover transition-all shrink-0"
+                title="Stop recording"
+              >
+                <Square size={13} strokeWidth={1.8} fill="currentColor" />
+              </button>
+            </div>
+          ) : recordedBlob ? (
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border bg-surface">
+              {recordedUrl && <audio controls src={recordedUrl} className="h-8 flex-1" />}
+              <button
+                type="button"
+                onClick={discardRecording}
+                disabled={sending}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-text-muted hover:text-error hover:bg-error/10 disabled:opacity-40 transition-all shrink-0"
+                title="Discard"
+              >
+                <Trash2 size={14} strokeWidth={1.8} />
+              </button>
+              <button
+                type="button"
+                onClick={sendRecording}
+                disabled={sending}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white hover:bg-primary-hover disabled:opacity-40 transition-all shrink-0"
+                title="Send voice note"
+              >
+                {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} strokeWidth={1.8} />}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-end gap-2">
+              {chat.channel === "whatsapp" && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={ATTACHMENT_ACCEPT}
+                    onChange={handleFileSelected}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={sending}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border text-text-muted hover:text-foreground hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
+                    title="Attach image or voice clip"
+                  >
+                    <Paperclip size={15} strokeWidth={1.8} />
+                  </button>
+                </>
+              )}
+              <textarea
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleSend();
+                  }
+                }}
+                rows={2}
+                placeholder="Type a reply…  (Enter to send)"
+                className="flex-1 resize-none px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+              {chat.channel === "whatsapp" && !reply.trim() ? (
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={startRecording}
                   disabled={sending}
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border text-text-muted hover:text-foreground hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
-                  title="Attach image or voice clip"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border text-text-muted hover:text-foreground hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0 !px-0"
+                  title="Record a voice note"
                 >
-                  <Paperclip size={15} strokeWidth={1.8} />
+                  <Mic size={15} strokeWidth={1.8} />
                 </button>
-              </>
-            )}
-            <textarea
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void handleSend();
-                }
-              }}
-              rows={2}
-              placeholder="Type a reply…  (Enter to send)"
-              className="flex-1 resize-none px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-            <Button onClick={handleSend} loading={sending} disabled={!reply.trim()} className="!px-3">
-              <Send size={15} strokeWidth={1.8} />
-            </Button>
-          </div>
+              ) : (
+                <Button onClick={handleSend} loading={sending} disabled={!reply.trim()} className="!px-3">
+                  <Send size={15} strokeWidth={1.8} />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </aside>
     </>

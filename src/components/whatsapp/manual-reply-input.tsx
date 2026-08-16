@@ -1,10 +1,25 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Loader2, AlertCircle, Paperclip } from "lucide-react";
+import { Send, Loader2, AlertCircle, Paperclip, Mic, Square, Trash2 } from "lucide-react";
 
 const ATTACHMENT_ACCEPT = "image/jpeg,image/png,audio/*";
+
+/** Picks the best audio mimeType this browser's MediaRecorder actually supports. */
+function pickRecorderMimeType(): string {
+  const candidates = ["audio/ogg;codecs=opus", "audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  for (const type of candidates) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return "";
+}
+
+function formatSeconds(total: number): string {
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 interface ManualReplyInputProps {
   contactPhone: string;
@@ -29,8 +44,16 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<SendError | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
 
   // Auto-resize textarea as user types (up to a max height).
@@ -86,11 +109,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
     }
   }
 
-  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the same file later
-    if (!file || sending) return;
-
+  async function sendMediaFile(file: File) {
     setSending(true);
     setError(null);
 
@@ -126,6 +145,90 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
     }
   }
 
+  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file || sending) return;
+    void sendMediaFile(file);
+  }
+
+  // ── Voice recording ──────────────────────────────────────────────────────
+
+  const clearRecordingTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }, []);
+
+  async function startRecording() {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mimeType = pickRecorderMimeType();
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      recordedChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        setRecordedBlob(blob);
+        setRecordedUrl(URL.createObjectURL(blob));
+        stopStream();
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+      setRecordSeconds(0);
+      timerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+    } catch {
+      setError({
+        message:
+          "Couldn't access your microphone. Check the browser's mic permission for this site and try again.",
+      });
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    setRecording(false);
+    clearRecordingTimer();
+  }
+
+  function discardRecording() {
+    setRecordedBlob(null);
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    setRecordedUrl(null);
+    setRecordSeconds(0);
+  }
+
+  async function sendRecording() {
+    if (!recordedBlob) return;
+    const ext = recordedBlob.type.includes("ogg") ? "ogg" : recordedBlob.type.includes("mp4") ? "m4a" : "webm";
+    const file = new File([recordedBlob], `voice-note.${ext}`, { type: recordedBlob.type });
+    discardRecording();
+    await sendMediaFile(file);
+  }
+
+  // Clean up mic stream / timer / object URL if the component unmounts mid-flow.
+  useEffect(() => {
+    return () => {
+      clearRecordingTimer();
+      stopStream();
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="mt-6 pt-4 border-t border-border">
       {error && (
@@ -147,56 +250,102 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
         </div>
       )}
 
-      <div className="flex items-end gap-2">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={ATTACHMENT_ACCEPT}
-          onChange={handleFileSelected}
-          className="hidden"
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={sending}
-          className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-border text-text-muted hover:text-foreground hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
-          title="Attach image or voice clip"
-        >
-          <Paperclip size={16} strokeWidth={1.8} />
-        </button>
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            if (error) setError(null);
-          }}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a reply… (Enter to send, Shift+Enter for new line)"
-          rows={1}
-          disabled={sending}
-          maxLength={4096}
-          className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none min-h-[42px]"
-        />
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={sending || !text.trim()}
-          className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-primary text-white hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
-          title="Send (Enter)"
-        >
-          {sending ? (
-            <Loader2 size={16} className="animate-spin" />
+      {recording ? (
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-error/40 bg-error/5">
+          <span className="w-2.5 h-2.5 rounded-full bg-error animate-pulse shrink-0" />
+          <span className="text-sm text-foreground font-mono">{formatSeconds(recordSeconds)}</span>
+          <span className="text-xs text-text-muted flex-1">Recording…</span>
+          <button
+            type="button"
+            onClick={stopRecording}
+            className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-white hover:bg-primary-hover transition-all shrink-0"
+            title="Stop recording"
+          >
+            <Square size={14} strokeWidth={1.8} fill="currentColor" />
+          </button>
+        </div>
+      ) : recordedBlob ? (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-surface">
+          {recordedUrl && <audio controls src={recordedUrl} className="h-9 flex-1" />}
+          <button
+            type="button"
+            onClick={discardRecording}
+            disabled={sending}
+            className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-text-muted hover:text-error hover:bg-error/10 disabled:opacity-40 transition-all shrink-0"
+            title="Discard"
+          >
+            <Trash2 size={15} strokeWidth={1.8} />
+          </button>
+          <button
+            type="button"
+            onClick={sendRecording}
+            disabled={sending}
+            className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-white hover:bg-primary-hover disabled:opacity-40 transition-all shrink-0"
+            title="Send voice note"
+          >
+            {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} strokeWidth={1.8} />}
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ATTACHMENT_ACCEPT}
+            onChange={handleFileSelected}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending}
+            className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-border text-text-muted hover:text-foreground hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
+            title="Attach image or voice clip"
+          >
+            <Paperclip size={16} strokeWidth={1.8} />
+          </button>
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              if (error) setError(null);
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a reply… (Enter to send, Shift+Enter for new line)"
+            rows={1}
+            disabled={sending}
+            maxLength={4096}
+            className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none min-h-[42px]"
+          />
+          {text.trim() ? (
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={sending}
+              className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-primary text-white hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
+              title="Send (Enter)"
+            >
+              {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} strokeWidth={1.8} />}
+            </button>
           ) : (
-            <Send size={16} strokeWidth={1.8} />
+            <button
+              type="button"
+              onClick={startRecording}
+              disabled={sending}
+              className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-border text-text-muted hover:text-foreground hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
+              title="Record a voice note"
+            >
+              <Mic size={16} strokeWidth={1.8} />
+            </button>
           )}
-        </button>
-      </div>
+        </div>
+      )}
 
       <p className="mt-1.5 text-[10px] text-text-muted">
         Free-form messages work only within the 24-hour customer service window.
         Outside that window, only pre-approved templates will deliver.
-        Attachments: JPEG/PNG images, AAC/MP4/MP3/AMR/OGG audio — max 16MB.
+        Attachments: JPEG/PNG images or any audio file — max 16MB.
       </p>
     </div>
   );
