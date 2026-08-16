@@ -77,7 +77,7 @@ export async function POST(
   const captionText = typeof caption === "string" ? caption.trim() : "";
 
   try {
-    let buffer = Buffer.from(await file.arrayBuffer());
+    let buffer: Buffer = Buffer.from(await file.arrayBuffer());
     let contentType = file.type;
     if (isAudio) {
       buffer = await transcodeToOggOpus(buffer);

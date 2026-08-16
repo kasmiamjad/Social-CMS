@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
   const captionText = typeof caption === "string" ? caption.trim() : "";
 
   try {
-    let buffer = Buffer.from(await file.arrayBuffer());
+    let buffer: Buffer = Buffer.from(await file.arrayBuffer());
     let contentType = file.type;
     if (isAudio) {
       // Normalize every audio source (browser recordings, phone voice memos,
