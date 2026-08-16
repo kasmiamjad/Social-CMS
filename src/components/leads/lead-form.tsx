@@ -304,7 +304,7 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
             />
             <Input
               id="client_phone"
-              label="Contact number"
+              label="Phone"
               icon={Phone}
               placeholder="+966XXXXXXXXX"
               value={lead.client_phone ?? ""}
