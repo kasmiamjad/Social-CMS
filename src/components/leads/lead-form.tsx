@@ -366,7 +366,7 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
                 {`Lead #${lead.serial_no ?? ""} — ${lead.client_name}`}
               </CardTitle>
               <CardDescription>
-                {`Source: ${lead.source ?? "manual"} · Status: ${lead.status}`}
+                {`Source: ${lead.source ?? "manual"} · Stage: ${lead.status}`}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -380,7 +380,7 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
               >
                 {STATUS_OPTIONS.map((s) => (
                   <option key={s.value} value={s.value}>
-                    Status: {s.label}
+                    Stage: {s.label}
                   </option>
                 ))}
               </select>
