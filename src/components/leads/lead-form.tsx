@@ -18,9 +18,7 @@ import {
   Mail,
   Building2,
   Package,
-  Calendar,
   MapPin,
-  Wrench,
   Globe2,
   Loader2,
   Trash2,
@@ -484,64 +482,6 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
               </select>
             </div>
           </div>
-        </div>
-      </Card>
-
-      {/* Dates */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Dates</CardTitle>
-        </CardHeader>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Input
-            id="lead_date"
-            label="Lead date"
-            type="date"
-            icon={Calendar}
-            value={lead.lead_date ?? ""}
-            onChange={(e) => update("lead_date", e.target.value || null)}
-          />
-          <Input
-            id="installation_date"
-            label="Installation date"
-            type="date"
-            icon={Calendar}
-            value={lead.installation_date ?? ""}
-            onChange={(e) => update("installation_date", e.target.value || null)}
-          />
-          <Input
-            id="next_service_date"
-            label="Next service date"
-            type="date"
-            icon={Calendar}
-            value={lead.next_service_date ?? ""}
-            onChange={(e) => update("next_service_date", e.target.value || null)}
-          />
-        </div>
-      </Card>
-
-      {/* Service / Scope */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Service Scope</CardTitle>
-        </CardHeader>
-        <div className="space-y-4">
-          <Textarea
-            id="scope"
-            label="Scope of work"
-            rows={4}
-            placeholder="e.g.&#10;- 3 STAGE FILTERS&#10;- 6 STAGE FILTERS&#10;- INSTALLATION BY SADA TEAM"
-            value={lead.scope ?? ""}
-            onChange={(e) => update("scope", e.target.value)}
-          />
-          <Input
-            id="installed_by"
-            label="Installed by (technician)"
-            icon={Wrench}
-            placeholder="e.g. ARSHAD KHAN"
-            value={lead.installed_by ?? ""}
-            onChange={(e) => update("installed_by", e.target.value)}
-          />
         </div>
       </Card>
 
