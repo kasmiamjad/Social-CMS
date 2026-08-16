@@ -186,6 +186,124 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
     }
   }
 
+  const assignedToField = (
+    <Input
+      id="assigned_to"
+      label="Assigned to"
+      icon={UserCheck}
+      placeholder="e.g. Nahan"
+      value={lead.assigned_to ?? ""}
+      onChange={(e) => update("assigned_to", e.target.value)}
+    />
+  );
+
+  const callStatusField = (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-1.5">Call status</label>
+      <div className="relative">
+        <PhoneCall
+          size={16}
+          strokeWidth={1.8}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+        />
+        <select
+          value={lead.call_status ?? ""}
+          onChange={(e) => update("call_status", e.target.value || null)}
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+        >
+          <option value="">(select)</option>
+          {CALL_STATUS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+
+  const cityField = (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-1.5">City</label>
+      <div className="relative">
+        <MapPin
+          size={16}
+          strokeWidth={1.8}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+        />
+        <select
+          value={lead.city ?? ""}
+          onChange={(e) => update("city", e.target.value || null)}
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+        >
+          <option value="">(select)</option>
+          {lead.city && !CITY_OPTIONS.includes(lead.city) && (
+            <option value={lead.city}>{lead.city}</option>
+          )}
+          {CITY_OPTIONS.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+
+  if (mode === "create") {
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>New Lead</CardTitle>
+            <CardDescription>Capture a new customer enquiry.</CardDescription>
+          </CardHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="client_name"
+              label="Client name *"
+              icon={User}
+              value={lead.client_name ?? ""}
+              onChange={(e) => update("client_name", e.target.value)}
+            />
+            <Input
+              id="client_phone"
+              label="Contact number"
+              icon={Phone}
+              placeholder="+966XXXXXXXXX"
+              value={lead.client_phone ?? ""}
+              onChange={(e) => update("client_phone", e.target.value)}
+            />
+            {assignedToField}
+            {callStatusField}
+            <div className="sm:col-span-2">{cityField}</div>
+          </div>
+        </Card>
+
+        <div className="flex items-center gap-3 pt-2">
+          {status && (
+            <div
+              className={`flex items-center gap-1.5 text-sm ${
+                status.type === "success" ? "text-success" : "text-error"
+              }`}
+            >
+              {status.type === "success" ? (
+                <CheckCircle size={14} strokeWidth={1.8} />
+              ) : (
+                <AlertCircle size={14} strokeWidth={1.8} />
+              )}
+              {status.message}
+            </div>
+          )}
+          <div className="flex-1" />
+          <Button onClick={handleSave} loading={saving}>
+            Create Lead
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-6xl">
       {/* Header card */}
@@ -194,14 +312,10 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <CardTitle>
-                {mode === "create"
-                  ? "New Lead"
-                  : `Lead #${lead.serial_no ?? ""} — ${lead.client_name}`}
+                {`Lead #${lead.serial_no ?? ""} — ${lead.client_name}`}
               </CardTitle>
               <CardDescription>
-                {mode === "create"
-                  ? "Capture a new customer enquiry."
-                  : `Source: ${lead.source ?? "manual"} · Status: ${lead.status}`}
+                {`Source: ${lead.source ?? "manual"} · Status: ${lead.status}`}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -297,38 +411,8 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
               value={lead.qr_code ?? ""}
               onChange={(e) => update("qr_code", e.target.value)}
             />
-            <Input
-              id="assigned_to"
-              label="Assigned to"
-              icon={UserCheck}
-              placeholder="e.g. Nahan"
-              value={lead.assigned_to ?? ""}
-              onChange={(e) => update("assigned_to", e.target.value)}
-            />
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
-                Call status
-              </label>
-              <div className="relative">
-                <PhoneCall
-                  size={16}
-                  strokeWidth={1.8}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-                />
-                <select
-                  value={lead.call_status ?? ""}
-                  onChange={(e) => update("call_status", e.target.value || null)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">(select)</option>
-                  {CALL_STATUS_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            {assignedToField}
+            {callStatusField}
           </div>
         </div>
       </Card>
@@ -448,31 +532,7 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
           </CardDescription>
         </CardHeader>
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">City</label>
-            <div className="relative">
-              <MapPin
-                size={16}
-                strokeWidth={1.8}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-              />
-              <select
-                value={lead.city ?? ""}
-                onChange={(e) => update("city", e.target.value || null)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="">(select)</option>
-                {lead.city && !CITY_OPTIONS.includes(lead.city) && (
-                  <option value={lead.city}>{lead.city}</option>
-                )}
-                {CITY_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          {cityField}
           <Input
             id="location_address"
             label="Address"
@@ -552,14 +612,12 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
           </div>
         )}
         <div className="flex-1" />
-        {mode === "edit" && (
-          <Button variant="danger" onClick={handleDelete} disabled={saving || deleting}>
-            {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} strokeWidth={1.8} />}
-            Delete
-          </Button>
-        )}
+        <Button variant="danger" onClick={handleDelete} disabled={saving || deleting}>
+          {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} strokeWidth={1.8} />}
+          Delete
+        </Button>
         <Button onClick={handleSave} loading={saving}>
-          {mode === "create" ? "Create Lead" : "Save Changes"}
+          Save Changes
         </Button>
       </div>
     </div>
