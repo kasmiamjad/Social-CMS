@@ -4,8 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Send, Loader2, AlertCircle, Paperclip } from "lucide-react";
 
-const ATTACHMENT_ACCEPT =
-  "image/jpeg,image/png,audio/aac,audio/mp4,audio/mpeg,audio/amr,audio/ogg";
+const ATTACHMENT_ACCEPT = "image/jpeg,image/png,audio/*";
 
 interface ManualReplyInputProps {
   contactPhone: string;

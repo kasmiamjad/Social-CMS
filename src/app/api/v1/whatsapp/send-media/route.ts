@@ -11,7 +11,6 @@ interface PlatformCredentialsRow {
 }
 
 const IMAGE_TYPES = ["image/jpeg", "image/png"];
-const AUDIO_TYPES = ["audio/aac", "audio/mp4", "audio/mpeg", "audio/amr", "audio/ogg"];
 const MAX_BYTES = 16 * 1024 * 1024;
 
 /**
@@ -43,11 +42,16 @@ export async function POST(request: NextRequest) {
   }
 
   const isImage = IMAGE_TYPES.includes(file.type);
-  const isAudio = AUDIO_TYPES.includes(file.type);
+  // WhatsApp accepts a wide range of audio codecs/containers (aac, m4a, amr,
+  // mp3, ogg/opus, ...) with browser/OS-reported MIME types that vary a lot
+  // (e.g. "audio/x-m4a"). Rather than maintain an exact allowlist, accept
+  // anything the browser calls audio/* here and let Meta's API be the real
+  // judge — a genuinely unsupported format comes back as a clear API error.
+  const isAudio = file.type.startsWith("audio/");
   if (!isImage && !isAudio) {
     return apiError(
       "INVALID_REQUEST",
-      `Unsupported file type: ${file.type || "(unknown)"}. Allowed: ${[...IMAGE_TYPES, ...AUDIO_TYPES].join(", ")}`,
+      `Unsupported file type: ${file.type || "(unknown)"}. Allowed: JPEG/PNG images or any audio file.`,
       400
     );
   }

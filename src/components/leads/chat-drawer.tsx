@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Send, Bot, MessageCircle, Loader2, AlertCircle, Paperclip } from "lucide-react";
 
-const ATTACHMENT_ACCEPT =
-  "image/jpeg,image/png,audio/aac,audio/mp4,audio/mpeg,audio/amr,audio/ogg";
+const ATTACHMENT_ACCEPT = "image/jpeg,image/png,audio/*";
 
 export interface ActiveChat {
   channel: "whatsapp" | "messenger" | "instagram";
@@ -302,12 +301,14 @@ function ChatMediaContent({ message }: { message: ChatMessage }) {
       case "image":
       case "sticker":
         return (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={media_url}
-            alt={body || message_type}
-            className="max-w-full max-h-64 rounded-xl object-contain"
-          />
+          <a href={media_url} target="_blank" rel="noopener noreferrer" title="Open full size / download">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={media_url}
+              alt={body || message_type}
+              className="max-w-full max-h-64 rounded-xl object-contain cursor-zoom-in"
+            />
+          </a>
         );
       case "video":
         return (

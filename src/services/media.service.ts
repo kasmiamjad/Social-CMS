@@ -64,7 +64,16 @@ const CONTENT_TYPE_TO_EXT: Record<string, string> = {
   "audio/ogg": "ogg",
   "audio/opus": "opus",
   "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
   "audio/aac": "aac",
+  "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
+  "audio/m4a": "m4a",
+  "audio/amr": "amr",
+  "audio/3gpp": "3gp",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/webm": "weba",
   "application/pdf": "pdf",
 };
 

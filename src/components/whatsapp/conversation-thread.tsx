@@ -156,12 +156,14 @@ function MediaContent({ message }: { message: WhatsAppMessageRow }) {
       case "image":
       case "sticker":
         return (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={media_url}
-            alt={body || message_type}
-            className="max-w-full max-h-72 rounded-xl object-contain"
-          />
+          <a href={media_url} target="_blank" rel="noopener noreferrer" title="Open full size / download">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={media_url}
+              alt={body || message_type}
+              className="max-w-full max-h-72 rounded-xl object-contain cursor-zoom-in"
+            />
+          </a>
         );
       case "video":
         return (

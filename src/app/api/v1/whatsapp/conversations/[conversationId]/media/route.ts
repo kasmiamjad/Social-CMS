@@ -12,7 +12,6 @@ interface ConvRow {
 }
 
 const IMAGE_TYPES = ["image/jpeg", "image/png"];
-const AUDIO_TYPES = ["audio/aac", "audio/mp4", "audio/mpeg", "audio/amr", "audio/ogg"];
 const MAX_BYTES = 16 * 1024 * 1024;
 
 /**
@@ -41,11 +40,12 @@ export async function POST(
   }
 
   const isImage = IMAGE_TYPES.includes(file.type);
-  const isAudio = AUDIO_TYPES.includes(file.type);
+  // See send-media/route.ts for why audio isn't matched against a fixed list.
+  const isAudio = file.type.startsWith("audio/");
   if (!isImage && !isAudio) {
     return apiError(
       "INVALID_REQUEST",
-      `Unsupported file type: ${file.type || "(unknown)"}. Allowed: ${[...IMAGE_TYPES, ...AUDIO_TYPES].join(", ")}`,
+      `Unsupported file type: ${file.type || "(unknown)"}. Allowed: JPEG/PNG images or any audio file.`,
       400
     );
   }
