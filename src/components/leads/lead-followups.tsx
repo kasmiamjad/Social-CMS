@@ -171,24 +171,6 @@ export function LeadFollowups({ leadId, initialFollowups }: LeadFollowupsProps) 
               const done = Boolean(f.completed_at);
               return (
                 <li key={f.id} className="py-3 flex items-start gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleDone(f)}
-                    disabled={togglingId === f.id}
-                    aria-label={done ? "Mark as not done" : "Mark as done"}
-                    title={done ? "Mark as not done" : "Mark as done"}
-                    className={`mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                      done
-                        ? "bg-success border-success text-white"
-                        : "border-border text-transparent hover:border-primary"
-                    }`}
-                  >
-                    {togglingId === f.id ? (
-                      <Loader2 size={12} className="animate-spin text-text-muted" />
-                    ) : (
-                      <Check size={12} strokeWidth={3} />
-                    )}
-                  </button>
                   <div className="flex-1">
                     <div className={`text-sm font-medium ${done ? "text-text-muted line-through" : "text-foreground"}`}>
                       {DATE_FMT.format(new Date(f.follow_up_date))}
@@ -200,6 +182,23 @@ export function LeadFollowups({ leadId, initialFollowups }: LeadFollowupsProps) 
                       </p>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleDone(f)}
+                    disabled={togglingId === f.id}
+                    className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border shrink-0 transition-colors ${
+                      done
+                        ? "bg-success/10 border-success/40 text-success hover:bg-success/20"
+                        : "border-border text-text-muted hover:border-primary hover:text-primary"
+                    }`}
+                  >
+                    {togglingId === f.id ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Check size={13} strokeWidth={3} />
+                    )}
+                    {done ? "Done" : "Mark done"}
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(f.id)}
