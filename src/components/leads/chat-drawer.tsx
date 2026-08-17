@@ -556,22 +556,38 @@ function ChatMediaContent({ message }: { message: ChatMessage }) {
   if (media_url) {
     switch (message_type) {
       case "image":
+        return (
+          <>
+            <a href={media_url} target="_blank" rel="noopener noreferrer" title="Open full size / download">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={media_url}
+                alt={body || message_type}
+                className="max-w-full max-h-64 rounded-xl object-contain cursor-zoom-in"
+              />
+            </a>
+            {body && <p className="text-sm whitespace-pre-wrap break-words mt-1.5 px-1">{body}</p>}
+          </>
+        );
       case "sticker":
         return (
           <a href={media_url} target="_blank" rel="noopener noreferrer" title="Open full size / download">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={media_url}
-              alt={body || message_type}
+              alt={message_type}
               className="max-w-full max-h-64 rounded-xl object-contain cursor-zoom-in"
             />
           </a>
         );
       case "video":
         return (
-          <video controls className="max-w-full max-h-64 rounded-xl">
-            <source src={media_url} />
-          </video>
+          <>
+            <video controls className="max-w-full max-h-64 rounded-xl">
+              <source src={media_url} />
+            </video>
+            {body && <p className="text-sm whitespace-pre-wrap break-words mt-1.5 px-1">{body}</p>}
+          </>
         );
       case "audio":
         return <audio controls src={media_url} className="max-w-full" />;

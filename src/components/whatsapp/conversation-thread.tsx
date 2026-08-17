@@ -118,8 +118,8 @@ function MessageBubble({ message }: { message: WhatsAppMessageRow }) {
         >
           <MediaContent message={message} />
           {message.body &&
-            !["image", "sticker", "video", "audio", "document"].includes(message.message_type) && (
-              <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
+            !["sticker", "audio", "document", "location"].includes(message.message_type) && (
+              <p className="text-sm whitespace-pre-wrap break-words px-0.5 mt-1">{message.body}</p>
             )}
         </div>
         <div
