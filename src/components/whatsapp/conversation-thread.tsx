@@ -6,6 +6,7 @@ import { AiPauseToggle } from "./ai-pause-toggle";
 import { AutoRefresh } from "./auto-refresh";
 import { ConvertToLeadButton } from "./convert-to-lead-button";
 import { VoiceNotePlayer } from "./voice-note-player";
+import { ScrollToBottomOnMount } from "./scroll-to-bottom-on-mount";
 
 export interface WhatsAppConversationDetail {
   id: string;
@@ -81,6 +82,8 @@ export function ConversationThread({ conversation, messages }: ConversationThrea
 
       {/* Invisible — polls server-rendered data every 5s so new messages appear */}
       <AutoRefresh intervalMs={5000} />
+      {/* Invisible — lands the page scrolled to the latest messages + reply box, not the top */}
+      <ScrollToBottomOnMount />
 
       {/* Messages */}
       {messages.length === 0 ? (

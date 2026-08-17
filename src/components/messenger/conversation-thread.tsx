@@ -3,6 +3,7 @@ import { ArrowLeft, Bot, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { AutoRefresh } from "@/components/whatsapp/auto-refresh";
 import { AiPauseToggle } from "@/components/whatsapp/ai-pause-toggle";
+import { ScrollToBottomOnMount } from "@/components/whatsapp/scroll-to-bottom-on-mount";
 
 export interface MessengerConversationDetail {
   id: string;
@@ -72,6 +73,8 @@ export function MessengerConversationThread({ conversation, messages }: Conversa
 
       {/* Polls server-rendered data every 5s so new messages appear */}
       <AutoRefresh intervalMs={5000} />
+      {/* Invisible — lands the page scrolled to the latest messages + reply box, not the top */}
+      <ScrollToBottomOnMount />
 
       {messages.length === 0 ? (
         <div className="rounded-xl border border-border bg-surface-elevated p-10 flex flex-col items-center text-center">
