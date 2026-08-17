@@ -7,6 +7,7 @@ import { LeadsTable, type LeadRow } from "@/components/leads/leads-table";
 import { TableFilters } from "@/components/ui/table-filters";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { buildChatInfo, uniqueConversationIds } from "@/lib/chat-info";
+import { buildFollowupInfo } from "@/lib/followup-info";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { Plus } from "lucide-react";
 
@@ -107,6 +108,8 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
     buildChatInfo(admin, "instagram_dm_messages", igIds),
   ]);
 
+  const followupInfo = await buildFollowupInfo(admin, rawLeads.map((l) => l.id));
+
   const leads: LeadRow[] = rawLeads.map((l) => {
     const chat = l.whatsapp_conversation_id
       ? waChat.get(l.whatsapp_conversation_id)
@@ -129,6 +132,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
       chat_conversation_id:
         l.whatsapp_conversation_id ?? l.messenger_conversation_id ?? l.instagram_conversation_id ?? null,
       added_by: BOT_SOURCES.has(l.source) ? "AI Bot" : ownerName,
+      next_followup: followupInfo.get(l.id)?.date ?? null,
     };
   });
 

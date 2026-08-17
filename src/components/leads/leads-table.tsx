@@ -54,6 +54,8 @@ export interface LeadRow {
   chat_conversation_id?: string | null;
   /** Who added the lead — the user's name (manual) or "AI Bot". */
   added_by?: string | null;
+  /** Date of the most recently logged follow-up entry, if any. */
+  next_followup?: string | null;
 }
 
 /** Icon + label per lead source for the Source column. */
@@ -85,8 +87,11 @@ const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "error"
   in_service: "success",
 };
 
+const FOLLOWUP_FMT = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" });
+
 export function LeadsTable({ leads }: LeadsTableProps) {
   const [activeChat, setActiveChat] = useState<ActiveChat | null>(null);
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   if (leads.length === 0) {
     return (
@@ -125,6 +130,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
               <th className="px-4 py-3 font-semibold">Location</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 font-semibold">Stage</th>
+              <th className="px-4 py-3 font-semibold">Next follow-up</th>
               <th className="px-4 py-3 font-semibold w-8"></th>
             </tr>
           </thead>
@@ -232,6 +238,20 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                   <Badge variant={STATUS_VARIANT[lead.status] ?? "default"}>
                     {lead.status.replace("_", " ")}
                   </Badge>
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {lead.next_followup ? (
+                    <span
+                      className={`text-xs font-medium ${
+                        lead.next_followup < todayIso ? "text-error" : "text-foreground"
+                      }`}
+                    >
+                      {FOLLOWUP_FMT.format(new Date(lead.next_followup))}
+                      {lead.next_followup < todayIso && " (overdue)"}
+                    </span>
+                  ) : (
+                    <span className="text-text-muted">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link href={`/leads/${lead.id}`} className="opacity-0 group-hover:opacity-100 transition-opacity">

@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LeadForm, type Lead } from "@/components/leads/lead-form";
+import { LeadFollowups, type Followup } from "@/components/leads/lead-followups";
 import { BookingDrawer } from "@/components/bookings/booking-drawer";
 import { SendBookingLinkButton } from "@/components/bookings/send-booking-link-button";
 import { ArrowLeft } from "lucide-react";
@@ -53,6 +54,14 @@ export default async function LeadDetailPage({ params }: PageProps) {
     .eq("user_id", user.id)
     .eq("is_active", true)
     .order("name", { ascending: true });
+
+  const { data: followups } = await admin
+    .from("lead_followups")
+    .select("*")
+    .eq("lead_id", leadId)
+    .eq("user_id", user.id)
+    .order("follow_up_date", { ascending: false })
+    .order("created_at", { ascending: false });
 
   return (
     <div className="max-w-6xl">
@@ -103,6 +112,9 @@ export default async function LeadDetailPage({ params }: PageProps) {
         </div>
       </div>
       <LeadForm mode="edit" initialLead={lead} />
+      <div className="mt-6">
+        <LeadFollowups leadId={lead.id!} initialFollowups={(followups ?? []) as Followup[]} />
+      </div>
     </div>
   );
 }
