@@ -5,6 +5,7 @@ import { ManualReplyInput } from "./manual-reply-input";
 import { AiPauseToggle } from "./ai-pause-toggle";
 import { AutoRefresh } from "./auto-refresh";
 import { ConvertToLeadButton } from "./convert-to-lead-button";
+import { VoiceNotePlayer } from "./voice-note-player";
 
 export interface WhatsAppConversationDetail {
   id: string;
@@ -109,7 +110,11 @@ function MessageBubble({ message }: { message: WhatsAppMessageRow }) {
       <div className={`max-w-[75%] ${isOutbound ? "items-end" : "items-start"} flex flex-col gap-1`}>
         <div
           className={`rounded-2xl overflow-hidden ${
-            message.media_url ? "p-1.5" : "px-4 py-2.5"
+            message.message_type === "audio" && message.media_url
+              ? "px-2.5 py-2"
+              : message.media_url
+                ? "p-1.5"
+                : "px-4 py-2.5"
           } ${
             isOutbound
               ? "bg-primary text-white rounded-br-sm"
@@ -172,7 +177,13 @@ function MediaContent({ message }: { message: WhatsAppMessageRow }) {
           </video>
         );
       case "audio":
-        return <audio controls src={media_url} className="max-w-full" />;
+        return (
+          <VoiceNotePlayer
+            src={media_url}
+            seed={message.id}
+            variant={message.direction === "outbound" ? "outbound" : "inbound"}
+          />
+        );
       case "document":
         return (
           <a

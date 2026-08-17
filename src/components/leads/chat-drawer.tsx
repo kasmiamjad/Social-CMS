@@ -7,6 +7,7 @@ import { X, Send, Bot, MessageCircle, Loader2, AlertCircle, Paperclip, Mic, Squa
 import { useReplyTemplates } from "@/hooks/use-reply-templates";
 import { matchSlashQuery, filterTemplates, applyTemplate, type ReplyTemplate } from "@/lib/reply-templates";
 import { TemplateSuggestions } from "@/components/whatsapp/template-suggestions";
+import { VoiceNotePlayer } from "@/components/whatsapp/voice-note-player";
 
 const ATTACHMENT_ACCEPT = "image/jpeg,image/png,audio/*";
 
@@ -525,7 +526,13 @@ function Bubble({ message }: { message: ChatMessage }) {
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-[80%] flex flex-col gap-1 ${isOutbound ? "items-end" : "items-start"}`}>
         <div
-          className={`rounded-2xl overflow-hidden ${message.media_url ? "p-1.5" : "px-3.5 py-2"} ${
+          className={`rounded-2xl overflow-hidden ${
+            message.message_type === "audio" && message.media_url
+              ? "px-2.5 py-2"
+              : message.media_url
+                ? "p-1.5"
+                : "px-3.5 py-2"
+          } ${
             isOutbound
               ? "bg-primary text-white rounded-br-sm"
               : "bg-surface border border-border text-foreground rounded-bl-sm"
@@ -551,7 +558,7 @@ const MEDIA_TYPES = ["image", "sticker", "video", "audio", "document"];
 
 /** Same media-rendering logic as the main WhatsApp thread, adapted for this drawer's ChatMessage shape. */
 function ChatMediaContent({ message }: { message: ChatMessage }) {
-  const { message_type, media_url, body } = message;
+  const { id, message_type, media_url, body, direction } = message;
 
   if (media_url) {
     switch (message_type) {
@@ -590,7 +597,9 @@ function ChatMediaContent({ message }: { message: ChatMessage }) {
           </>
         );
       case "audio":
-        return <audio controls src={media_url} className="max-w-full" />;
+        return (
+          <VoiceNotePlayer src={media_url} seed={id} variant={direction === "outbound" ? "outbound" : "inbound"} />
+        );
       case "document":
         return (
           <a
