@@ -4,6 +4,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { FollowupsCalendarGrid } from "@/components/leads/followups-calendar-grid";
+import type { FollowupChip } from "@/components/leads/followup-drawer";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 
 // ── Calendar date helpers ───────────────────────────────────────────────────
@@ -44,9 +46,8 @@ function firstDaySatOffset(ym: string): number {
 }
 
 const MONTH_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", month: "long", year: "numeric" });
-const WEEKDAYS = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
 
-interface FollowupEntry {
+interface FollowupRow {
   id: string;
   lead_id: string;
   follow_up_date: string;
@@ -56,7 +57,7 @@ interface FollowupEntry {
   lead: { client_name: string } | { client_name: string }[] | null;
 }
 
-function leadName(f: FollowupEntry): string {
+function leadName(f: FollowupRow): string {
   const lead = Array.isArray(f.lead) ? f.lead[0] : f.lead;
   return lead?.client_name ?? "Unknown lead";
 }
@@ -88,13 +89,20 @@ export default async function FollowupsCalendarPage({ searchParams }: PageProps)
     .lte("follow_up_date", monthEnd)
     .order("follow_up_date", { ascending: true });
 
-  const entries = (data ?? []) as FollowupEntry[];
-  const byDay = new Map<string, FollowupEntry[]>();
-  for (const e of entries) {
-    if (!YMD_RE.test(e.follow_up_date)) continue;
-    const bucket = byDay.get(e.follow_up_date);
-    if (bucket) bucket.push(e);
-    else byDay.set(e.follow_up_date, [e]);
+  const rows = (data ?? []) as FollowupRow[];
+  const entriesByDay: Record<string, FollowupChip[]> = {};
+  for (const r of rows) {
+    if (!YMD_RE.test(r.follow_up_date)) continue;
+    const chip: FollowupChip = {
+      id: r.id,
+      lead_id: r.lead_id,
+      lead_name: leadName(r),
+      follow_up_date: r.follow_up_date,
+      note: r.note,
+      logged_by: r.logged_by,
+      completed_at: r.completed_at,
+    };
+    (entriesByDay[r.follow_up_date] ??= []).push(chip);
   }
 
   const leadingBlanks = firstDaySatOffset(month);
@@ -151,69 +159,7 @@ export default async function FollowupsCalendarPage({ searchParams }: PageProps)
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="min-w-[700px] rounded-xl border border-border bg-surface-elevated overflow-hidden">
-          <div className="grid grid-cols-7 border-b border-border bg-surface">
-            {WEEKDAYS.map((w) => (
-              <div key={w} className="px-2 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted text-center">
-                {w}
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7">
-            {cells.map((day, i) => {
-              if (day === null) {
-                return <div key={i} className="min-h-[110px] border-b border-r border-border last:border-r-0" />;
-              }
-              const dateStr = `${month}-${String(day).padStart(2, "0")}`;
-              const dayEntries = byDay.get(dateStr) ?? [];
-              const isToday = dateStr === today;
-              const dayIsPastDue = dateStr < today;
-              const shown = dayEntries.slice(0, 3);
-              const extra = dayEntries.length - shown.length;
-              return (
-                <div
-                  key={i}
-                  className="min-h-[110px] p-1.5 border-b border-r border-border last:border-r-0 [&:nth-child(7n)]:border-r-0"
-                >
-                  <div
-                    className={`text-xs font-semibold mb-1 w-5 h-5 flex items-center justify-center rounded-full ${
-                      isToday ? "bg-primary text-white" : "text-foreground"
-                    }`}
-                  >
-                    {day}
-                  </div>
-                  <div className="space-y-1">
-                    {shown.map((e) => {
-                      const done = Boolean(e.completed_at);
-                      const overdue = !done && dayIsPastDue;
-                      return (
-                        <Link
-                          key={e.id}
-                          href={`/leads/${e.lead_id}`}
-                          title={e.note ?? undefined}
-                          className={`block truncate text-[11px] px-1.5 py-0.5 rounded ${
-                            done
-                              ? "bg-success/10 text-success line-through hover:bg-success/20"
-                              : overdue
-                                ? "bg-error/10 text-error hover:bg-error/20"
-                                : "bg-primary/10 text-primary hover:bg-primary/20"
-                          }`}
-                        >
-                          {leadName(e)}
-                        </Link>
-                      );
-                    })}
-                    {extra > 0 && (
-                      <div className="text-[10px] text-text-muted px-1.5">+{extra} more</div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      <FollowupsCalendarGrid cells={cells} month={month} today={today} entriesByDay={entriesByDay} />
     </div>
   );
 }
