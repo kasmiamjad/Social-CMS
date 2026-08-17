@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { TEAM_MEMBERS, getActingAs } from "@/lib/team";
-import { Calendar, Plus, Trash2, Loader2 } from "lucide-react";
+import { Calendar, Plus, Trash2, Loader2, Check } from "lucide-react";
 
 export interface Followup {
   id: string;
@@ -14,6 +14,7 @@ export interface Followup {
   note: string | null;
   logged_by: string | null;
   created_at: string;
+  completed_at: string | null;
 }
 
 interface LeadFollowupsProps {
@@ -35,6 +36,7 @@ export function LeadFollowups({ leadId, initialFollowups }: LeadFollowupsProps) 
   const [loggedBy, setLoggedBy] = useState(() => getActingAs() ?? "");
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleAdd() {
@@ -92,6 +94,29 @@ export function LeadFollowups({ leadId, initialFollowups }: LeadFollowupsProps) 
     }
   }
 
+  async function handleToggleDone(f: Followup) {
+    setTogglingId(f.id);
+    try {
+      const res = await fetch(`/api/v1/leads/${leadId}/followups/${f.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ done: !f.completed_at }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.error?.message ?? "Failed to update follow-up");
+        return;
+      }
+      setFollowups((prev) =>
+        prev.map((p) => (p.id === f.id ? (json.data.followup as Followup) : p))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -142,30 +167,55 @@ export function LeadFollowups({ leadId, initialFollowups }: LeadFollowupsProps) 
           <p className="text-sm text-text-muted">No follow-ups logged yet.</p>
         ) : (
           <ul className="divide-y divide-border">
-            {followups.map((f) => (
-              <li key={f.id} className="py-3 flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-medium text-foreground">
-                    {DATE_FMT.format(new Date(f.follow_up_date))}
-                    {f.logged_by && <span className="text-text-muted font-normal"> · {f.logged_by}</span>}
+            {followups.map((f) => {
+              const done = Boolean(f.completed_at);
+              return (
+                <li key={f.id} className="py-3 flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleDone(f)}
+                    disabled={togglingId === f.id}
+                    aria-label={done ? "Mark as not done" : "Mark as done"}
+                    title={done ? "Mark as not done" : "Mark as done"}
+                    className={`mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                      done
+                        ? "bg-success border-success text-white"
+                        : "border-border text-transparent hover:border-primary"
+                    }`}
+                  >
+                    {togglingId === f.id ? (
+                      <Loader2 size={12} className="animate-spin text-text-muted" />
+                    ) : (
+                      <Check size={12} strokeWidth={3} />
+                    )}
+                  </button>
+                  <div className="flex-1">
+                    <div className={`text-sm font-medium ${done ? "text-text-muted line-through" : "text-foreground"}`}>
+                      {DATE_FMT.format(new Date(f.follow_up_date))}
+                      {f.logged_by && <span className="text-text-muted font-normal"> · {f.logged_by}</span>}
+                    </div>
+                    {f.note && (
+                      <p className={`text-sm mt-0.5 ${done ? "text-text-muted/70 line-through" : "text-text-muted"}`}>
+                        {f.note}
+                      </p>
+                    )}
                   </div>
-                  {f.note && <p className="text-sm text-text-muted mt-0.5">{f.note}</p>}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(f.id)}
-                  disabled={deletingId === f.id}
-                  className="text-text-muted hover:text-error transition-colors shrink-0"
-                  aria-label="Delete follow-up"
-                >
-                  {deletingId === f.id ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={14} strokeWidth={1.8} />
-                  )}
-                </button>
-              </li>
-            ))}
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(f.id)}
+                    disabled={deletingId === f.id}
+                    className="text-text-muted hover:text-error transition-colors shrink-0"
+                    aria-label="Delete follow-up"
+                  >
+                    {deletingId === f.id ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={14} strokeWidth={1.8} />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

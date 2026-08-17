@@ -1,9 +1,9 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Builds a per-lead "next follow-up" summary (most recent logged entry) for
- * the given lead ids, from a single query. Capped at 2000 rows — enough for
- * a page of leads with a healthy follow-up history each.
+ * Builds a per-lead "next follow-up" summary (most recent still-pending
+ * entry) for the given lead ids, from a single query. Capped at 2000 rows —
+ * enough for a page of leads with a healthy follow-up history each.
  */
 export async function buildFollowupInfo(
   admin: ReturnType<typeof createAdminClient>,
@@ -16,6 +16,7 @@ export async function buildFollowupInfo(
     .from("lead_followups")
     .select("lead_id, follow_up_date, note, created_at")
     .in("lead_id", leadIds)
+    .is("completed_at", null)
     .order("follow_up_date", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(2000);

@@ -52,6 +52,7 @@ interface FollowupEntry {
   follow_up_date: string;
   note: string | null;
   logged_by: string | null;
+  completed_at: string | null;
   lead: { client_name: string } | { client_name: string }[] | null;
 }
 
@@ -81,7 +82,7 @@ export default async function FollowupsCalendarPage({ searchParams }: PageProps)
   const admin = createAdminClient();
   const { data } = await admin
     .from("lead_followups")
-    .select("id, lead_id, follow_up_date, note, logged_by, lead:leads(client_name)")
+    .select("id, lead_id, follow_up_date, note, logged_by, completed_at, lead:leads(client_name)")
     .eq("user_id", user.id)
     .gte("follow_up_date", monthStart)
     .lte("follow_up_date", monthEnd)
@@ -167,7 +168,7 @@ export default async function FollowupsCalendarPage({ searchParams }: PageProps)
               const dateStr = `${month}-${String(day).padStart(2, "0")}`;
               const dayEntries = byDay.get(dateStr) ?? [];
               const isToday = dateStr === today;
-              const isOverdue = dateStr < today && dayEntries.length > 0;
+              const dayIsPastDue = dateStr < today;
               const shown = dayEntries.slice(0, 3);
               const extra = dayEntries.length - shown.length;
               return (
@@ -183,20 +184,26 @@ export default async function FollowupsCalendarPage({ searchParams }: PageProps)
                     {day}
                   </div>
                   <div className="space-y-1">
-                    {shown.map((e) => (
-                      <Link
-                        key={e.id}
-                        href={`/leads/${e.lead_id}`}
-                        title={e.note ?? undefined}
-                        className={`block truncate text-[11px] px-1.5 py-0.5 rounded ${
-                          isOverdue
-                            ? "bg-error/10 text-error hover:bg-error/20"
-                            : "bg-primary/10 text-primary hover:bg-primary/20"
-                        }`}
-                      >
-                        {leadName(e)}
-                      </Link>
-                    ))}
+                    {shown.map((e) => {
+                      const done = Boolean(e.completed_at);
+                      const overdue = !done && dayIsPastDue;
+                      return (
+                        <Link
+                          key={e.id}
+                          href={`/leads/${e.lead_id}`}
+                          title={e.note ?? undefined}
+                          className={`block truncate text-[11px] px-1.5 py-0.5 rounded ${
+                            done
+                              ? "bg-success/10 text-success line-through hover:bg-success/20"
+                              : overdue
+                                ? "bg-error/10 text-error hover:bg-error/20"
+                                : "bg-primary/10 text-primary hover:bg-primary/20"
+                          }`}
+                        >
+                          {leadName(e)}
+                        </Link>
+                      );
+                    })}
                     {extra > 0 && (
                       <div className="text-[10px] text-text-muted px-1.5">+{extra} more</div>
                     )}
