@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ChatDrawer, type ActiveChat } from "./chat-drawer";
 import { AddFollowupModal } from "./add-followup-modal";
 import { TEAM_MEMBER_COLORS } from "@/lib/team";
-import { CALL_STATUS_OPTIONS, CALL_STATUS_COLORS } from "@/lib/lead-status";
+import { CALL_STATUS_OPTIONS, CALL_STATUS_COLORS, CALL_STATUS_DOT_COLORS } from "@/lib/lead-status";
 import {
   ChevronRight,
   ExternalLink,
@@ -77,18 +77,6 @@ interface LeadsTableProps {
   leads: LeadRow[];
 }
 
-const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "error" | "processing"> = {
-  new: "processing",
-  contacted: "processing",
-  qualified: "warning",
-  quoted: "warning",
-  won: "success",
-  lost: "error",
-  scheduled: "processing",
-  installed: "success",
-  in_service: "success",
-};
-
 const FOLLOWUP_FMT = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" });
 
 export function LeadsTable({ leads }: LeadsTableProps) {
@@ -130,7 +118,6 @@ export function LeadsTable({ leads }: LeadsTableProps) {
               <th className="px-4 py-3 font-semibold">Assigned</th>
               <th className="px-4 py-3 font-semibold">Location</th>
               <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Stage</th>
               <th className="px-4 py-3 font-semibold">Next follow-up</th>
               <th className="px-4 py-3 font-semibold w-8"></th>
             </tr>
@@ -222,17 +209,21 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   {lead.call_status ? (
-                    <Badge className={CALL_STATUS_COLORS[lead.call_status] ?? "bg-surface text-text-muted"}>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        CALL_STATUS_COLORS[lead.call_status] ?? "bg-surface text-text-muted"
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          CALL_STATUS_DOT_COLORS[lead.call_status] ?? "bg-text-muted"
+                        } ${lead.call_status === "unread" ? "animate-pulse" : ""}`}
+                      />
                       {CALL_STATUS_OPTIONS.find((o) => o.value === lead.call_status)?.label ?? lead.call_status}
-                    </Badge>
+                    </span>
                   ) : (
                     <span className="text-text-muted">—</span>
                   )}
-                </td>
-                <td className="px-4 py-3">
-                  <Badge variant={STATUS_VARIANT[lead.status] ?? "default"}>
-                    {lead.status.replace("_", " ")}
-                  </Badge>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-1.5">

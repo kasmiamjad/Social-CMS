@@ -35,3 +35,14 @@ export const CALL_STATUS_COLORS: Record<string, string> = {
   link_send: "bg-sky-500/15 text-sky-600",
   converted: "bg-success/15 text-success",
 };
+
+/** Dot color per status, for the small pill+dot badge shown in lists (matches the pipeline-stage badge style). */
+export const CALL_STATUS_DOT_COLORS: Record<string, string> = {
+  unread: "bg-primary",
+  read: "bg-text-muted",
+  follow_up: "bg-violet-500",
+  unanswered: "bg-amber-500",
+  not_interested: "bg-error",
+  link_send: "bg-sky-500",
+  converted: "bg-success",
+};
