@@ -17,6 +17,7 @@ import {
   Users,
   UserCheck,
   CalendarCheck,
+  CalendarDays,
   Send,
   Wrench,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import {
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, hidden: false },
   { label: "Leads", href: "/leads", icon: Users, hidden: false },
+  { label: "Follow-ups", href: "/leads/followups", icon: CalendarDays, hidden: false },
   { label: "Bookings", href: "/bookings", icon: CalendarCheck, hidden: false },
   { label: "Customers", href: "/customers", icon: UserCheck, hidden: false },
   { label: "Technicians", href: "/technicians", icon: Wrench, hidden: false },
