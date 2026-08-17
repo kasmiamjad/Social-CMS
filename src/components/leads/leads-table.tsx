@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChatDrawer, type ActiveChat } from "./chat-drawer";
+import { AddFollowupModal } from "./add-followup-modal";
 import { TEAM_MEMBER_COLORS } from "@/lib/team";
 import { CALL_STATUS_OPTIONS, CALL_STATUS_COLORS } from "@/lib/lead-status";
 import {
@@ -16,6 +17,7 @@ import {
   Camera,
   Globe,
   PhoneCall,
+  Plus,
   User,
   Users,
   PlayCircle,
@@ -91,6 +93,7 @@ const FOLLOWUP_FMT = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "
 
 export function LeadsTable({ leads }: LeadsTableProps) {
   const [activeChat, setActiveChat] = useState<ActiveChat | null>(null);
+  const [followupLead, setFollowupLead] = useState<{ id: string; name: string } | null>(null);
   const todayIso = new Date().toISOString().slice(0, 10);
 
   if (leads.length === 0) {
@@ -240,18 +243,29 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                   </Badge>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
-                  {lead.next_followup ? (
-                    <span
-                      className={`text-xs font-medium ${
-                        lead.next_followup < todayIso ? "text-error" : "text-foreground"
-                      }`}
+                  <div className="flex items-center gap-1.5">
+                    {lead.next_followup ? (
+                      <span
+                        className={`text-xs font-medium ${
+                          lead.next_followup < todayIso ? "text-error" : "text-foreground"
+                        }`}
+                      >
+                        {FOLLOWUP_FMT.format(new Date(lead.next_followup))}
+                        {lead.next_followup < todayIso && " (overdue)"}
+                      </span>
+                    ) : (
+                      <span className="text-text-muted">—</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setFollowupLead({ id: lead.id, name: lead.client_name })}
+                      className="text-text-muted hover:text-primary transition-colors"
+                      aria-label="Add follow-up"
+                      title="Add follow-up"
                     >
-                      {FOLLOWUP_FMT.format(new Date(lead.next_followup))}
-                      {lead.next_followup < todayIso && " (overdue)"}
-                    </span>
-                  ) : (
-                    <span className="text-text-muted">—</span>
-                  )}
+                      <Plus size={13} strokeWidth={2} />
+                    </button>
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link href={`/leads/${lead.id}`} className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -265,6 +279,13 @@ export function LeadsTable({ leads }: LeadsTableProps) {
       </div>
     </Card>
     {activeChat && <ChatDrawer chat={activeChat} onClose={() => setActiveChat(null)} />}
+    {followupLead && (
+      <AddFollowupModal
+        leadId={followupLead.id}
+        leadName={followupLead.name}
+        onClose={() => setFollowupLead(null)}
+      />
+    )}
     </>
   );
 }
