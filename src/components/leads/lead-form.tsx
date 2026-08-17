@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PRODUCT_MODEL_OPTIONS } from "@/lib/products";
 import { TEAM_MEMBERS, TEAM_MEMBER_COLORS, getActingAs, type TeamMember } from "@/lib/team";
-import { CALL_STATUS_OPTIONS, CALL_STATUS_COLORS } from "@/lib/lead-status";
+import { CALL_STATUS_OPTIONS } from "@/lib/lead-status";
 import {
   AlertCircle,
   CheckCircle,
@@ -23,7 +23,6 @@ import {
   Loader2,
   Trash2,
   UserCheck,
-  PhoneCall,
 } from "lucide-react";
 
 export interface Lead {
@@ -228,36 +227,6 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
     </div>
   );
 
-  const callStatusField = (
-    <div>
-      <label className="block text-sm font-medium text-foreground mb-1.5">Status</label>
-      <div className="relative">
-        <PhoneCall
-          size={16}
-          strokeWidth={1.8}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-        />
-        <select
-          value={lead.call_status ?? ""}
-          onChange={(e) => update("call_status", e.target.value || null)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-        >
-          <option value="">(select)</option>
-          {CALL_STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      {lead.call_status && (
-        <Badge className={`mt-1.5 ${CALL_STATUS_COLORS[lead.call_status] ?? "bg-surface text-text-muted"}`}>
-          {CALL_STATUS_OPTIONS.find((o) => o.value === lead.call_status)?.label ?? lead.call_status}
-        </Badge>
-      )}
-    </div>
-  );
-
   const cityField = (
     <div>
       <label className="block text-sm font-medium text-foreground mb-1.5">City</label>
@@ -286,60 +255,6 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
     </div>
   );
 
-  if (mode === "create") {
-    return (
-      <div className="space-y-6 max-w-2xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>New Lead</CardTitle>
-            <CardDescription>Capture a new customer enquiry.</CardDescription>
-          </CardHeader>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              id="client_name"
-              label="Client name *"
-              icon={User}
-              value={lead.client_name ?? ""}
-              onChange={(e) => update("client_name", e.target.value)}
-            />
-            <Input
-              id="client_phone"
-              label="Phone"
-              icon={Phone}
-              placeholder="+966XXXXXXXXX"
-              value={lead.client_phone ?? ""}
-              onChange={(e) => update("client_phone", e.target.value)}
-            />
-            {assignedToField}
-            {callStatusField}
-            <div className="sm:col-span-2">{cityField}</div>
-          </div>
-        </Card>
-
-        <div className="flex items-center gap-3 pt-2">
-          {status && (
-            <div
-              className={`flex items-center gap-1.5 text-sm ${
-                status.type === "success" ? "text-success" : "text-error"
-              }`}
-            >
-              {status.type === "success" ? (
-                <CheckCircle size={14} strokeWidth={1.8} />
-              ) : (
-                <AlertCircle size={14} strokeWidth={1.8} />
-              )}
-              {status.message}
-            </div>
-          )}
-          <div className="flex-1" />
-          <Button onClick={handleSave} loading={saving}>
-            Create Lead
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 max-w-6xl">
       {/* Header card */}
@@ -348,10 +263,14 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <CardTitle>
-                {`Lead #${lead.serial_no ?? ""} — ${lead.client_name}`}
+                {mode === "create"
+                  ? "New Lead"
+                  : `Lead #${lead.serial_no ?? ""} — ${lead.client_name}`}
               </CardTitle>
               <CardDescription>
-                {`Source: ${lead.source ?? "manual"}`}
+                {mode === "create"
+                  ? "Capture a new customer enquiry."
+                  : `Source: ${lead.source ?? "manual"}`}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -552,12 +471,14 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
           </div>
         )}
         <div className="flex-1" />
-        <Button variant="danger" onClick={handleDelete} disabled={saving || deleting}>
-          {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} strokeWidth={1.8} />}
-          Delete
-        </Button>
+        {mode === "edit" && (
+          <Button variant="danger" onClick={handleDelete} disabled={saving || deleting}>
+            {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} strokeWidth={1.8} />}
+            Delete
+          </Button>
+        )}
         <Button onClick={handleSave} loading={saving}>
-          Save Changes
+          {mode === "create" ? "Create Lead" : "Save Changes"}
         </Button>
       </div>
     </div>
