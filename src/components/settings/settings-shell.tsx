@@ -8,6 +8,7 @@ import {
   Shield,
   ChevronRight,
   Cpu,
+  MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +62,12 @@ const NAV_SECTIONS: NavSection[] = [
         description: "OpenRouter and headless access keys",
       },
       {
+        id: "quick-replies",
+        label: "Quick Replies",
+        icon: MessageSquareText,
+        description: "\"/\" shortcut templates for WhatsApp replies",
+      },
+      {
         id: "ai",
         label: "AI Settings",
         icon: Cpu,
@@ -77,6 +84,7 @@ const NAV_SECTIONS: NavSection[] = [
 interface SettingsShellProps {
   platformsContent: React.ReactNode;
   apiKeysContent: React.ReactNode;
+  quickRepliesContent: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,7 +94,7 @@ interface SettingsShellProps {
 /**
  * Two-column settings layout — sidebar nav on the left, content on the right.
  */
-export function SettingsShell({ platformsContent, apiKeysContent }: SettingsShellProps) {
+export function SettingsShell({ platformsContent, apiKeysContent, quickRepliesContent }: SettingsShellProps) {
   const [activeId, setActiveId] = useState<string>("platforms");
 
   const activeItem = NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.id === activeId);
@@ -97,6 +105,8 @@ export function SettingsShell({ platformsContent, apiKeysContent }: SettingsShel
         return platformsContent;
       case "api-keys":
         return apiKeysContent;
+      case "quick-replies":
+        return quickRepliesContent;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-48 gap-3 text-center">

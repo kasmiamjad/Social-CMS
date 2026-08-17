@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Send, Bot, MessageCircle, Loader2, AlertCircle, Paperclip, Mic, Square, Trash2 } from "lucide-react";
+import { useReplyTemplates } from "@/hooks/use-reply-templates";
+import { matchSlashQuery, filterTemplates, applyTemplate, type ReplyTemplate } from "@/lib/reply-templates";
+import { TemplateSuggestions } from "@/components/whatsapp/template-suggestions";
 
 const ATTACHMENT_ACCEPT = "image/jpeg,image/png,audio/*";
 
@@ -69,10 +72,26 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // "/" quick-reply autocomplete — WhatsApp only.
+  const templates = useReplyTemplates();
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const slashQuery = chat.channel === "whatsapp" ? matchSlashQuery(reply) : null;
+  const suggestions =
+    slashQuery !== null && !suggestionsDismissed ? filterTemplates(templates, slashQuery) : [];
+
+  function selectTemplate(t: ReplyTemplate) {
+    if (slashQuery === null) return;
+    setReply(applyTemplate(reply, slashQuery, t.message));
+    setSuggestionsDismissed(true);
+    textareaRef.current?.focus();
+  }
 
   const load = useCallback(async () => {
     try {
@@ -378,19 +397,57 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
                   </button>
                 </>
               )}
-              <textarea
-                value={reply}
-                onChange={(e) => setReply(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void handleSend();
+              <div className="relative flex-1">
+                {suggestions.length > 0 && (
+                  <TemplateSuggestions
+                    matches={suggestions}
+                    activeIndex={activeSuggestion}
+                    onSelect={selectTemplate}
+                  />
+                )}
+                <textarea
+                  ref={textareaRef}
+                  value={reply}
+                  onChange={(e) => {
+                    setReply(e.target.value);
+                    setSuggestionsDismissed(false);
+                    setActiveSuggestion(0);
+                  }}
+                  onKeyDown={(e) => {
+                    if (suggestions.length > 0) {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setActiveSuggestion((i) => (i + 1) % suggestions.length);
+                        return;
+                      }
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setActiveSuggestion((i) => (i - 1 + suggestions.length) % suggestions.length);
+                        return;
+                      }
+                      if (e.key === "Enter" || e.key === "Tab") {
+                        e.preventDefault();
+                        selectTemplate(suggestions[activeSuggestion] ?? suggestions[0]);
+                        return;
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        setSuggestionsDismissed(true);
+                        return;
+                      }
+                    }
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSend();
+                    }
+                  }}
+                  rows={2}
+                  placeholder={
+                    chat.channel === "whatsapp" ? "Type a reply…  (Enter to send, / for quick replies)" : "Type a reply…  (Enter to send)"
                   }
-                }}
-                rows={2}
-                placeholder="Type a reply…  (Enter to send)"
-                className="flex-1 resize-none px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
+                  className="w-full resize-none px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
               {chat.channel === "whatsapp" && !reply.trim() ? (
                 <button
                   type="button"

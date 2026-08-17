@@ -3,6 +3,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Send, Loader2, AlertCircle, Paperclip, Mic, Square, Trash2 } from "lucide-react";
+import { useReplyTemplates } from "@/hooks/use-reply-templates";
+import { matchSlashQuery, filterTemplates, applyTemplate, type ReplyTemplate } from "@/lib/reply-templates";
+import { TemplateSuggestions } from "./template-suggestions";
 
 const ATTACHMENT_ACCEPT = "image/jpeg,image/png,audio/*";
 
@@ -56,6 +59,21 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
 
+  // "/" quick-reply autocomplete.
+  const templates = useReplyTemplates();
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const slashQuery = matchSlashQuery(text);
+  const suggestions =
+    slashQuery !== null && !suggestionsDismissed ? filterTemplates(templates, slashQuery) : [];
+
+  function selectTemplate(t: ReplyTemplate) {
+    if (slashQuery === null) return;
+    setText(applyTemplate(text, slashQuery, t.message));
+    setSuggestionsDismissed(true);
+    textareaRef.current?.focus();
+  }
+
   // Auto-resize textarea as user types (up to a max height).
   useEffect(() => {
     const el = textareaRef.current;
@@ -102,6 +120,28 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (suggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveSuggestion((i) => (i + 1) % suggestions.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveSuggestion((i) => (i - 1 + suggestions.length) % suggestions.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        selectTemplate(suggestions[activeSuggestion] ?? suggestions[0]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSuggestionsDismissed(true);
+        return;
+      }
+    }
     // Enter = send, Shift+Enter = newline.
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -304,20 +344,31 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
           >
             <Paperclip size={16} strokeWidth={1.8} />
           </button>
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              if (error) setError(null);
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a reply… (Enter to send, Shift+Enter for new line)"
-            rows={1}
-            disabled={sending}
-            maxLength={4096}
-            className="flex-1 px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none min-h-[42px]"
-          />
+          <div className="relative flex-1">
+            {suggestions.length > 0 && (
+              <TemplateSuggestions
+                matches={suggestions}
+                activeIndex={activeSuggestion}
+                onSelect={selectTemplate}
+              />
+            )}
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                setSuggestionsDismissed(false);
+                setActiveSuggestion(0);
+                if (error) setError(null);
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a reply… (Enter to send, Shift+Enter for new line, / for quick replies)"
+              rows={1}
+              disabled={sending}
+              maxLength={4096}
+              className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none min-h-[42px]"
+            />
+          </div>
           {text.trim() ? (
             <button
               type="button"

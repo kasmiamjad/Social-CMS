@@ -6,6 +6,7 @@ import {
 } from "@/components/settings/platform-credentials-form";
 import { ApiKeysForm } from "@/components/settings/api-keys-form";
 import { UserApiKeysSection } from "@/components/settings/user-api-keys-section";
+import { ReplyTemplatesSection } from "@/components/settings/reply-templates-section";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -124,6 +125,7 @@ export default async function SettingsPage() {
             <UserApiKeysSection />
           </div>
         }
+        quickRepliesContent={<ReplyTemplatesSection />}
       />
     </div>
   );
