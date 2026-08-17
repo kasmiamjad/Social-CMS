@@ -126,8 +126,6 @@ export function LeadsTable({ leads }: LeadsTableProps) {
               <th className="px-4 py-3 font-semibold">Client</th>
               <th className="px-4 py-3 font-semibold">Source</th>
               <th className="px-4 py-3 font-semibold">Last chat</th>
-              <th className="px-4 py-3 font-semibold">Type</th>
-              <th className="px-4 py-3 font-semibold">Unit</th>
               <th className="px-4 py-3 font-semibold">Added by</th>
               <th className="px-4 py-3 font-semibold">Assigned</th>
               <th className="px-4 py-3 font-semibold">Location</th>
@@ -192,12 +190,6 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                   ) : (
                     <span className="text-text-muted">—</span>
                   )}
-                </td>
-                <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
-                  {lead.client_business_type ?? "—"}
-                </td>
-                <td className="px-4 py-3 text-foreground text-xs whitespace-nowrap">
-                  {lead.product_model ?? "—"}
                 </td>
                 <td className="px-4 py-3 text-text-muted text-xs whitespace-nowrap">
                   {lead.added_by ?? "—"}
