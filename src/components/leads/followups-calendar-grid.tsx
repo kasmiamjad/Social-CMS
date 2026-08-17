@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FollowupDrawer, type FollowupChip } from "./followup-drawer";
+import { DayFollowupsDrawer, type FollowupChip } from "./day-followups-drawer";
 
 const WEEKDAYS = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
 
@@ -12,9 +12,9 @@ interface FollowupsCalendarGridProps {
   entriesByDay: Record<string, FollowupChip[]>;
 }
 
-/** Month grid — clicking a follow-up chip opens a side drawer instead of navigating away. */
+/** Month grid — clicking a date opens a side drawer listing all of that day's follow-ups. */
 export function FollowupsCalendarGrid({ cells, month, today, entriesByDay }: FollowupsCalendarGridProps) {
-  const [active, setActive] = useState<FollowupChip | null>(null);
+  const [activeDate, setActiveDate] = useState<string | null>(null);
 
   return (
     <>
@@ -41,13 +41,12 @@ export function FollowupsCalendarGrid({ cells, month, today, entriesByDay }: Fol
               const dayEntries = entriesByDay[dateStr] ?? [];
               const isToday = dateStr === today;
               const dayIsPastDue = dateStr < today;
+              const hasPending = dayEntries.some((e) => !e.completed_at);
               const shown = dayEntries.slice(0, 3);
               const extra = dayEntries.length - shown.length;
-              return (
-                <div
-                  key={i}
-                  className="min-h-[110px] p-1.5 border-b border-r border-border last:border-r-0 [&:nth-child(7n)]:border-r-0"
-                >
+
+              const cellContent = (
+                <>
                   <div
                     className={`text-xs font-semibold mb-1 w-5 h-5 flex items-center justify-center rounded-full ${
                       isToday ? "bg-primary text-white" : "text-foreground"
@@ -60,32 +59,59 @@ export function FollowupsCalendarGrid({ cells, month, today, entriesByDay }: Fol
                       const done = Boolean(e.completed_at);
                       const overdue = !done && dayIsPastDue;
                       return (
-                        <button
+                        <div
                           key={e.id}
-                          type="button"
-                          onClick={() => setActive(e)}
-                          title={e.note ?? undefined}
-                          className={`block w-full truncate text-left text-[11px] px-1.5 py-0.5 rounded ${
+                          className={`truncate text-[11px] px-1.5 py-0.5 rounded ${
                             done
-                              ? "bg-success/10 text-success line-through hover:bg-success/20"
+                              ? "bg-success/10 text-success line-through"
                               : overdue
-                                ? "bg-error/10 text-error hover:bg-error/20"
-                                : "bg-primary/10 text-primary hover:bg-primary/20"
+                                ? "bg-error/10 text-error"
+                                : "bg-primary/10 text-primary"
                           }`}
                         >
                           {e.lead_name}
-                        </button>
+                        </div>
                       );
                     })}
                     {extra > 0 && <div className="text-[10px] text-text-muted px-1.5">+{extra} more</div>}
                   </div>
-                </div>
+                </>
+              );
+
+              if (dayEntries.length === 0) {
+                return (
+                  <div
+                    key={i}
+                    className="min-h-[110px] p-1.5 border-b border-r border-border last:border-r-0 [&:nth-child(7n)]:border-r-0"
+                  >
+                    {cellContent}
+                  </div>
+                );
+              }
+
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setActiveDate(dateStr)}
+                  className={`min-h-[110px] p-1.5 border-b border-r border-border last:border-r-0 [&:nth-child(7n)]:border-r-0 text-left hover:bg-surface transition-colors ${
+                    dayIsPastDue && hasPending ? "ring-1 ring-inset ring-error/30" : ""
+                  }`}
+                >
+                  {cellContent}
+                </button>
               );
             })}
           </div>
         </div>
       </div>
-      {active && <FollowupDrawer entry={active} onClose={() => setActive(null)} />}
+      {activeDate && (
+        <DayFollowupsDrawer
+          date={activeDate}
+          entries={entriesByDay[activeDate] ?? []}
+          onClose={() => setActiveDate(null)}
+        />
+      )}
     </>
   );
 }

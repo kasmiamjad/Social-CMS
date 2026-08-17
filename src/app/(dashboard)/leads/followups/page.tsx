@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { FollowupsCalendarGrid } from "@/components/leads/followups-calendar-grid";
-import type { FollowupChip } from "@/components/leads/followup-drawer";
+import type { FollowupChip } from "@/components/leads/day-followups-drawer";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 
 // ── Calendar date helpers ───────────────────────────────────────────────────
