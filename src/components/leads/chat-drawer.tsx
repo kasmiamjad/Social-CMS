@@ -82,6 +82,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
   const templates = useReplyTemplates();
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [pendingMediaUrl, setPendingMediaUrl] = useState<string | null>(null);
   const slashQuery = chat.channel === "whatsapp" ? matchSlashQuery(reply) : null;
   const suggestions =
     slashQuery !== null && !suggestionsDismissed ? filterTemplates(templates, slashQuery) : [];
@@ -89,6 +90,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
   function selectTemplate(t: ReplyTemplate) {
     if (slashQuery === null) return;
     setReply(applyTemplate(reply, slashQuery, t.message));
+    setPendingMediaUrl(t.media_url);
     setSuggestionsDismissed(true);
     textareaRef.current?.focus();
   }
@@ -131,10 +133,35 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
 
   async function handleSend() {
     const text = reply.trim();
-    if (!text || sending) return;
+    if ((!text && !pendingMediaUrl) || sending) return;
     setSending(true);
     setError(null);
     try {
+      if (pendingMediaUrl) {
+        if (!contact) {
+          setError({ message: "Contact not loaded yet — try again in a moment." });
+          return;
+        }
+        const res = await fetch("/api/v1/whatsapp/send-image-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: contact, media_url: pendingMediaUrl, caption: text || undefined }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          setError({
+            code: json.error?.code,
+            message: json.error?.message ?? `Failed to send (HTTP ${res.status})`,
+            details: json.error?.details,
+          });
+          return;
+        }
+        setReply("");
+        setPendingMediaUrl(null);
+        void load();
+        return;
+      }
+
       const res = await fetch(baseUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -405,6 +432,21 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
                     onSelect={selectTemplate}
                   />
                 )}
+                {pendingMediaUrl && (
+                  <div className="flex items-center gap-2 mb-1.5 px-2 py-1.5 rounded-lg border border-border bg-surface w-fit">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={pendingMediaUrl} alt="" className="w-8 h-8 rounded object-cover" />
+                    <span className="text-xs text-text-muted">Image from quick reply</span>
+                    <button
+                      type="button"
+                      onClick={() => setPendingMediaUrl(null)}
+                      className="text-text-muted hover:text-error transition-colors"
+                      aria-label="Remove attached image"
+                    >
+                      <Trash2 size={13} strokeWidth={1.8} />
+                    </button>
+                  </div>
+                )}
                 <textarea
                   ref={textareaRef}
                   value={reply}
@@ -448,7 +490,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
                   className="w-full resize-none px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
-              {chat.channel === "whatsapp" && !reply.trim() ? (
+              {chat.channel === "whatsapp" && !reply.trim() && !pendingMediaUrl ? (
                 <button
                   type="button"
                   onClick={startRecording}
@@ -459,7 +501,12 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
                   <Mic size={15} strokeWidth={1.8} />
                 </button>
               ) : (
-                <Button onClick={handleSend} loading={sending} disabled={!reply.trim()} className="!px-3">
+                <Button
+                  onClick={handleSend}
+                  loading={sending}
+                  disabled={!reply.trim() && !pendingMediaUrl}
+                  className="!px-3"
+                >
                   <Send size={15} strokeWidth={1.8} />
                 </Button>
               )}

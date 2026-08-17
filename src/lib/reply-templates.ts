@@ -2,6 +2,7 @@ export interface ReplyTemplate {
   id: string;
   shortcut: string;
   message: string;
+  media_url: string | null;
 }
 
 /**

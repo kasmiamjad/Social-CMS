@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { MessageSquareText, Plus, Trash2, Pencil, Check, X, AlertCircle } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { MessageSquareText, Plus, Trash2, Pencil, Check, X, AlertCircle, ImageIcon, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,7 @@ interface TemplateRow {
   id: string;
   shortcut: string;
   message: string;
+  media_url: string | null;
 }
 
 /**
@@ -28,7 +29,10 @@ export function ReplyTemplatesSection() {
   const [editMessage, setEditMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploadingImageId, setUploadingImageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const pendingImageTemplateId = useRef<string | null>(null);
 
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
@@ -130,6 +134,54 @@ export function ReplyTemplatesSection() {
     }
   }
 
+  function triggerImageUpload(templateId: string) {
+    pendingImageTemplateId.current = templateId;
+    setError(null);
+    imageInputRef.current?.click();
+  }
+
+  async function handleImageSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const templateId = pendingImageTemplateId.current;
+    e.target.value = "";
+    if (!file || !templateId) return;
+
+    setUploadingImageId(templateId);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/v1/reply-templates/${templateId}/image`, {
+        method: "POST",
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.error?.message ?? "Failed to upload image");
+        return;
+      }
+      setTemplates((prev) => prev.map((t) => (t.id === templateId ? (json.data.template as TemplateRow) : t)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setUploadingImageId(null);
+      pendingImageTemplateId.current = null;
+    }
+  }
+
+  async function handleRemoveImage(templateId: string) {
+    setUploadingImageId(templateId);
+    try {
+      const res = await fetch(`/api/v1/reply-templates/${templateId}/image`, { method: "DELETE" });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setTemplates((prev) => prev.map((t) => (t.id === templateId ? (json.data.template as TemplateRow) : t)));
+      }
+    } finally {
+      setUploadingImageId(null);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -141,11 +193,20 @@ export function ReplyTemplatesSection() {
             <CardTitle>Quick Replies</CardTitle>
             <CardDescription>
               Type &ldquo;/shortcut&rdquo; in a WhatsApp reply box to fill in the full message — same as WhatsApp
-              Business&apos;s own quick replies.
+              Business&apos;s own quick replies. Add an image to a template and it&apos;s sent as a photo with
+              the message as its caption.
             </CardDescription>
           </div>
         </div>
       </CardHeader>
+
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={handleImageSelected}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr_auto] gap-2 items-start">
         <Input
@@ -218,12 +279,33 @@ export function ReplyTemplatesSection() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+                <div className="flex items-start gap-3">
+                  {t.media_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={t.media_url}
+                      alt=""
+                      className="w-11 h-11 rounded-lg border border-border object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-11 h-11 rounded-lg border border-dashed border-border flex items-center justify-center shrink-0">
+                      <ImageIcon size={16} strokeWidth={1.8} className="text-text-muted" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-primary">/{t.shortcut}</p>
                     <p className="text-sm text-text-muted mt-0.5 whitespace-pre-wrap">{t.message}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      onClick={() => (t.media_url ? void handleRemoveImage(t.id) : triggerImageUpload(t.id))}
+                      loading={uploadingImageId === t.id}
+                      className="text-text-muted hover:text-foreground px-2 py-1.5"
+                      title={t.media_url ? "Remove image" : "Attach image"}
+                    >
+                      {t.media_url ? <X size={14} strokeWidth={1.8} /> : <Upload size={14} strokeWidth={1.8} />}
+                    </Button>
                     <Button
                       variant="ghost"
                       onClick={() => startEdit(t)}

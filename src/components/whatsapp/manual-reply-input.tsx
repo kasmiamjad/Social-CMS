@@ -63,6 +63,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
   const templates = useReplyTemplates();
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [pendingMediaUrl, setPendingMediaUrl] = useState<string | null>(null);
   const slashQuery = matchSlashQuery(text);
   const suggestions =
     slashQuery !== null && !suggestionsDismissed ? filterTemplates(templates, slashQuery) : [];
@@ -70,6 +71,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
   function selectTemplate(t: ReplyTemplate) {
     if (slashQuery === null) return;
     setText(applyTemplate(text, slashQuery, t.message));
+    setPendingMediaUrl(t.media_url);
     setSuggestionsDismissed(true);
     textareaRef.current?.focus();
   }
@@ -84,20 +86,23 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
 
   async function handleSend() {
     const trimmed = text.trim();
-    if (!trimmed || sending) return;
+    if ((!trimmed && !pendingMediaUrl) || sending) return;
 
     setSending(true);
     setError(null);
 
     try {
-      const res = await fetch("/api/v1/whatsapp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: contactPhone,
-          body: trimmed,
-        }),
-      });
+      const res = pendingMediaUrl
+        ? await fetch("/api/v1/whatsapp/send-image-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: contactPhone, media_url: pendingMediaUrl, caption: trimmed || undefined }),
+          })
+        : await fetch("/api/v1/whatsapp/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: contactPhone, body: trimmed }),
+          });
       const json = await res.json();
 
       if (!res.ok || !json.success) {
@@ -110,6 +115,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
       }
 
       setText("");
+      setPendingMediaUrl(null);
       // Re-fetch server data so the new outbound message appears in the thread.
       router.refresh();
     } catch (err) {
@@ -352,6 +358,21 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
                 onSelect={selectTemplate}
               />
             )}
+            {pendingMediaUrl && (
+              <div className="flex items-center gap-2 mb-1.5 px-2 py-1.5 rounded-lg border border-border bg-surface w-fit">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={pendingMediaUrl} alt="" className="w-8 h-8 rounded object-cover" />
+                <span className="text-xs text-text-muted">Image from quick reply</span>
+                <button
+                  type="button"
+                  onClick={() => setPendingMediaUrl(null)}
+                  className="text-text-muted hover:text-error transition-colors"
+                  aria-label="Remove attached image"
+                >
+                  <Trash2 size={13} strokeWidth={1.8} />
+                </button>
+              </div>
+            )}
             <textarea
               ref={textareaRef}
               value={text}
@@ -369,7 +390,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
               className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none min-h-[42px]"
             />
           </div>
-          {text.trim() ? (
+          {text.trim() || pendingMediaUrl ? (
             <button
               type="button"
               onClick={handleSend}
