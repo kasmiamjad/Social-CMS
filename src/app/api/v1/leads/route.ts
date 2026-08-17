@@ -37,6 +37,9 @@ const CreateLeadSchema = z.object({
   qr_code: z.string().max(200).optional().nullable(),
   product_qty: z.number().int().min(1).max(9999).optional(),
   product_model: z.string().max(200).optional().nullable(),
+  products: z
+    .array(z.object({ qty: z.number().int().min(1).max(9999), model: z.string().max(200).nullable() }))
+    .optional(),
   lead_date: z.string().optional().nullable(),
   installation_date: z.string().optional().nullable(),
   next_service_date: z.string().optional().nullable(),
@@ -143,6 +146,7 @@ export async function POST(request: NextRequest) {
     qr_code: parsed.qr_code ?? null,
     product_qty: parsed.product_qty ?? 1,
     product_model: parsed.product_model ?? null,
+    products: parsed.products ?? [],
     lead_date: parsed.lead_date ?? null,
     installation_date: parsed.installation_date ?? null,
     next_service_date: parsed.next_service_date ?? null,

@@ -18,6 +18,9 @@ const UpdateLeadSchema = z.object({
   qr_code: z.string().max(200).nullable().optional(),
   product_qty: z.number().int().min(1).max(9999).optional(),
   product_model: z.string().max(200).nullable().optional(),
+  products: z
+    .array(z.object({ qty: z.number().int().min(1).max(9999), model: z.string().max(200).nullable() }))
+    .optional(),
   lead_date: z.string().nullable().optional(),
   installation_date: z.string().nullable().optional(),
   next_service_date: z.string().nullable().optional(),

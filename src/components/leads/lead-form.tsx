@@ -23,6 +23,7 @@ import {
   Loader2,
   Trash2,
   UserCheck,
+  Plus,
 } from "lucide-react";
 
 export interface Lead {
@@ -36,6 +37,7 @@ export interface Lead {
   client_business_type?: string | null;
   product_qty?: number;
   product_model?: string | null;
+  products?: { qty: number; model: string | null }[] | null;
   lead_date?: string | null;
   installation_date?: string | null;
   next_service_date?: string | null;
@@ -84,14 +86,24 @@ interface LeadFormProps {
  */
 export function LeadForm({ initialLead, mode }: LeadFormProps) {
   const router = useRouter();
-  const [lead, setLead] = useState<Lead>(
-    initialLead ?? {
-      client_name: "",
-      product_qty: 1,
-      status: "new",
-      source: "manual",
+  const [lead, setLead] = useState<Lead>(() => {
+    const base: Lead =
+      initialLead ?? {
+        client_name: "",
+        product_qty: 1,
+        status: "new",
+        source: "manual",
+      };
+    // Old leads only have the single product_qty/product_model pair — seed
+    // the row list from those so they show up as one editable row.
+    if (!base.products || base.products.length === 0) {
+      return {
+        ...base,
+        products: [{ qty: base.product_qty ?? 1, model: base.product_model ?? null }],
+      };
     }
-  );
+    return base;
+  });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [status, setStatusMsg] = useState<{ type: "success" | "error"; message: string } | null>(
@@ -101,6 +113,27 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
   function update<K extends keyof Lead>(key: K, value: Lead[K]) {
     setLead((prev) => ({ ...prev, [key]: value }));
     if (status) setStatusMsg(null);
+  }
+
+  function updateProductRow<K extends "qty" | "model">(
+    index: number,
+    field: K,
+    value: { qty: number; model: string | null }[K]
+  ) {
+    setLead((prev) => {
+      const rows = [...(prev.products ?? [])];
+      rows[index] = { ...rows[index], [field]: value };
+      return { ...prev, products: rows };
+    });
+    if (status) setStatusMsg(null);
+  }
+
+  function addProductRow() {
+    setLead((prev) => ({ ...prev, products: [...(prev.products ?? []), { qty: 1, model: null }] }));
+  }
+
+  function removeProductRow(index: number) {
+    setLead((prev) => ({ ...prev, products: (prev.products ?? []).filter((_, i) => i !== index) }));
   }
 
   async function handleSave() {
@@ -117,10 +150,19 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
           ? "/api/v1/leads"
           : `/api/v1/leads/${initialLead!.id}`;
       const method = mode === "create" ? "POST" : "PATCH";
+      // Booking creation still reads the flat product_qty/product_model, so
+      // keep them in sync with the first row — the rest of the pipeline
+      // needs no changes.
+      const firstRow = lead.products?.[0];
+      const payload = {
+        ...lead,
+        product_qty: firstRow?.qty ?? lead.product_qty ?? 1,
+        product_model: firstRow?.model ?? lead.product_model ?? null,
+      };
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(lead),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -361,46 +403,65 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
         <CardHeader>
           <CardTitle>Product</CardTitle>
         </CardHeader>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Input
-            id="product_qty"
-            label="Quantity"
-            icon={Package}
-            type="number"
-            min={1}
-            value={String(lead.product_qty ?? 1)}
-            onChange={(e) => update("product_qty", Number(e.target.value) || 1)}
-          />
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-foreground mb-1.5">
-              RO Unit / Model
-            </label>
-            <div className="relative">
-              <Package
-                size={16}
-                strokeWidth={1.8}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+        <div className="space-y-3">
+          {(lead.products ?? []).map((row, i) => (
+            <div key={i} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <Input
+                id={`product_qty_${i}`}
+                label="Quantity"
+                icon={Package}
+                type="number"
+                min={1}
+                value={String(row.qty ?? 1)}
+                onChange={(e) => updateProductRow(i, "qty", Number(e.target.value) || 1)}
               />
-              <select
-                value={lead.product_model ?? ""}
-                onChange={(e) => update("product_model", e.target.value || null)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="">(select model)</option>
-                {/* Keep any legacy/custom value selectable so editing an old lead
-                    doesn't silently drop its model. */}
-                {lead.product_model &&
-                  !PRODUCT_MODEL_OPTIONS.some((o) => o.value === lead.product_model) && (
-                    <option value={lead.product_model}>{lead.product_model}</option>
-                  )}
-                {PRODUCT_MODEL_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <div className="md:col-span-2 flex items-end gap-2">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-foreground mb-1.5">
+                    RO Unit / Model
+                  </label>
+                  <div className="relative">
+                    <Package
+                      size={16}
+                      strokeWidth={1.8}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                    />
+                    <select
+                      value={row.model ?? ""}
+                      onChange={(e) => updateProductRow(i, "model", e.target.value || null)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">(select model)</option>
+                      {/* Keep any legacy/custom value selectable so editing an old lead
+                          doesn't silently drop its model. */}
+                      {row.model && !PRODUCT_MODEL_OPTIONS.some((o) => o.value === row.model) && (
+                        <option value={row.model}>{row.model}</option>
+                      )}
+                      {PRODUCT_MODEL_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {(lead.products?.length ?? 0) > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeProductRow(i)}
+                    className="p-2.5 rounded-lg border border-border text-text-muted hover:text-error hover:border-error/40 transition-colors"
+                    aria-label="Remove product"
+                  >
+                    <Trash2 size={16} strokeWidth={1.8} />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          ))}
+          <Button type="button" variant="secondary" size="sm" onClick={addProductRow}>
+            <Plus size={14} strokeWidth={2} />
+            Add product
+          </Button>
         </div>
       </Card>
 
