@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { Badge } from "@/components/ui/badge";
 import { ChatDrawer, type ActiveChat } from "./chat-drawer";
 import { AddFollowupModal } from "./add-followup-modal";
+import { MessagePlusIcon } from "@/components/icons/message-plus-icon";
 import { TEAM_MEMBER_COLORS } from "@/lib/team";
 import { CALL_STATUS_OPTIONS, CALL_STATUS_COLORS, CALL_STATUS_DOT_COLORS } from "@/lib/lead-status";
 import {
@@ -17,7 +18,6 @@ import {
   Camera,
   Globe,
   PhoneCall,
-  Plus,
   User,
   Users,
   PlayCircle,
@@ -242,11 +242,11 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                     <button
                       type="button"
                       onClick={() => setFollowupLead({ id: lead.id, name: lead.client_name })}
-                      className="text-text-muted hover:text-primary transition-colors"
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors shrink-0"
                       aria-label="Add follow-up"
                       title="Add follow-up"
                     >
-                      <Plus size={13} strokeWidth={2} />
+                      <MessagePlusIcon size={14} />
                     </button>
                   </div>
                 </td>
