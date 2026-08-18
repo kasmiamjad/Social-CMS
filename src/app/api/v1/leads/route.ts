@@ -147,7 +147,9 @@ export async function POST(request: NextRequest) {
     product_qty: parsed.product_qty ?? 1,
     product_model: parsed.product_model ?? null,
     products: parsed.products ?? [],
-    lead_date: parsed.lead_date ?? null,
+    // lead_date is NOT NULL DEFAULT CURRENT_DATE — an explicit null would
+    // override that default and fail the constraint, so fall back to today.
+    lead_date: parsed.lead_date || new Date().toISOString().slice(0, 10),
     installation_date: parsed.installation_date ?? null,
     next_service_date: parsed.next_service_date ?? null,
     scope: parsed.scope ?? null,
