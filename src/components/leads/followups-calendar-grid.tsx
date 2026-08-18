@@ -78,17 +78,6 @@ export function FollowupsCalendarGrid({ cells, month, today, entriesByDay }: Fol
                 </>
               );
 
-              if (dayEntries.length === 0) {
-                return (
-                  <div
-                    key={i}
-                    className="min-h-[110px] p-1.5 border-b border-r border-border last:border-r-0 [&:nth-child(7n)]:border-r-0"
-                  >
-                    {cellContent}
-                  </div>
-                );
-              }
-
               return (
                 <button
                   key={i}

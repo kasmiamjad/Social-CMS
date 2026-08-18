@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { X, Check, Loader2 } from "lucide-react";
+import { X, Check, Loader2, Search, Plus } from "lucide-react";
+import { TEAM_MEMBERS, getActingAs } from "@/lib/team";
 
 export interface FollowupChip {
   id: string;
@@ -13,6 +14,12 @@ export interface FollowupChip {
   note: string | null;
   logged_by: string | null;
   completed_at: string | null;
+}
+
+interface LeadSearchResult {
+  id: string;
+  client_name: string;
+  client_phone: string | null;
 }
 
 interface DayFollowupsDrawerProps {
@@ -28,12 +35,22 @@ const DATE_FMT = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
 });
 
-/** Side panel listing every follow-up logged for a single calendar day. */
+/** Side panel listing every follow-up logged for a single calendar day, plus a form to add a new one for that day. */
 export function DayFollowupsDrawer({ date, entries, onClose }: DayFollowupsDrawerProps) {
   const router = useRouter();
   const [items, setItems] = useState(entries);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Add-follow-up form
+  const [leadQuery, setLeadQuery] = useState("");
+  const [leadResults, setLeadResults] = useState<LeadSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<LeadSearchResult | null>(null);
+  const [note, setNote] = useState("");
+  const [loggedBy, setLoggedBy] = useState(() => getActingAs() ?? "");
+  const [creating, setCreating] = useState(false);
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setItems(entries);
@@ -44,6 +61,30 @@ export function DayFollowupsDrawer({ date, entries, onClose }: DayFollowupsDrawe
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  useEffect(() => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    const query = leadQuery.trim();
+    if (!query) {
+      setLeadResults([]);
+      return;
+    }
+    searchDebounce.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/v1/leads?q=${encodeURIComponent(query)}&limit=8`);
+        const json = await res.json();
+        if (res.ok && json.success) setLeadResults(json.data.leads as LeadSearchResult[]);
+      } catch {
+        // Best-effort — leave results as-is on a transient failure.
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => {
+      if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    };
+  }, [leadQuery]);
 
   async function handleToggle(entry: FollowupChip) {
     setTogglingId(entry.id);
@@ -70,11 +111,46 @@ export function DayFollowupsDrawer({ date, entries, onClose }: DayFollowupsDrawe
     }
   }
 
+  async function handleCreate() {
+    if (!selectedLead) {
+      setError("Pick a lead first.");
+      return;
+    }
+    setCreating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/leads/${selectedLead.id}/followups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          follow_up_date: date,
+          note: note.trim() || null,
+          logged_by: loggedBy || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.error?.message ?? "Failed to add follow-up");
+        return;
+      }
+      const created = { ...(json.data.followup as FollowupChip), lead_name: selectedLead.client_name };
+      setItems((prev) => [created, ...prev]);
+      setSelectedLead(null);
+      setLeadQuery("");
+      setNote("");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <>
       <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
       <aside className="fixed right-0 top-0 h-screen w-full max-w-[420px] bg-surface-elevated border-l border-border z-50 flex flex-col shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Follow-ups</h2>
             <p className="text-xs text-text-muted mt-0.5">{DATE_FMT.format(new Date(`${date}T00:00:00`))}</p>
@@ -89,10 +165,101 @@ export function DayFollowupsDrawer({ date, entries, onClose }: DayFollowupsDrawe
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
-          {error && <p className="text-xs text-error mb-3">{error}</p>}
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* Add follow-up */}
+          <div className="rounded-lg border border-border p-3 space-y-2.5">
+            <p className="text-xs font-semibold text-foreground">Add follow-up for this day</p>
+            {selectedLead ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-surface border border-border">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{selectedLead.client_name}</p>
+                  {selectedLead.client_phone && (
+                    <p className="text-xs text-text-muted font-mono">{selectedLead.client_phone}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLead(null)}
+                  className="text-text-muted hover:text-error transition-colors shrink-0"
+                  aria-label="Change lead"
+                >
+                  <X size={14} strokeWidth={1.8} />
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search size={14} strokeWidth={1.8} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <input
+                  value={leadQuery}
+                  onChange={(e) => setLeadQuery(e.target.value)}
+                  placeholder="Search lead by name or phone…"
+                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                {leadQuery.trim() && (
+                  <div className="mt-1.5 rounded-lg border border-border bg-surface-elevated overflow-hidden max-h-48 overflow-y-auto">
+                    {searching ? (
+                      <div className="px-3 py-2 text-xs text-text-muted">Searching…</div>
+                    ) : leadResults.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-text-muted">No leads match.</div>
+                    ) : (
+                      leadResults.map((l) => (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedLead(l);
+                            setLeadQuery("");
+                            setLeadResults([]);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-surface transition-colors"
+                        >
+                          <p className="text-sm text-foreground truncate">{l.client_name}</p>
+                          {l.client_phone && (
+                            <p className="text-xs text-text-muted font-mono">{l.client_phone}</p>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Note (optional)"
+              rows={2}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+            />
+            <div className="flex items-center gap-2">
+              <select
+                value={loggedBy}
+                onChange={(e) => setLoggedBy(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">(unspecified)</option>
+                {TEAM_MEMBERS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => void handleCreate()}
+                disabled={creating || !selectedLead}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+              >
+                {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} strokeWidth={2} />}
+                Add
+              </button>
+            </div>
+          </div>
+
+          {error && <p className="text-xs text-error">{error}</p>}
+
           {items.length === 0 ? (
-            <p className="text-sm text-text-muted">No follow-ups this day.</p>
+            <p className="text-sm text-text-muted">No follow-ups this day yet.</p>
           ) : (
             <ul className="divide-y divide-border">
               {items.map((e) => {
