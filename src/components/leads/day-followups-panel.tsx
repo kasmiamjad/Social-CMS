@@ -24,6 +24,8 @@ interface LeadSearchResult {
 interface DayFollowupsPanelProps {
   date: string;
   entries: FollowupChip[];
+  /** Hide the "Add follow-up for this day" form — used to keep the standalone Day view read-only. */
+  showAddForm?: boolean;
 }
 
 /**
@@ -31,7 +33,7 @@ interface DayFollowupsPanelProps {
  * used both inline (Day view) and inside the slide-over (Month/Week view's
  * DayFollowupsDrawer), so the interactive logic lives in exactly one place.
  */
-export function DayFollowupsPanel({ date, entries }: DayFollowupsPanelProps) {
+export function DayFollowupsPanel({ date, entries, showAddForm = true }: DayFollowupsPanelProps) {
   const router = useRouter();
   const [items, setItems] = useState(entries);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -137,6 +139,7 @@ export function DayFollowupsPanel({ date, entries }: DayFollowupsPanelProps) {
   return (
     <div className="space-y-5">
       {/* Add follow-up */}
+      {showAddForm && (
       <div className="rounded-lg border border-border p-3 space-y-2.5">
         <p className="text-xs font-semibold text-foreground">Add follow-up for this day</p>
         {selectedLead ? (
@@ -211,6 +214,7 @@ export function DayFollowupsPanel({ date, entries }: DayFollowupsPanelProps) {
           </button>
         </div>
       </div>
+      )}
 
       {error && <p className="text-xs text-error">{error}</p>}
 

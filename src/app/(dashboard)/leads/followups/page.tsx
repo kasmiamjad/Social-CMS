@@ -325,7 +325,7 @@ async function DayView({
       <CardHeader>
         <CardTitle>{DAY_FMT.format(new Date(`${date}T00:00:00Z`))}</CardTitle>
       </CardHeader>
-      <DayFollowupsPanel date={date} entries={entriesByDay[date] ?? []} />
+      <DayFollowupsPanel date={date} entries={entriesByDay[date] ?? []} showAddForm={false} />
     </Card>
   );
 }
