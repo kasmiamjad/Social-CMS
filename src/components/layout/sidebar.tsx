@@ -28,7 +28,6 @@ import {
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, hidden: false },
   { label: "Leads", href: "/leads", icon: Users, hidden: false },
-  { label: "Follow-ups", href: "/leads/followups", icon: CalendarDays, hidden: false },
   { label: "Bookings", href: "/bookings", icon: CalendarCheck, hidden: false },
   { label: "Customers", href: "/customers", icon: UserCheck, hidden: false },
   { label: "Technicians", href: "/technicians", icon: Wrench, hidden: false },
@@ -37,6 +36,7 @@ const navItems = [
   { label: "Instagram", href: "/instagram", icon: Camera, hidden: false },
   { label: "Settings", href: "/settings", icon: Settings, hidden: false },
   // ── Hidden for now (code + routes still work, just not in the sidebar) ──
+  { label: "Follow-ups", href: "/leads/followups", icon: CalendarDays, hidden: true },
   { label: "Create Post", href: "/create", icon: PlusCircle, hidden: true },
   { label: "YouTube", href: "/youtube/videos", icon: PlayCircle, hidden: true },
   { label: "Gallery", href: "/gallery", icon: Images, hidden: true },
