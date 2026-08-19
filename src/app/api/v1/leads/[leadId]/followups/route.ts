@@ -8,7 +8,6 @@ import { apiError, apiSuccess } from "@/lib/api-response";
 const CreateFollowupSchema = z.object({
   follow_up_date: z.string().min(1),
   note: z.string().max(2000).optional().nullable(),
-  logged_by: z.string().max(100).optional().nullable(),
 });
 
 /** GET /api/v1/leads/:leadId/followups — list follow-ups for a lead, most recent first. */
@@ -67,6 +66,13 @@ export async function POST(
     .maybeSingle();
   if (!lead) return apiError("NOT_FOUND", "Lead not found", 404);
 
+  // "Logged by" reflects whoever is actually signed in — not tenant-scoped.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", userId)
+    .maybeSingle<{ display_name: string | null }>();
+
   const { data, error } = await supabase
     .from("lead_followups")
     .insert({
@@ -74,7 +80,7 @@ export async function POST(
       lead_id: leadId,
       follow_up_date: parsed.follow_up_date,
       note: parsed.note ?? null,
-      logged_by: parsed.logged_by ?? null,
+      logged_by: profile?.display_name?.trim() || null,
     })
     .select("*")
     .single();

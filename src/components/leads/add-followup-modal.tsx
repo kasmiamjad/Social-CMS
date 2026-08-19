@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { TEAM_MEMBERS, getActingAs } from "@/lib/team";
 import { Calendar, X, AlertCircle } from "lucide-react";
 
 interface AddFollowupModalProps {
@@ -23,7 +22,6 @@ export function AddFollowupModal({ leadId, leadName, onClose }: AddFollowupModal
   const router = useRouter();
   const [date, setDate] = useState(todayIso());
   const [note, setNote] = useState("");
-  const [loggedBy, setLoggedBy] = useState(() => getActingAs() ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +45,6 @@ export function AddFollowupModal({ leadId, leadName, onClose }: AddFollowupModal
         body: JSON.stringify({
           follow_up_date: date,
           note: note.trim() || null,
-          logged_by: loggedBy || null,
         }),
       });
       const json = await res.json();
@@ -93,21 +90,6 @@ export function AddFollowupModal({ leadId, leadName, onClose }: AddFollowupModal
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Logged by</label>
-              <select
-                value={loggedBy}
-                onChange={(e) => setLoggedBy(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="">(unspecified)</option>
-                {TEAM_MEMBERS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
             <Textarea
               id="modal_followup_note"
               label="Note"

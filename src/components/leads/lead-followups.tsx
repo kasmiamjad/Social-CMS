@@ -5,7 +5,6 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { TEAM_MEMBERS, getActingAs } from "@/lib/team";
 import { Calendar, Plus, Trash2, Loader2, Check } from "lucide-react";
 
 export interface Followup {
@@ -33,7 +32,6 @@ export function LeadFollowups({ leadId, initialFollowups }: LeadFollowupsProps) 
   const [followups, setFollowups] = useState<Followup[]>(initialFollowups);
   const [date, setDate] = useState(todayIso());
   const [note, setNote] = useState("");
-  const [loggedBy, setLoggedBy] = useState(() => getActingAs() ?? "");
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -53,7 +51,6 @@ export function LeadFollowups({ leadId, initialFollowups }: LeadFollowupsProps) 
         body: JSON.stringify({
           follow_up_date: date,
           note: note.trim() || null,
-          logged_by: loggedBy || null,
         }),
       });
       const json = await res.json();
@@ -124,7 +121,7 @@ export function LeadFollowups({ leadId, initialFollowups }: LeadFollowupsProps) 
         <CardDescription>Log each time you follow up on this lead.</CardDescription>
       </CardHeader>
       <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
           <Input
             id="followup_date"
             label="Date"
@@ -133,21 +130,6 @@ export function LeadFollowups({ leadId, initialFollowups }: LeadFollowupsProps) 
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Logged by</label>
-            <select
-              value={loggedBy}
-              onChange={(e) => setLoggedBy(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="">(unspecified)</option>
-              {TEAM_MEMBERS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
           <Button type="button" onClick={handleAdd} loading={saving} className="sm:justify-self-start">
             <Plus size={14} strokeWidth={2} />
             Add follow-up

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Loader2, Search, Plus, X } from "lucide-react";
-import { TEAM_MEMBERS, getActingAs } from "@/lib/team";
 
 export interface FollowupChip {
   id: string;
@@ -44,7 +43,6 @@ export function DayFollowupsPanel({ date, entries }: DayFollowupsPanelProps) {
   const [searching, setSearching] = useState(false);
   const [selectedLead, setSelectedLead] = useState<LeadSearchResult | null>(null);
   const [note, setNote] = useState("");
-  const [loggedBy, setLoggedBy] = useState(() => getActingAs() ?? "");
   const [creating, setCreating] = useState(false);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -115,7 +113,6 @@ export function DayFollowupsPanel({ date, entries }: DayFollowupsPanelProps) {
         body: JSON.stringify({
           follow_up_date: date,
           note: note.trim() || null,
-          logged_by: loggedBy || null,
         }),
       });
       const json = await res.json();
@@ -201,19 +198,7 @@ export function DayFollowupsPanel({ date, entries }: DayFollowupsPanelProps) {
           rows={2}
           className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
         />
-        <div className="flex items-center gap-2">
-          <select
-            value={loggedBy}
-            onChange={(e) => setLoggedBy(e.target.value)}
-            className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            <option value="">(unspecified)</option>
-            {TEAM_MEMBERS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={() => void handleCreate()}
