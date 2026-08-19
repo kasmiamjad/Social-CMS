@@ -10,7 +10,7 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { buildChatInfo, uniqueConversationIds } from "@/lib/chat-info";
 import { buildFollowupInfo } from "@/lib/followup-info";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
-import { Plus } from "lucide-react";
+import { Plus, CalendarDays } from "lucide-react";
 
 /** Lead sources created by the AI bot rather than a person. */
 const BOT_SOURCES = new Set(["whatsapp_ai", "facebook", "instagram", "youtube"]);
@@ -151,6 +151,13 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/leads/followups"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border hover:bg-surface text-foreground text-xs font-semibold"
+          >
+            <CalendarDays size={14} strokeWidth={2} />
+            Follow-ups
+          </Link>
           <Link
             href="/leads/new"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold"
