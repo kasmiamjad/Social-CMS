@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Check, Loader2, Search, Plus, X } from "lucide-react";
+import { LeadDetailsPopup } from "./lead-details-popup";
 
 export interface FollowupChip {
   id: string;
@@ -36,6 +36,7 @@ export function DayFollowupsPanel({ date, entries }: DayFollowupsPanelProps) {
   const [items, setItems] = useState(entries);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [viewingLeadId, setViewingLeadId] = useState<string | null>(null);
 
   // Add-follow-up form
   const [leadQuery, setLeadQuery] = useState("");
@@ -222,14 +223,15 @@ export function DayFollowupsPanel({ date, entries }: DayFollowupsPanelProps) {
             return (
               <li key={e.id} className="py-3">
                 <div className="flex items-start justify-between gap-3">
-                  <Link
-                    href={`/leads/${e.lead_id}`}
-                    className={`text-sm font-semibold hover:text-primary-hover ${
+                  <button
+                    type="button"
+                    onClick={() => setViewingLeadId(e.lead_id)}
+                    className={`text-left text-sm font-semibold hover:text-primary-hover ${
                       done ? "text-text-muted line-through" : "text-primary"
                     }`}
                   >
                     {e.lead_name}
-                  </Link>
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleToggle(e)}
@@ -256,6 +258,10 @@ export function DayFollowupsPanel({ date, entries }: DayFollowupsPanelProps) {
             );
           })}
         </ul>
+      )}
+
+      {viewingLeadId && (
+        <LeadDetailsPopup leadId={viewingLeadId} onClose={() => setViewingLeadId(null)} />
       )}
     </div>
   );
