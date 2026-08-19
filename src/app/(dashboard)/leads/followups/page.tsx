@@ -72,6 +72,11 @@ const DAY_FMT = new Intl.DateTimeFormat("en-GB", {
   month: "long",
 });
 
+interface LeadRef {
+  client_name: string;
+  client_phone: string | null;
+}
+
 interface FollowupRow {
   id: string;
   lead_id: string;
@@ -79,12 +84,11 @@ interface FollowupRow {
   note: string | null;
   logged_by: string | null;
   completed_at: string | null;
-  lead: { client_name: string } | { client_name: string }[] | null;
+  lead: LeadRef | LeadRef[] | null;
 }
 
-function leadName(f: FollowupRow): string {
-  const lead = Array.isArray(f.lead) ? f.lead[0] : f.lead;
-  return lead?.client_name ?? "Unknown lead";
+function leadRef(f: FollowupRow): LeadRef | null {
+  return Array.isArray(f.lead) ? (f.lead[0] ?? null) : f.lead;
 }
 
 async function fetchEntriesByDay(
@@ -95,7 +99,7 @@ async function fetchEntriesByDay(
 ): Promise<Record<string, FollowupChip[]>> {
   const { data } = await admin
     .from("lead_followups")
-    .select("id, lead_id, follow_up_date, note, logged_by, completed_at, lead:leads(client_name)")
+    .select("id, lead_id, follow_up_date, note, logged_by, completed_at, lead:leads(client_name, client_phone)")
     .eq("user_id", userId)
     .gte("follow_up_date", start)
     .lte("follow_up_date", end)
@@ -104,10 +108,12 @@ async function fetchEntriesByDay(
   const entriesByDay: Record<string, FollowupChip[]> = {};
   for (const r of (data ?? []) as FollowupRow[]) {
     if (!YMD_RE.test(r.follow_up_date)) continue;
+    const lead = leadRef(r);
     const chip: FollowupChip = {
       id: r.id,
       lead_id: r.lead_id,
-      lead_name: leadName(r),
+      lead_name: lead?.client_name ?? "Unknown lead",
+      lead_phone: lead?.client_phone ?? null,
       follow_up_date: r.follow_up_date,
       note: r.note,
       logged_by: r.logged_by,

@@ -9,6 +9,7 @@ export interface FollowupChip {
   id: string;
   lead_id: string;
   lead_name: string;
+  lead_phone?: string | null;
   follow_up_date: string;
   note: string | null;
   logged_by: string | null;
@@ -254,6 +255,9 @@ export function DayFollowupsPanel({ date, entries, showAddForm = true }: DayFoll
                     {done ? "Done" : "Mark done"}
                   </button>
                 </div>
+                {e.lead_phone && (
+                  <div className="text-xs text-text-muted font-mono mt-0.5">{e.lead_phone}</div>
+                )}
                 {e.logged_by && <div className="text-xs text-text-muted mt-0.5">{e.logged_by}</div>}
                 {e.note && (
                   <p className={`text-sm mt-1 ${done ? "text-text-muted/70" : "text-text-muted"}`}>{e.note}</p>
