@@ -7,6 +7,7 @@ import {
 import { ApiKeysForm } from "@/components/settings/api-keys-form";
 import { UserApiKeysSection } from "@/components/settings/user-api-keys-section";
 import { ReplyTemplatesSection } from "@/components/settings/reply-templates-section";
+import { TeamSection } from "@/components/settings/team-section";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -126,6 +127,7 @@ export default async function SettingsPage() {
           </div>
         }
         quickRepliesContent={<ReplyTemplatesSection />}
+        teamContent={<TeamSection />}
       />
     </div>
   );

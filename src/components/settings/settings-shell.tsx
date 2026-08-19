@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Cpu,
   MessageSquareText,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,12 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Security",
         icon: Shield,
         description: "Password and two-factor authentication",
+      },
+      {
+        id: "team",
+        label: "Team",
+        icon: Users,
+        description: "Create and manage logins",
       },
     ],
   },
@@ -85,6 +92,7 @@ interface SettingsShellProps {
   platformsContent: React.ReactNode;
   apiKeysContent: React.ReactNode;
   quickRepliesContent: React.ReactNode;
+  teamContent: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,7 +102,7 @@ interface SettingsShellProps {
 /**
  * Two-column settings layout — sidebar nav on the left, content on the right.
  */
-export function SettingsShell({ platformsContent, apiKeysContent, quickRepliesContent }: SettingsShellProps) {
+export function SettingsShell({ platformsContent, apiKeysContent, quickRepliesContent, teamContent }: SettingsShellProps) {
   const [activeId, setActiveId] = useState<string>("platforms");
 
   const activeItem = NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.id === activeId);
@@ -107,6 +115,8 @@ export function SettingsShell({ platformsContent, apiKeysContent, quickRepliesCo
         return apiKeysContent;
       case "quick-replies":
         return quickRepliesContent;
+      case "team":
+        return teamContent;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-48 gap-3 text-center">
