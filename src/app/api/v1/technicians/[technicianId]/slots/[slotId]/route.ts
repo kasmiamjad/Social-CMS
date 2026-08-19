@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 /**
@@ -17,11 +18,12 @@ export async function DELETE(
   const { slotId } = await context.params;
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data: slot } = await supabase
     .from("technician_slots")
     .select("id, booking_id")
     .eq("id", slotId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle<{ id: string; booking_id: string | null }>();
 
   if (!slot) return apiError("NOT_FOUND", "Slot not found", 404);
@@ -33,7 +35,7 @@ export async function DELETE(
     .from("technician_slots")
     .delete()
     .eq("id", slotId)
-    .eq("user_id", userId);
+    .eq("user_id", tenantId);
 
   if (error) return apiError("DELETE_FAILED", error.message, 500);
   return apiSuccess({ deleted: true });

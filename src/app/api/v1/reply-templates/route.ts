@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 const SHORTCUT_RE = /^[a-z0-9_-]{1,40}$/;
@@ -17,10 +18,11 @@ export async function GET(request: NextRequest) {
   if (!userId) return apiError("UNAUTHORIZED", "Authentication required", 401);
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("reply_templates")
     .select("*")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .order("shortcut", { ascending: true });
 
   if (error) return apiError("LOAD_FAILED", error.message, 500);
@@ -45,9 +47,10 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("reply_templates")
-    .insert({ user_id: userId, shortcut: parsed.shortcut, message: parsed.message })
+    .insert({ user_id: tenantId, shortcut: parsed.shortcut, message: parsed.message })
     .select("*")
     .single();
 

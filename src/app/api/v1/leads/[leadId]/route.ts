@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { CALL_STATUS_VALUES } from "@/lib/lead-status";
 
@@ -47,11 +48,12 @@ export async function GET(
   const { leadId } = await context.params;
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("leads")
     .select("*")
     .eq("id", leadId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle();
 
   if (error) return apiError("LOAD_FAILED", error.message, 500);
@@ -90,11 +92,12 @@ export async function PATCH(
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("leads")
     .update(payload)
     .eq("id", leadId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .select("*")
     .single();
 
@@ -113,11 +116,12 @@ export async function DELETE(
   const { leadId } = await context.params;
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { error } = await supabase
     .from("leads")
     .delete()
     .eq("id", leadId)
-    .eq("user_id", userId);
+    .eq("user_id", tenantId);
 
   if (error) return apiError("DELETE_FAILED", error.message, 500);
 

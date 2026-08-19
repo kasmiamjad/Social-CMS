@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 const UpdateConversationSchema = z.object({
@@ -25,11 +26,12 @@ export async function GET(
   const { conversationId } = await context.params;
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("whatsapp_conversations")
     .select("*")
     .eq("id", conversationId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle();
 
   if (error) return apiError("LOAD_FAILED", error.message, 500);
@@ -66,6 +68,7 @@ export async function PATCH(
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
 
   const payload: Record<string, unknown> = {};
   if (typeof parsed.ai_paused === "boolean") payload.ai_paused = parsed.ai_paused;
@@ -79,7 +82,7 @@ export async function PATCH(
     .from("whatsapp_conversations")
     .update(payload)
     .eq("id", conversationId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .select("*")
     .single();
 

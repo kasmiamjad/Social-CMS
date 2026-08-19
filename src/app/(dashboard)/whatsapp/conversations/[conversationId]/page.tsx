@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import {
   ConversationThread,
   type WhatsAppConversationDetail,
@@ -32,15 +33,16 @@ export default async function ConversationThreadPage({ params }: PageProps) {
   }
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
 
-  // Load conversation — scoped to current user for security.
+  // Load conversation — scoped to the shared tenant.
   const { data: conversation } = await admin
     .from("whatsapp_conversations")
     .select(
       "id, contact_phone, contact_name, last_message_at, created_at, ai_paused"
     )
     .eq("id", conversationId)
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .maybeSingle<WhatsAppConversationDetail>();
 
   if (!conversation) {

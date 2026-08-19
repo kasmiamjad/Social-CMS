@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import {
   InstagramDmConversationList,
   type InstagramDmConversationSummary,
@@ -43,10 +44,11 @@ export default async function InstagramEngagementPage() {
   }
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
   const { data: credsRow } = await admin
     .from("platform_credentials")
     .select("is_active, credentials")
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .eq("platform", "instagram")
     .maybeSingle<CredentialsRow>();
 
@@ -80,19 +82,19 @@ export default async function InstagramEngagementPage() {
     admin
       .from("instagram_dm_conversations")
       .select("id, contact_ig_id, contact_username, contact_name, last_message_at, last_message_preview, unread_count, is_archived, ai_paused")
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(50),
     admin
       .from("instagram_comments")
       .select("id, ig_media_id, ig_comment_id, author_username, comment_text, ai_reply, status, status_error, posted_at, created_at")
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(50),
     admin
       .from("instagram_automation_configs")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .maybeSingle(),
   ]);
 

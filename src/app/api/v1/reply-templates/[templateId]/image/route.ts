@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMedia, MediaUploadError } from "@/services/media.service";
 
@@ -29,23 +30,24 @@ export async function POST(
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
 
   const { data: existing } = await supabase
     .from("reply_templates")
     .select("id")
     .eq("id", templateId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle();
   if (!existing) return apiError("NOT_FOUND", "Template not found", 404);
 
   try {
-    const { url } = await uploadMedia(userId, file);
+    const { url } = await uploadMedia(tenantId, file);
 
     const { data, error } = await supabase
       .from("reply_templates")
       .update({ media_url: url })
       .eq("id", templateId)
-      .eq("user_id", userId)
+      .eq("user_id", tenantId)
       .select("*")
       .single();
 
@@ -68,11 +70,12 @@ export async function DELETE(
   const { templateId } = await context.params;
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("reply_templates")
     .update({ media_url: null })
     .eq("id", templateId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .select("*")
     .single();
 

@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import {
   ConversationList,
   type WhatsAppConversationSummary,
@@ -44,12 +45,13 @@ export default async function WhatsAppPage() {
     );
   }
 
-  // Check whether the user has saved WhatsApp credentials yet.
+  // Check whether the tenant has saved WhatsApp credentials yet.
   const admin = createAdminClient();
+  const tenantId = getTenantId();
   const { data: credsRow } = await admin
     .from("platform_credentials")
     .select("is_active")
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .eq("platform", "whatsapp")
     .maybeSingle<CredentialsRow>();
 
@@ -86,18 +88,18 @@ export default async function WhatsAppPage() {
       .select(
         "id, contact_phone, contact_name, last_message_at, last_message_preview, unread_count, is_archived"
       )
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(50),
     admin
       .from("whatsapp_automation_configs")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .maybeSingle(),
     admin
       .from("whatsapp_automation_configs")
       .select("product_images")
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .maybeSingle<{ product_images: Record<string, string> }>(),
   ]);
 

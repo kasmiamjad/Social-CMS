@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/; // HH:MM 24h
@@ -31,10 +32,11 @@ export async function GET(
   if (!date) return apiError("INVALID_REQUEST", "date query param is required", 400);
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   let query = supabase
     .from("technician_slots")
     .select("id, slot_date, start_time, end_time, booking_id")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .eq("technician_id", technicianId)
     .eq("slot_date", date)
     .order("start_time", { ascending: true });
@@ -96,20 +98,21 @@ export async function POST(
     return apiError("INVALID_REQUEST", "Start time must be before end time.", 400);
   }
 
-  // Verify the technician belongs to this user before adding a slot to it.
+  // Verify the technician belongs to this tenant before adding a slot to it.
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data: tech } = await supabase
     .from("technicians")
     .select("id")
     .eq("id", technicianId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle<{ id: string }>();
   if (!tech) return apiError("NOT_FOUND", "Technician not found", 404);
 
   const { data, error } = await supabase
     .from("technician_slots")
     .insert({
-      user_id: userId,
+      user_id: tenantId,
       technician_id: technicianId,
       slot_date: parsed.slot_date,
       start_time: parsed.start_time,

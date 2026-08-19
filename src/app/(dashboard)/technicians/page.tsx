@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import { TechniciansManager, type Technician } from "@/components/technicians/technicians-manager";
 
 export default async function TechniciansPage() {
@@ -20,10 +21,11 @@ export default async function TechniciansPage() {
   }
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
   const { data } = await admin
     .from("technicians")
     .select("id, name, phone, is_active, created_at")
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .order("name", { ascending: true });
 
   const technicians = (data ?? []) as Technician[];

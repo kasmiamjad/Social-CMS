@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import {
   MessengerConversationThread,
   type MessengerConversationDetail,
@@ -24,12 +25,13 @@ export default async function MessengerThreadPage({ params }: PageProps) {
   if (!user) redirect("/login");
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
 
   const { data: conversation } = await admin
     .from("messenger_conversations")
     .select("id, psid, contact_name, last_message_at, created_at, ai_paused")
     .eq("id", conversationId)
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .maybeSingle<MessengerConversationDetail>();
 
   if (!conversation) notFound();

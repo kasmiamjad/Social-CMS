@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import { LeadsTable, type LeadRow } from "@/components/leads/leads-table";
 import { TableFilters } from "@/components/ui/table-filters";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -43,6 +44,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   }
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
 
   // ── Parse filters / page from the URL ──────────────────────────────────────
   const sp = await searchParams;
@@ -65,7 +67,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   let query = admin
     .from("leads")
     .select(SELECT_COLS, { count: "exact" })
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .in("status", status ? [status] : OPEN_STATUSES);
 
   if (source) query = query.eq("source", source);
@@ -92,10 +94,10 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
 
   // ── Stat cards: counts across ALL leads, independent of the current filter ──
   const [totalRes, openRes, wonRes, waRes] = await Promise.all([
-    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", OPEN_STATUSES),
-    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", WON_STATUSES),
-    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("source", "whatsapp_ai"),
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", tenantId).in("status", OPEN_STATUSES),
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", tenantId).in("status", WON_STATUSES),
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", tenantId).eq("source", "whatsapp_ai"),
   ]);
 
   // ── Last-customer-message + chat count for the current page's leads ─────────

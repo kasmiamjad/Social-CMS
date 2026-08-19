@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 const FromConversationSchema = z.object({
@@ -42,13 +43,14 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
 
-  // Verify conversation belongs to this user
+  // Verify conversation belongs to this tenant
   const { data: conv, error: convError } = await supabase
     .from("whatsapp_conversations")
     .select("id, user_id, contact_phone, contact_name, last_message_preview")
     .eq("id", parsed.conversation_id)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle<ConvRow>();
 
   if (convError) return apiError("LOAD_FAILED", convError.message, 500);
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
   const { data: existing } = await supabase
     .from("leads")
     .select("*")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .eq("whatsapp_conversation_id", conv.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -70,14 +72,14 @@ export async function POST(request: NextRequest) {
 
   // Assign next serial_no
   const { data: nextNoData } = await supabase
-    .rpc("next_lead_serial_no", { p_user_id: userId })
+    .rpc("next_lead_serial_no", { p_user_id: tenantId })
     .single<number>();
   const serial_no = typeof nextNoData === "number" ? nextNoData : 1;
 
   const { data, error } = await supabase
     .from("leads")
     .insert({
-      user_id: userId,
+      user_id: tenantId,
       serial_no,
       client_name: conv.contact_name?.trim() || conv.contact_phone,
       client_phone: conv.contact_phone,

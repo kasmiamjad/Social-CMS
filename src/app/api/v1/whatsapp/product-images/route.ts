@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 const VALID_SLUGS = ["dispenser", "ro_699", "ro_uv_999", "smart_ro_1199", "smart_ro_1299"] as const;
@@ -17,10 +18,11 @@ export async function GET(request: NextRequest) {
   if (!userId) return apiError("UNAUTHORIZED", "Authentication required", 401);
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("whatsapp_automation_configs")
     .select("product_images")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle<{ product_images: Record<string, string> }>();
 
   if (error) return apiError("LOAD_FAILED", error.message, 500);
@@ -61,7 +63,8 @@ export async function POST(request: NextRequest) {
   }
 
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const storagePath = `product-images/${userId}/${slug}.${ext}`;
+  const tenantId = getTenantId();
+  const storagePath = `product-images/${tenantId}/${slug}.${ext}`;
 
   const supabase = createAdminClient();
   const { error: uploadError } = await supabase.storage
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
   const { data: existing } = await supabase
     .from("whatsapp_automation_configs")
     .select("product_images")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle<{ product_images: Record<string, string> }>();
 
   const updatedImages: Record<string, string> = {
@@ -95,12 +98,12 @@ export async function POST(request: NextRequest) {
   const { data: updated } = await supabase
     .from("whatsapp_automation_configs")
     .update({ product_images: updatedImages })
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .select("user_id");
 
   if (!updated || updated.length === 0) {
     await supabase.from("whatsapp_automation_configs").insert({
-      user_id: userId,
+      user_id: tenantId,
       product_images: updatedImages,
     });
   }
@@ -122,10 +125,11 @@ export async function DELETE(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data: existing } = await supabase
     .from("whatsapp_automation_configs")
     .select("product_images")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle<{ product_images: Record<string, string> }>();
 
   const updatedImages = { ...(existing?.product_images ?? {}) };
@@ -134,7 +138,7 @@ export async function DELETE(request: NextRequest) {
   await supabase
     .from("whatsapp_automation_configs")
     .update({ product_images: updatedImages })
-    .eq("user_id", userId);
+    .eq("user_id", tenantId);
 
   return apiSuccess({ removed: slug });
 }

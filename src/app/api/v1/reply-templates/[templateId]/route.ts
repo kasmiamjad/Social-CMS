@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 const SHORTCUT_RE = /^[a-z0-9_-]{1,40}$/;
@@ -39,11 +40,12 @@ export async function PATCH(
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("reply_templates")
     .update(payload)
     .eq("id", templateId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .select("*")
     .single();
 
@@ -68,11 +70,12 @@ export async function DELETE(
   const { templateId } = await context.params;
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { error } = await supabase
     .from("reply_templates")
     .delete()
     .eq("id", templateId)
-    .eq("user_id", userId);
+    .eq("user_id", tenantId);
 
   if (error) return apiError("DELETE_FAILED", error.message, 500);
 

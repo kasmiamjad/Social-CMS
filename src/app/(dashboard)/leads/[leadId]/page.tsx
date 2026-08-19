@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import { LeadForm, type Lead } from "@/components/leads/lead-form";
 import { LeadFollowups, type Followup } from "@/components/leads/lead-followups";
 import { BookingDrawer } from "@/components/bookings/booking-drawer";
@@ -24,11 +25,12 @@ export default async function LeadDetailPage({ params }: PageProps) {
   if (!user) redirect("/login");
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
   const { data: lead } = await admin
     .from("leads")
     .select("*")
     .eq("id", leadId)
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .maybeSingle<Lead>();
 
   if (!lead) notFound();
@@ -40,7 +42,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
     .select(
       "id, booking_ref, scheduled_at, slot_label, unit_price, technician, notes, status, technician_id, slot_id"
     )
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .eq("lead_id", leadId)
     .neq("status", "cancelled")
     .order("created_at", { ascending: false })
@@ -51,7 +53,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
   const { data: technicians } = await admin
     .from("technicians")
     .select("id, name")
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .eq("is_active", true)
     .order("name", { ascending: true });
 
@@ -59,7 +61,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
     .from("lead_followups")
     .select("*")
     .eq("lead_id", leadId)
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .order("follow_up_date", { ascending: false })
     .order("created_at", { ascending: false });
 

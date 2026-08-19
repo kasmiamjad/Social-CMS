@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { CALL_STATUS_VALUES } from "@/lib/lead-status";
 
@@ -80,10 +81,11 @@ export async function GET(request: NextRequest) {
   const offset = Math.max(parseInt(url.searchParams.get("offset") ?? "0", 10), 0);
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   let query = supabase
     .from("leads")
     .select("*", { count: "exact" })
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -128,15 +130,16 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
 
   // Get the next per-user serial number
   const { data: nextNoData } = await supabase
-    .rpc("next_lead_serial_no", { p_user_id: userId })
+    .rpc("next_lead_serial_no", { p_user_id: tenantId })
     .single<number>();
   const serial_no = typeof nextNoData === "number" ? nextNoData : 1;
 
   const payload = {
-    user_id: userId,
+    user_id: tenantId,
     serial_no,
     client_name: parsed.client_name,
     client_phone: parsed.client_phone ?? null,

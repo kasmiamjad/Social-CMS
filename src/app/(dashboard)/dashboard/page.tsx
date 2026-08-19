@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import { RecentLeads, type RecentLeadRow } from "@/components/dashboard/recent-leads";
 import {
   Users,
@@ -62,33 +63,34 @@ export default async function DashboardPage() {
   }
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
 
   const [totalRes, openRes, wonRes, recentLeadsRes, waRes, msgrRes, igRes] = await Promise.all([
-    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", OPEN_STATUSES),
-    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", WON_STATUSES),
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", tenantId).in("status", OPEN_STATUSES),
+    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", tenantId).in("status", WON_STATUSES),
     admin
       .from("leads")
       .select("id, serial_no, client_name, client_phone, client_business_type, product_model, status, source, created_at")
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(7),
     admin
       .from("whatsapp_conversations")
       .select("id, contact_name, contact_phone, last_message_preview, last_message_at", { count: "exact" })
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(6),
     admin
       .from("messenger_conversations")
       .select("id, contact_name, psid, last_message_preview, last_message_at", { count: "exact" })
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(6),
     admin
       .from("instagram_dm_conversations")
       .select("id, contact_name, contact_username, contact_ig_id, last_message_preview, last_message_at", { count: "exact" })
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(6),
   ]);

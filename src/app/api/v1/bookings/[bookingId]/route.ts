@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { BookingService } from "@/services/booking/booking.service";
 
@@ -41,8 +42,9 @@ export async function PATCH(
   }
 
   const service = new BookingService();
+  const tenantId = getTenantId();
   try {
-    const result = await service.updateBookingAndConfirm(userId, bookingId, {
+    const result = await service.updateBookingAndConfirm(tenantId, bookingId, {
       scheduledAt: parsed.scheduled_at,
       slotLabel: parsed.slot_label,
       unitPrice: parsed.unit_price,

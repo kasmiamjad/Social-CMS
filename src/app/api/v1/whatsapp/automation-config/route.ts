@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import {
   DEFAULT_WHATSAPP_SIGNATURE_SUFFIX,
@@ -32,10 +33,11 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("whatsapp_automation_configs")
     .select("*")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle();
 
   if (error) {
@@ -80,10 +82,11 @@ export async function PUT(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
 
   // Build payload: fill required fields with defaults if this is the first insert
   const payload: Record<string, unknown> = {
-    user_id: userId,
+    user_id: tenantId,
     enabled: parsed.enabled ?? false,
     auto_reply: parsed.auto_reply ?? false,
     system_prompt: parsed.system_prompt ?? DEFAULT_WHATSAPP_SYSTEM_PROMPT,

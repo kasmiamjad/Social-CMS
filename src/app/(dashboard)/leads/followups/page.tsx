@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import { FollowupsCalendarGrid } from "@/components/leads/followups-calendar-grid";
 import { FollowupsWeekStrip } from "@/components/leads/followups-week-strip";
 import { DayFollowupsPanel } from "@/components/leads/day-followups-panel";
@@ -137,6 +138,7 @@ export default async function FollowupsCalendarPage({ searchParams }: PageProps)
   const month = sp.month && YM_RE.test(sp.month) ? sp.month : date.slice(0, 7);
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
 
   return (
     <div>
@@ -163,9 +165,9 @@ export default async function FollowupsCalendarPage({ searchParams }: PageProps)
         {view === "day" && <DayNav date={date} today={today} />}
       </div>
 
-      {view === "month" && <MonthView month={month} today={today} admin={admin} userId={user.id} />}
-      {view === "week" && <WeekView date={date} today={today} admin={admin} userId={user.id} />}
-      {view === "day" && <DayView date={date} admin={admin} userId={user.id} />}
+      {view === "month" && <MonthView month={month} today={today} admin={admin} userId={tenantId} />}
+      {view === "week" && <WeekView date={date} today={today} admin={admin} userId={tenantId} />}
+      {view === "day" && <DayView date={date} admin={admin} userId={tenantId} />}
     </div>
   );
 }

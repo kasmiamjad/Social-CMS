@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
 import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
@@ -52,11 +53,12 @@ export async function POST(
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data: conv } = await supabase
     .from("whatsapp_conversations")
     .select("id, contact_phone")
     .eq("id", conversationId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle<ConvRow>();
 
   if (!conv) return apiError("NOT_FOUND", "Conversation not found", 404);
@@ -64,7 +66,7 @@ export async function POST(
   const { data: credsRow } = await supabase
     .from("platform_credentials")
     .select("credentials")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .eq("platform", "whatsapp")
     .eq("is_active", true)
     .maybeSingle<{ credentials: WhatsAppCredentials }>();
@@ -83,7 +85,7 @@ export async function POST(
       buffer = await transcodeToOggOpus(buffer);
       contentType = "audio/ogg";
     }
-    const { url } = await uploadMediaBuffer(userId, "whatsapp-outbound", buffer, contentType);
+    const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 
     const sent = isImage
       ? await wa.sendImageMessage(conv.contact_phone, url, captionText || undefined)
@@ -93,7 +95,7 @@ export async function POST(
       .from("whatsapp_messages")
       .insert({
         conversation_id: conv.id,
-        user_id: userId,
+        user_id: tenantId,
         wa_message_id: sent.messageId,
         direction: "outbound",
         message_type: isImage ? "image" : "audio",

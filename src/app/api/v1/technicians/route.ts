@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 const CreateTechnicianSchema = z.object({
@@ -16,10 +17,11 @@ export async function GET(request: NextRequest) {
   if (!userId) return apiError("UNAUTHORIZED", "Authentication required", 401);
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("technicians")
     .select("id, name, phone, is_active, created_at")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .order("name", { ascending: true });
 
   if (error) return apiError("LOAD_FAILED", error.message, 500);
@@ -43,6 +45,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const phone = parsed.phone?.trim() || null;
 
   // Phone is the technician's login id, so it must be unique within this owner —
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest) {
     const { data: existing } = await supabase
       .from("technicians")
       .select("id")
-      .eq("user_id", userId)
+      .eq("user_id", tenantId)
       .eq("phone", phone)
       .limit(1);
     if (existing && existing.length > 0) {
@@ -66,7 +69,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from("technicians")
     .insert({
-      user_id: userId,
+      user_id: tenantId,
       name: parsed.name.trim(),
       phone,
       is_active: parsed.is_active ?? true,

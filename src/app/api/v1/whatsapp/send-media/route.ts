@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
 import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
@@ -58,10 +59,11 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data: credsRow, error: credsError } = await supabase
     .from("platform_credentials")
     .select("credentials")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .eq("platform", "whatsapp")
     .eq("is_active", true)
     .maybeSingle<PlatformCredentialsRow>();
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
       buffer = await transcodeToOggOpus(buffer);
       contentType = "audio/ogg";
     }
-    const { url } = await uploadMediaBuffer(userId, "whatsapp-outbound", buffer, contentType);
+    const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 
     const result = isImage
       ? await wa.sendImageMessage(contactPhone, url, captionText || undefined)
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
       .from("whatsapp_conversations")
       .upsert(
         {
-          user_id: userId,
+          user_id: tenantId,
           contact_phone: contactPhone,
           last_message_at: new Date().toISOString(),
           last_message_preview: isImage ? captionText || "📷 Image" : "🎙️ Audio",
@@ -111,7 +113,7 @@ export async function POST(request: NextRequest) {
     if (conversation) {
       await supabase.from("whatsapp_messages").insert({
         conversation_id: conversation.id,
-        user_id: userId,
+        user_id: tenantId,
         wa_message_id: result.messageId,
         direction: "outbound",
         message_type: isImage ? "image" : "audio",

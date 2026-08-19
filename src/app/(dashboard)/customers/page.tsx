@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { TableFilters } from "@/components/ui/table-filters";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -38,6 +39,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
   }
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
   const nowIso = new Date().toISOString();
 
   const sp = await searchParams;
@@ -51,7 +53,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
   let query = admin
     .from("bookings")
     .select(SELECT_COLS, { count: "exact" })
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .eq("status", "completed");
 
   if (warranty === "active") query = query.gt("warranty_expires_at", nowIso);
@@ -78,11 +80,11 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
 
   // ── Stat cards (across all completed installs) ──────────────────────────────
   const [totalRes, activeRes] = await Promise.all([
-    admin.from("bookings").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "completed"),
+    admin.from("bookings").select("id", { count: "exact", head: true }).eq("user_id", tenantId).eq("status", "completed"),
     admin
       .from("bookings")
       .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
+      .eq("user_id", tenantId)
       .eq("status", "completed")
       .gt("warranty_expires_at", nowIso),
   ]);

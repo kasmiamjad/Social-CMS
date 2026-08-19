@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { BookingService } from "@/services/booking/booking.service";
 
@@ -35,10 +36,11 @@ export async function GET(request: NextRequest) {
   const offset = Math.max(parseInt(url.searchParams.get("offset") ?? "0", 10), 0);
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   let query = supabase
     .from("bookings")
     .select("*", { count: "exact" })
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .order("scheduled_at", { ascending: true })
     .range(offset, offset + limit - 1);
 
@@ -75,8 +77,9 @@ export async function POST(request: NextRequest) {
   }
 
   const service = new BookingService();
+  const tenantId = getTenantId();
   try {
-    const result = await service.createBookingAndConfirm(userId, {
+    const result = await service.createBookingAndConfirm(tenantId, {
       leadId: parsed.lead_id,
       scheduledAt: parsed.scheduled_at,
       slotLabel: parsed.slot_label,

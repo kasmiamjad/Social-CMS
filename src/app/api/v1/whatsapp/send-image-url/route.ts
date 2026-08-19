@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
@@ -39,10 +40,11 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data: credsRow, error: credsError } = await supabase
     .from("platform_credentials")
     .select("credentials")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .eq("platform", "whatsapp")
     .eq("is_active", true)
     .maybeSingle<PlatformCredentialsRow>();
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
       .from("whatsapp_conversations")
       .upsert(
         {
-          user_id: userId,
+          user_id: tenantId,
           contact_phone: contactPhone,
           last_message_at: new Date().toISOString(),
           last_message_preview: parsed.caption || "📷 Image",
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
     if (conversation) {
       await supabase.from("whatsapp_messages").insert({
         conversation_id: conversation.id,
-        user_id: userId,
+        user_id: tenantId,
         wa_message_id: result.messageId,
         direction: "outbound",
         message_type: "image",

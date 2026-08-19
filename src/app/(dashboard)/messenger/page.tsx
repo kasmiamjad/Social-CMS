@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import {
   MessengerConversationList,
   type MessengerConversationSummary,
@@ -24,10 +25,11 @@ export default async function MessengerPage() {
   }
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
   const { data } = await admin
     .from("messenger_conversations")
     .select("id, psid, contact_name, last_message_at, last_message_preview, unread_count, is_archived")
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .eq("is_archived", false)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(200);

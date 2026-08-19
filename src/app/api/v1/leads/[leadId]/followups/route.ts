@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 const CreateFollowupSchema = z.object({
@@ -20,11 +21,12 @@ export async function GET(
   const { leadId } = await context.params;
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("lead_followups")
     .select("*")
     .eq("lead_id", leadId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .order("follow_up_date", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -54,20 +56,21 @@ export async function POST(
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
 
   // Confirm the lead belongs to this tenant before attaching a follow-up to it.
   const { data: lead } = await supabase
     .from("leads")
     .select("id")
     .eq("id", leadId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle();
   if (!lead) return apiError("NOT_FOUND", "Lead not found", 404);
 
   const { data, error } = await supabase
     .from("lead_followups")
     .insert({
-      user_id: userId,
+      user_id: tenantId,
       lead_id: leadId,
       follow_up_date: parsed.follow_up_date,
       note: parsed.note ?? null,

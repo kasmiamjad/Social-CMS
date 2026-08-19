@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 /**
@@ -16,12 +17,13 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data, error } = await supabase
     .from("whatsapp_conversations")
     .select(
       "id, contact_phone, contact_name, last_message_at, last_message_preview, unread_count, is_archived, created_at"
     )
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(200);
 

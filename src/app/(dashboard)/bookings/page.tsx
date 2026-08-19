@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTenantId } from "@/lib/tenant";
 import { BookingsTable, type BookingRow } from "@/components/bookings/bookings-table";
 import { TableFilters } from "@/components/ui/table-filters";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -33,6 +34,7 @@ export default async function BookingsPage({ searchParams }: BookingsPageProps) 
   }
 
   const admin = createAdminClient();
+  const tenantId = getTenantId();
 
   const sp = await searchParams;
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
@@ -46,7 +48,7 @@ export default async function BookingsPage({ searchParams }: BookingsPageProps) 
   let query = admin
     .from("bookings")
     .select(SELECT_COLS, { count: "exact" })
-    .eq("user_id", user.id)
+    .eq("user_id", tenantId)
     .neq("status", "completed");
 
   if (status) query = query.eq("status", status);
@@ -73,10 +75,10 @@ export default async function BookingsPage({ searchParams }: BookingsPageProps) 
 
   // ── Stat cards (across all bookings) ────────────────────────────────────────
   const [totalRes, upcomingRes, completedRes, revenueRes] = await Promise.all([
-    admin.from("bookings").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-    admin.from("bookings").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", ["scheduled", "confirmed"]),
-    admin.from("bookings").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "completed"),
-    admin.from("bookings").select("total_amount").eq("user_id", user.id).neq("status", "cancelled").limit(5000),
+    admin.from("bookings").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
+    admin.from("bookings").select("id", { count: "exact", head: true }).eq("user_id", tenantId).in("status", ["scheduled", "confirmed"]),
+    admin.from("bookings").select("id", { count: "exact", head: true }).eq("user_id", tenantId).eq("status", "completed"),
+    admin.from("bookings").select("total_amount").eq("user_id", tenantId).neq("status", "cancelled").limit(5000),
   ]);
   const revenue = ((revenueRes.data ?? []) as { total_amount: number | null }[]).reduce(
     (sum, r) => sum + (r.total_amount ?? 0),

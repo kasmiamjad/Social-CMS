@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
+import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { InstagramEngagementService } from "@/services/platforms/instagram/instagram-engagement.service";
 
@@ -35,11 +36,12 @@ export async function GET(
   const { conversationId } = await context.params;
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data: conv } = await supabase
     .from("instagram_dm_conversations")
     .select("id, contact_ig_id, contact_username, contact_name")
     .eq("id", conversationId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle<ConvRow>();
 
   if (!conv) return apiError("NOT_FOUND", "Conversation not found", 404);
@@ -84,11 +86,12 @@ export async function POST(
   }
 
   const supabase = createAdminClient();
+  const tenantId = getTenantId();
   const { data: conv } = await supabase
     .from("instagram_dm_conversations")
     .select("id, contact_ig_id, contact_username, contact_name")
     .eq("id", conversationId)
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .maybeSingle<ConvRow>();
 
   if (!conv) return apiError("NOT_FOUND", "Conversation not found", 404);
@@ -96,7 +99,7 @@ export async function POST(
   const { data: credsRow } = await supabase
     .from("platform_credentials")
     .select("credentials")
-    .eq("user_id", userId)
+    .eq("user_id", tenantId)
     .eq("platform", "instagram")
     .eq("is_active", true)
     .maybeSingle<{ credentials: IgCredentials }>();
@@ -119,7 +122,7 @@ export async function POST(
       .from("instagram_dm_messages")
       .insert({
         conversation_id: conv.id,
-        user_id: userId,
+        user_id: tenantId,
         ig_message_id: sent.messageId || null,
         direction: "outbound",
         message_type: "text",
