@@ -133,7 +133,7 @@ export default async function FollowupsCalendarPage({ searchParams }: PageProps)
 
   const sp = await searchParams;
   const today = todayYmd();
-  const view: FollowupView = sp.view === "week" || sp.view === "day" ? sp.view : "month";
+  const view: FollowupView = sp.view === "week" || sp.view === "month" ? sp.view : "day";
   const date = sp.date && YMD_RE.test(sp.date) ? sp.date : today;
   const month = sp.month && YM_RE.test(sp.month) ? sp.month : date.slice(0, 7);
 
