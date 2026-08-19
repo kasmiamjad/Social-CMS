@@ -28,7 +28,7 @@ export const CALL_STATUS_OPTIONS: { value: CallStatus; label: string }[] = [
 
 export const CALL_STATUS_COLORS: Record<string, string> = {
   unread: "bg-primary/15 text-primary",
-  read: "bg-surface text-text-muted",
+  read: "bg-surface text-text-muted border border-border",
   follow_up: "bg-violet-500/15 text-violet-600",
   unanswered: "bg-amber-500/15 text-amber-600",
   not_interested: "bg-error/15 text-error",

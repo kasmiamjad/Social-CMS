@@ -211,7 +211,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                   {lead.call_status ? (
                     <span
                       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        CALL_STATUS_COLORS[lead.call_status] ?? "bg-surface text-text-muted"
+                        CALL_STATUS_COLORS[lead.call_status] ?? "bg-surface text-text-muted border border-border"
                       }`}
                     >
                       <span
