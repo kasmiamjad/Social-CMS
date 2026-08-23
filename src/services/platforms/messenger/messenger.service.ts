@@ -77,6 +77,39 @@ export class MessengerService {
   }
 
   /**
+   * Fallback name lookup via the Page Inbox "Conversations" API. Meta blocks
+   * the direct /{psid} Person-profile lookup (getUserProfile) for most
+   * third-party apps without Advanced Access, but the Conversations edge
+   * (used by Meta's own Business Inbox) sometimes still exposes participant
+   * names under the app's existing pages_messaging access. Best-effort —
+   * returns null if unavailable.
+   */
+  async getConversationParticipantName(psid: string): Promise<{ name: string | null } | null> {
+    try {
+      const url = `${MESSENGER_GRAPH_BASE_URL}/${this.credentials.page_id}/conversations?fields=participants&user_id=${encodeURIComponent(
+        psid
+      )}&access_token=${encodeURIComponent(this.credentials.page_access_token)}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.warn("Messenger getConversationParticipantName failed", {
+          psid,
+          status: res.status,
+          body: await res.text().catch(() => ""),
+        });
+        return null;
+      }
+      const data = (await res.json()) as {
+        data?: { participants?: { data?: { name?: string; id?: string }[] } }[];
+      };
+      const participants = data.data?.[0]?.participants?.data ?? [];
+      const customer = participants.find((p) => p.id !== this.credentials.page_id && p.name);
+      return { name: customer?.name?.trim() || null };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Verifies the webhook subscription handshake from Meta.
    * Meta sends GET ?hub.mode=subscribe&hub.verify_token=X&hub.challenge=Y.
    */

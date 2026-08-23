@@ -91,9 +91,12 @@ export class MessengerAutoReplyService {
       throw new Error(`Failed to persist inbound messenger message: ${inboundError.message}`);
     }
 
-    // 2a. Backfill the contact name once (best-effort).
+    // 2a. Backfill the contact name once (best-effort). The direct Person-profile
+    // lookup is blocked for most apps without Meta Advanced Access, so fall back
+    // to the Conversations API, which sometimes still exposes the name.
     if (!conversation.contact_name) {
-      const profile = await messenger.getUserProfile(psid);
+      const profile =
+        (await messenger.getUserProfile(psid)) ?? (await messenger.getConversationParticipantName(psid));
       if (profile?.name) {
         await supabase
           .from("messenger_conversations")
