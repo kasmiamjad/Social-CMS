@@ -185,7 +185,7 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   {lead.assigned_to ? (
-                    <Badge className={TEAM_MEMBER_COLORS[lead.assigned_to] ?? "bg-surface text-text-muted"}>
+                    <Badge className={TEAM_MEMBER_COLORS[lead.assigned_to] ?? "bg-surface text-text-muted border border-border"}>
                       {lead.assigned_to}
                     </Badge>
                   ) : (

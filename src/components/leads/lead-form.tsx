@@ -263,7 +263,7 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
         </select>
       </div>
       {lead.assigned_to && (
-        <Badge className={`mt-1.5 ${TEAM_MEMBER_COLORS[lead.assigned_to] ?? "bg-surface text-text-muted"}`}>
+        <Badge className={`mt-1.5 ${TEAM_MEMBER_COLORS[lead.assigned_to] ?? "bg-surface text-text-muted border border-border"}`}>
           {lead.assigned_to}
         </Badge>
       )}
