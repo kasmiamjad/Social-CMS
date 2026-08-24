@@ -10,6 +10,7 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { buildChatInfo, uniqueConversationIds } from "@/lib/chat-info";
 import { buildFollowupInfo } from "@/lib/followup-info";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
+import { CALL_STATUS_OPTIONS, CALL_STATUS_VALUES } from "@/lib/lead-status";
 import { Plus, CalendarDays } from "lucide-react";
 
 /** Lead sources created by the AI bot rather than a person. */
@@ -25,7 +26,7 @@ const SELECT_COLS =
   "id, serial_no, client_code, client_name, client_phone, client_business_type, product_qty, product_model, installation_date, next_service_date, scope, installed_by, location_address, location_url, city, assigned_to, call_status, status, source, remarks, created_at, whatsapp_conversation_id, messenger_conversation_id, instagram_conversation_id";
 
 interface LeadsPageProps {
-  searchParams: Promise<{ page?: string; q?: string; source?: string; status?: string }>;
+  searchParams: Promise<{ page?: string; q?: string; source?: string; call_status?: string }>;
 }
 
 export default async function LeadsPage({ searchParams }: LeadsPageProps) {
@@ -51,7 +52,8 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const q = (sp.q ?? "").trim();
   const source = sp.source ?? "";
-  const status = sp.status && OPEN_STATUSES.includes(sp.status) ? sp.status : "";
+  const callStatus =
+    sp.call_status && (CALL_STATUS_VALUES as readonly string[]).includes(sp.call_status) ? sp.call_status : "";
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
@@ -68,9 +70,10 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
     .from("leads")
     .select(SELECT_COLS, { count: "exact" })
     .eq("user_id", tenantId)
-    .in("status", status ? [status] : OPEN_STATUSES);
+    .in("status", OPEN_STATUSES);
 
   if (source) query = query.eq("source", source);
+  if (callStatus) query = query.eq("call_status", callStatus);
   if (q) {
     // Strip characters that would break the PostgREST or() filter syntax.
     const safe = q.replace(/[,()%*]/g, " ").trim();
@@ -191,14 +194,11 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
             ],
           },
           {
-            param: "status",
+            param: "call_status",
             ariaLabel: "Status",
             options: [
-              { value: "", label: "All open" },
-              { value: "new", label: "New" },
-              { value: "contacted", label: "Contacted" },
-              { value: "qualified", label: "Qualified" },
-              { value: "quoted", label: "Quoted" },
+              { value: "", label: "All statuses" },
+              ...CALL_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
             ],
           },
         ]}
