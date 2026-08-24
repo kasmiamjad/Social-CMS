@@ -30,6 +30,9 @@ export interface ActiveChat {
   channel: "whatsapp" | "messenger" | "instagram";
   conversationId: string;
   name: string;
+  /** The lead this conversation belongs to, and its current triage status — used to auto-mark it "read" on open. */
+  leadId?: string;
+  callStatus?: string | null;
 }
 
 interface SendError {
@@ -119,6 +122,17 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
   }, [load]);
+
+  // Opening the chat counts as reading it — flip the lead's triage status once.
+  useEffect(() => {
+    if (chat.callStatus !== "unread" || !chat.leadId) return;
+    void fetch(`/api/v1/leads/${chat.leadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ call_status: "read" }),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chat.leadId]);
 
   // Close on Escape.
   useEffect(() => {

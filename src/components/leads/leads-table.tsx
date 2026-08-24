@@ -161,6 +161,8 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                           channel: lead.chat_channel!,
                           conversationId: lead.chat_conversation_id!,
                           name: lead.client_name,
+                          leadId: lead.id,
+                          callStatus: lead.call_status ?? null,
                         })
                       }
                       className="max-w-[220px] text-left group/chat"
