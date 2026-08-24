@@ -133,6 +133,49 @@ export class MessengerService {
   }
 
   /**
+   * Reconciles a conversation against Meta's Conversations API — catches
+   * messages sent from Meta's own Business Inbox, which (unlike replies sent
+   * via the Send API) don't reliably arrive as webhook echoes. Text only for
+   * now; Meta's message-echo webhook already covers attachments sent via the
+   * Send API. Best-effort — returns null if the call fails or the shape is
+   * unexpected, so callers can just skip syncing rather than error out.
+   */
+  async fetchConversationMessages(
+    psid: string
+  ): Promise<{ id: string; message: string | null; fromPage: boolean; createdTime: string }[] | null> {
+    try {
+      const url = `${MESSENGER_GRAPH_BASE_URL}/${this.credentials.page_id}/conversations?fields=messages.limit(50){message,from,created_time,id}&user_id=${encodeURIComponent(
+        psid
+      )}&access_token=${encodeURIComponent(this.credentials.page_access_token)}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.warn("Messenger fetchConversationMessages failed", {
+          psid,
+          status: res.status,
+          body: await res.text().catch(() => ""),
+        });
+        return null;
+      }
+      const data = (await res.json()) as {
+        data?: {
+          messages?: {
+            data?: { id: string; message?: string; from?: { id?: string }; created_time: string }[];
+          };
+        }[];
+      };
+      const raw = data.data?.[0]?.messages?.data ?? [];
+      return raw.map((m) => ({
+        id: m.id,
+        message: m.message?.trim() || null,
+        fromPage: m.from?.id === this.credentials.page_id,
+        createdTime: m.created_time,
+      }));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Verifies the webhook subscription handshake from Meta.
    * Meta sends GET ?hub.mode=subscribe&hub.verify_token=X&hub.challenge=Y.
    */

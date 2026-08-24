@@ -20,6 +20,13 @@ interface ConvRow {
   contact_name: string | null;
 }
 
+interface ConvRowWithSync extends ConvRow {
+  last_synced_at: string | null;
+}
+
+/** Don't re-hit the Conversations API more than once per this window (the chat drawer polls every 5s). */
+const SYNC_THROTTLE_MS = 15_000;
+
 /**
  * GET /api/v1/messenger/conversations/:conversationId/messages
  * Returns the conversation header + messages (oldest → newest).
@@ -36,12 +43,63 @@ export async function GET(
   const tenantId = getTenantId();
   const { data: conv } = await supabase
     .from("messenger_conversations")
-    .select("id, psid, contact_name")
+    .select("id, psid, contact_name, last_synced_at")
     .eq("id", conversationId)
     .eq("user_id", tenantId)
-    .maybeSingle<ConvRow>();
+    .maybeSingle<ConvRowWithSync>();
 
   if (!conv) return apiError("NOT_FOUND", "Conversation not found", 404);
+
+  // Best-effort reconciliation with Meta's Conversations API — catches
+  // replies sent from Meta's own Business Inbox, which don't reliably arrive
+  // as webhook echoes. Throttled so the chat drawer's 5s poll doesn't hammer
+  // the Graph API.
+  const lastSynced = conv.last_synced_at ? new Date(conv.last_synced_at).getTime() : 0;
+  if (Date.now() - lastSynced > SYNC_THROTTLE_MS) {
+    await supabase
+      .from("messenger_conversations")
+      .update({ last_synced_at: new Date().toISOString() })
+      .eq("id", conv.id);
+
+    const { data: credsRow } = await supabase
+      .from("platform_credentials")
+      .select("credentials")
+      .eq("user_id", tenantId)
+      .eq("platform", "messenger")
+      .eq("is_active", true)
+      .maybeSingle<{ credentials: MessengerCredentials }>();
+
+    if (credsRow) {
+      const remote = await new MessengerService(credsRow.credentials).fetchConversationMessages(conv.psid);
+      let latest: { body: string; at: string } | null = null;
+      for (const m of remote ?? []) {
+        if (!m.message) continue; // text-only sync — attachments arrive via the webhook echo
+        const { error } = await supabase.from("messenger_messages").insert({
+          conversation_id: conv.id,
+          user_id: tenantId,
+          mid: m.id,
+          direction: m.fromPage ? "outbound" : "inbound",
+          message_type: "text",
+          body: m.message,
+          status: m.fromPage ? "sent" : "received",
+          sent_at: m.createdTime,
+        });
+        if (error) {
+          if (error.code !== "23505") {
+            console.error("[messenger/conversations/messages] Sync insert failed", error);
+          }
+          continue;
+        }
+        if (!latest || m.createdTime > latest.at) latest = { body: m.message, at: m.createdTime };
+      }
+      if (latest) {
+        await supabase
+          .from("messenger_conversations")
+          .update({ last_message_at: latest.at, last_message_preview: latest.body.slice(0, 200) })
+          .eq("id", conv.id);
+      }
+    }
+  }
 
   const { data: messages } = await supabase
     .from("messenger_messages")
