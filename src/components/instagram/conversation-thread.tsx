@@ -96,33 +96,21 @@ export function InstagramConversationThread({ conversation, messages }: Conversa
 function MessageBubble({ message }: { message: InstagramMessageRow }) {
   const isOutbound = message.direction === "outbound";
   const timestamp = message.sent_at || message.created_at;
+  const hasMedia = Boolean(message.media_url) && ["image", "video", "audio"].includes(message.message_type);
 
   return (
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
       <div className={`max-w-[75%] ${isOutbound ? "items-end" : "items-start"} flex flex-col gap-1`}>
         <div
-          className={`rounded-2xl px-4 py-2.5 ${
+          className={`rounded-2xl overflow-hidden ${hasMedia ? "p-1.5" : "px-4 py-2.5"} ${
             isOutbound
               ? "bg-primary text-white rounded-br-sm"
               : "bg-surface-elevated border border-border text-foreground rounded-bl-sm"
           }`}
         >
-          {message.body ? (
+          <MediaContent message={message} />
+          {message.body && !hasMedia && (
             <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
-          ) : (
-            <p className="text-sm italic opacity-70">
-              {message.message_type === "image"
-                ? "📷 Image"
-                : message.message_type === "video"
-                ? "🎥 Video"
-                : message.message_type === "audio"
-                ? "🎙️ Audio"
-                : message.message_type === "share"
-                ? "🔗 Shared post"
-                : message.message_type === "story_reply"
-                ? "↩️ Story reply"
-                : "(media)"}
-            </p>
           )}
         </div>
         <div
@@ -141,6 +129,51 @@ function MessageBubble({ message }: { message: InstagramMessageRow }) {
       </div>
     </div>
   );
+}
+
+/** Renders the actual media for image/video/audio messages; falls back to a text placeholder otherwise. */
+function MediaContent({ message }: { message: InstagramMessageRow }) {
+  const { message_type, media_url, body } = message;
+
+  if (media_url) {
+    switch (message_type) {
+      case "image":
+        return (
+          <a href={media_url} target="_blank" rel="noopener noreferrer" title="Open full size / download">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={media_url}
+              alt={body || "Image"}
+              className="max-w-full max-h-72 rounded-xl object-contain cursor-zoom-in"
+            />
+          </a>
+        );
+      case "video":
+        return (
+          <video controls className="max-w-full max-h-72 rounded-xl">
+            <source src={media_url} />
+          </video>
+        );
+      case "audio":
+        return <audio controls src={media_url} className="w-64 max-w-full" />;
+    }
+  }
+
+  const label =
+    message_type === "image"
+      ? "📷 Image"
+      : message_type === "video"
+      ? "🎥 Video"
+      : message_type === "audio"
+      ? "🎙️ Audio"
+      : message_type === "share"
+      ? "🔗 Shared post"
+      : message_type === "story_reply"
+      ? "↩️ Story reply"
+      : null;
+
+  if (label) return <p className="text-sm italic opacity-70">{body || label}</p>;
+  return null;
 }
 
 function formatTime(iso: string): string {
