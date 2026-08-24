@@ -36,15 +36,23 @@ export class MessengerAutoReplyService {
     credentials: MessengerCredentials,
     event: MessengerMessagingEvent
   ): Promise<{ conversationId: string | null; skippedReason: string | null }> {
-    // Ignore echoes (messages the Page itself sent) and events without a message.
-    if (event.message?.is_echo || !event.message) {
-      return { conversationId: null, skippedReason: "not_an_inbound_message" };
+    if (!event.message) {
+      return { conversationId: null, skippedReason: "not_a_message_event" };
     }
+
+    // Echoes are the Page's own outbound messages, echoed back by Meta — this
+    // is how a reply sent from Meta's own Business Inbox (or mobile app, not
+    // through this CRM) still shows up here. Messages this app itself sends
+    // are already inserted at send time with the real mid, so the echo for
+    // those is a harmless no-op dedupe below. sender/recipient are swapped
+    // for echoes vs. inbound events (the Page is the "sender" of its own message).
+    const isEcho = Boolean(event.message.is_echo);
+    const psid = isEcho ? event.recipient.id : event.sender.id;
+    const pageId = isEcho ? event.sender.id : event.recipient.id;
 
     const supabase = createAdminClient();
     const messenger = new MessengerService(credentials);
 
-    const psid = event.sender.id;
     const messageText = event.message.text ?? "";
     const messageType = event.message.attachments?.[0]?.type ?? "text";
     const mediaUrl = event.message.attachments?.[0]?.payload?.url ?? null;
@@ -56,7 +64,7 @@ export class MessengerAutoReplyService {
       .upsert(
         {
           user_id: userId,
-          page_id: event.recipient.id,
+          page_id: pageId,
           psid,
           last_message_at: new Date(event.timestamp).toISOString(),
           last_message_preview: preview.slice(0, 200),
@@ -70,25 +78,31 @@ export class MessengerAutoReplyService {
       throw new Error(`Failed to upsert messenger conversation: ${convError?.message}`);
     }
 
-    // 2. Persist inbound message (dedupe on mid)
-    const { error: inboundError } = await supabase.from("messenger_messages").insert({
+    // 2. Persist the message (dedupe on mid)
+    const { error: msgError } = await supabase.from("messenger_messages").insert({
       conversation_id: conversation.id,
       user_id: userId,
       mid: event.message.mid,
-      direction: "inbound",
+      direction: isEcho ? "outbound" : "inbound",
       message_type: normalizeType(messageType),
       body: messageText || null,
       media_url: mediaUrl,
-      status: "received",
+      status: isEcho ? "sent" : "received",
       raw_payload: event,
       sent_at: new Date(event.timestamp).toISOString(),
     });
 
-    if (inboundError) {
-      if (inboundError.code === "23505") {
+    if (msgError) {
+      if (msgError.code === "23505") {
         return { conversationId: conversation.id, skippedReason: "duplicate_webhook" };
       }
-      throw new Error(`Failed to persist inbound messenger message: ${inboundError.message}`);
+      throw new Error(`Failed to persist messenger message: ${msgError.message}`);
+    }
+
+    if (isEcho) {
+      // Our own outbound activity, sent through some other tool — nothing
+      // further to do (no AI reply, no lead-creation trigger).
+      return { conversationId: conversation.id, skippedReason: null };
     }
 
     // 2a. Backfill the contact name once (best-effort). The direct Person-profile
