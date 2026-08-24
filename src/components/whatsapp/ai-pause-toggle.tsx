@@ -8,7 +8,7 @@ interface AiPauseToggleProps {
   conversationId: string;
   initiallyPaused: boolean;
   /** Which channel's conversation this is. Defaults to whatsapp. */
-  channel?: "whatsapp" | "messenger";
+  channel?: "whatsapp" | "messenger" | "instagram";
 }
 
 /**
