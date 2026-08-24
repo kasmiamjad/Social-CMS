@@ -49,6 +49,29 @@ export class MessengerService {
   }
 
   /**
+   * Sends an image (already hosted at a public URL) to a customer by PSID.
+   * The Messenger Send API has no caption field on attachments — pair this
+   * with a follow-up sendTextMessage call if a caption is needed.
+   */
+  async sendImageMessage(psid: string, imageUrl: string): Promise<MessengerSendResult> {
+    const payload = {
+      recipient: { id: psid },
+      messaging_type: "RESPONSE",
+      message: { attachment: { type: "image", payload: { url: imageUrl, is_reusable: true } } },
+    };
+
+    const res = await this.graphPost<MessengerSendApiResponse>(
+      `/${this.credentials.page_id}/messages`,
+      payload
+    );
+
+    if (!res.message_id) {
+      throw new MessengerApiError("Messenger send returned no message id", 500, res);
+    }
+    return { messageId: res.message_id };
+  }
+
+  /**
    * Fetches a customer's public profile (display name) by PSID. Best-effort —
    * returns null if the permission isn't granted or the call fails.
    */

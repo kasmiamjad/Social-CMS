@@ -7,7 +7,12 @@ import { apiError, apiSuccess } from "@/lib/api-response";
 import { MessengerService, MessengerApiError } from "@/services/platforms/messenger/messenger.service";
 import type { MessengerCredentials } from "@/services/platforms/messenger/messenger.types";
 
-const SendSchema = z.object({ body: z.string().min(1).max(2000) });
+const SendSchema = z
+  .object({
+    body: z.string().max(2000).optional(),
+    media_url: z.string().url().optional(),
+  })
+  .refine((d) => (d.body && d.body.trim()) || d.media_url, "body or media_url is required");
 
 interface ConvRow {
   id: string;
@@ -40,7 +45,7 @@ export async function GET(
 
   const { data: messages } = await supabase
     .from("messenger_messages")
-    .select("id, direction, message_type, body, ai_generated, status, sent_at, created_at")
+    .select("id, direction, message_type, body, media_url, ai_generated, status, sent_at, created_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
     .limit(500);
@@ -100,30 +105,48 @@ export async function POST(
   }
 
   const messenger = new MessengerService(credsRow.credentials);
+  const caption = parsed.body?.trim() || null;
   try {
-    const sent = await messenger.sendTextMessage(conv.psid, parsed.body);
+    let messageId: string;
+    if (parsed.media_url) {
+      const sent = await messenger.sendImageMessage(conv.psid, parsed.media_url);
+      messageId = sent.messageId;
+      // Messenger attachments have no caption field — send the text as a
+      // separate follow-up message. Best-effort: the image still counts as sent.
+      if (caption) {
+        try {
+          await messenger.sendTextMessage(conv.psid, caption);
+        } catch (err) {
+          console.error("[messenger/conversations/messages] Caption follow-up failed", err);
+        }
+      }
+    } else {
+      const sent = await messenger.sendTextMessage(conv.psid, caption!);
+      messageId = sent.messageId;
+    }
 
     const { data: message } = await supabase
       .from("messenger_messages")
       .insert({
         conversation_id: conv.id,
         user_id: tenantId,
-        mid: sent.messageId,
+        mid: messageId,
         direction: "outbound",
-        message_type: "text",
-        body: parsed.body,
+        message_type: parsed.media_url ? "image" : "text",
+        body: caption,
+        media_url: parsed.media_url ?? null,
         status: "sent",
         ai_generated: false,
         sent_at: new Date().toISOString(),
       })
-      .select("id, direction, message_type, body, ai_generated, status, sent_at, created_at")
+      .select("id, direction, message_type, body, media_url, ai_generated, status, sent_at, created_at")
       .single();
 
     await supabase
       .from("messenger_conversations")
       .update({
         last_message_at: new Date().toISOString(),
-        last_message_preview: parsed.body.slice(0, 200),
+        last_message_preview: caption || (parsed.media_url ? "📷 Image" : ""),
       })
       .eq("id", conv.id);
 

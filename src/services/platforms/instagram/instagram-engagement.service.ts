@@ -59,6 +59,28 @@ export class InstagramEngagementService {
   }
 
   /**
+   * Sends an image (already hosted at a public URL) as a Direct Message.
+   * The Instagram Messaging API has no caption field on attachments — pair
+   * this with a follow-up sendTextDm call if a caption is needed.
+   */
+  async sendImageDm(recipientIgId: string, imageUrl: string): Promise<InstagramSendDmResult> {
+    const payload = {
+      recipient: { id: recipientIgId },
+      message: { attachment: { type: "image", payload: { url: imageUrl } } },
+    };
+
+    const res = await this.graphPost<InstagramSendApiResponse>(
+      `/${this.credentials.account_id}/messages`,
+      payload
+    );
+
+    return {
+      messageId: res.message_id ?? res.id ?? "",
+      recipientId: res.recipient_id ?? recipientIgId,
+    };
+  }
+
+  /**
    * Marks an incoming Instagram message as "seen".
    */
   async markSeen(recipientIgId: string): Promise<void> {

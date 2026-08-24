@@ -82,12 +82,12 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // "/" quick-reply autocomplete — WhatsApp only.
+  // "/" quick-reply autocomplete — all channels.
   const templates = useReplyTemplates();
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
   const [pendingMediaUrl, setPendingMediaUrl] = useState<string | null>(null);
-  const slashQuery = chat.channel === "whatsapp" ? matchSlashQuery(reply) : null;
+  const slashQuery = matchSlashQuery(reply);
   const suggestions =
     slashQuery !== null && !suggestionsDismissed ? filterTemplates(templates, slashQuery) : [];
 
@@ -152,7 +152,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
     setSending(true);
     setError(null);
     try {
-      if (pendingMediaUrl) {
+      if (pendingMediaUrl && chat.channel === "whatsapp") {
         if (!contact) {
           setError({ message: "Contact not loaded yet — try again in a moment." });
           return;
@@ -180,7 +180,9 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
       const res = await fetch(baseUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: text }),
+        body: JSON.stringify(
+          pendingMediaUrl ? { body: text || undefined, media_url: pendingMediaUrl } : { body: text }
+        ),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -192,6 +194,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
         return;
       }
       setReply("");
+      setPendingMediaUrl(null);
       if (json.data.message) setMessages((prev) => [...prev, json.data.message]);
     } catch (err) {
       setError({ message: err instanceof Error ? err.message : "Network error" });
@@ -499,9 +502,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
                     }
                   }}
                   rows={2}
-                  placeholder={
-                    chat.channel === "whatsapp" ? "Type a reply…  (Enter to send, / for quick replies)" : "Type a reply…  (Enter to send)"
-                  }
+                  placeholder="Type a reply…  (Enter to send, / for quick replies)"
                   className="w-full resize-none px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
