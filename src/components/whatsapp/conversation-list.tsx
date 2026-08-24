@@ -1,9 +1,10 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { MessageCircle, Phone, ChevronRight } from "lucide-react";
+import { MessageCircle, Phone, Search, X } from "lucide-react";
+import { ContactAvatar } from "./contact-avatar";
 
 export interface WhatsAppConversationSummary {
   id: string;
@@ -20,6 +21,18 @@ interface ConversationListProps {
 }
 
 export function ConversationList({ conversations }: ConversationListProps) {
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return conversations;
+    return conversations.filter((c) => {
+      const name = c.contact_name?.toLowerCase() ?? "";
+      const preview = c.last_message_preview?.toLowerCase() ?? "";
+      return name.includes(q) || c.contact_phone.toLowerCase().includes(q) || preview.includes(q);
+    });
+  }, [conversations, query]);
+
   return (
     <Card>
       <CardHeader>
@@ -40,6 +53,28 @@ export function ConversationList({ conversations }: ConversationListProps) {
         </div>
       </CardHeader>
 
+      {conversations.length > 0 && (
+        <div className="relative mb-3">
+          <Search size={14} strokeWidth={1.8} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name, phone, or message…"
+            className="w-full pl-9 pr-8 py-2 rounded-lg border border-border bg-surface-elevated text-foreground text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-whatsapp/30 focus:border-whatsapp"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground transition-colors"
+              aria-label="Clear search"
+            >
+              <X size={14} strokeWidth={1.8} />
+            </button>
+          )}
+        </div>
+      )}
+
       {conversations.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="w-12 h-12 rounded-xl bg-surface flex items-center justify-center mb-3">
@@ -54,18 +89,24 @@ export function ConversationList({ conversations }: ConversationListProps) {
             </code>
           </p>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="py-10 text-center text-sm text-text-muted">No conversations match &quot;{query}&quot;.</div>
       ) : (
         <ul className="divide-y divide-border -mx-6">
-          {conversations.map((conv) => (
-            <li key={conv.id}>
-              <Link
-                href={`/whatsapp/conversations/${conv.id}`}
-                className="block px-6 py-3.5 hover:bg-surface transition-colors group"
-              >
-                <div className="flex items-start justify-between gap-3">
+          {filtered.map((conv) => {
+            const unread = conv.unread_count > 0;
+            return (
+              <li key={conv.id}>
+                <Link
+                  href={`/whatsapp/conversations/${conv.id}`}
+                  className="flex items-center gap-3 px-6 py-3.5 hover:bg-surface transition-colors"
+                >
+                  <ContactAvatar name={conv.contact_name} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <div className="text-sm font-medium text-foreground truncate">
+                      <div
+                        className={`text-sm truncate ${unread ? "font-semibold text-foreground" : "font-medium text-foreground"}`}
+                      >
                         {conv.contact_name?.trim() || conv.contact_phone}
                       </div>
                       {conv.contact_name?.trim() && (
@@ -73,34 +114,31 @@ export function ConversationList({ conversations }: ConversationListProps) {
                           {conv.contact_phone}
                         </span>
                       )}
-                      {conv.unread_count > 0 && (
-                        <Badge variant="processing" className="ml-auto">
-                          {conv.unread_count}
-                        </Badge>
-                      )}
                     </div>
                     {conv.last_message_preview && (
-                      <p className="mt-0.5 text-xs text-text-muted truncate">
+                      <p
+                        className={`mt-0.5 text-xs truncate ${unread ? "text-foreground/80 font-medium" : "text-text-muted"}`}
+                      >
                         {conv.last_message_preview}
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 pt-0.5">
+                  <div className="flex flex-col items-end gap-1.5 pt-0.5 shrink-0">
                     {conv.last_message_at && (
-                      <div className="text-[10px] text-text-muted whitespace-nowrap">
+                      <div className={`text-[10px] whitespace-nowrap ${unread ? "text-whatsapp font-semibold" : "text-text-muted"}`}>
                         {formatRelativeTime(conv.last_message_at)}
                       </div>
                     )}
-                    <ChevronRight
-                      size={14}
-                      strokeWidth={1.8}
-                      className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity"
-                    />
+                    {unread && (
+                      <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-whatsapp text-white text-[10px] font-semibold">
+                        {conv.unread_count}
+                      </span>
+                    )}
                   </div>
-                </div>
-              </Link>
-            </li>
-          ))}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Bot, Phone, User } from "lucide-react";
+import { ArrowLeft, Bot, Phone, AlertCircle, Check, CheckCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ManualReplyInput } from "./manual-reply-input";
 import { AiPauseToggle } from "./ai-pause-toggle";
@@ -7,6 +7,7 @@ import { AutoRefresh } from "./auto-refresh";
 import { ConvertToLeadButton } from "./convert-to-lead-button";
 import { VoiceNotePlayer } from "./voice-note-player";
 import { ScrollToBottomOnMount } from "./scroll-to-bottom-on-mount";
+import { ContactAvatar } from "./contact-avatar";
 
 export interface WhatsAppConversationDetail {
   id: string;
@@ -54,9 +55,7 @@ export function ConversationThread({ conversation, messages }: ConversationThrea
 
       <div className="mb-6 pb-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-surface flex items-center justify-center shrink-0">
-            <User size={22} strokeWidth={1.8} className="text-text-muted" />
-          </div>
+          <ContactAvatar name={conversation.contact_name} size={48} />
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold tracking-[-0.5px] font-[family-name:var(--font-heading)] text-foreground truncate">
               {conversation.contact_name?.trim() || conversation.contact_phone}
@@ -142,13 +141,26 @@ function MessageBubble({ message }: { message: WhatsAppMessageRow }) {
               AI
             </Badge>
           )}
-          {isOutbound && message.status !== "sent" && message.status !== "received" && (
-            <span className="capitalize">{message.status}</span>
-          )}
+          {isOutbound && <MessageStatusTicks status={message.status} />}
         </div>
       </div>
     </div>
   );
+}
+
+/** WhatsApp-style tick marks for an outbound message's delivery status. */
+function MessageStatusTicks({ status }: { status: string }) {
+  if (status === "failed") {
+    return <AlertCircle size={12} strokeWidth={2} className="text-error" />;
+  }
+  if (status === "read") {
+    return <CheckCheck size={13} strokeWidth={2} className="text-primary" />;
+  }
+  if (status === "delivered") {
+    return <CheckCheck size={13} strokeWidth={2} className="text-text-muted" />;
+  }
+  // "sent" (and anything else outbound-but-not-yet-confirmed) — single tick.
+  return <Check size={13} strokeWidth={2} className="text-text-muted" />;
 }
 
 /**

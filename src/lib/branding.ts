@@ -20,6 +20,8 @@ export interface SemanticColors {
   success: string;
   warning: string;
   error: string;
+  /** WhatsApp Green — use ONLY for WhatsApp-specific UI (avatars, unread badges, tick marks). */
+  whatsapp: string;
 }
 
 export interface BrandingConfig {
@@ -97,6 +99,7 @@ export const BRANDING: BrandingConfig = {
     success: "#2DD4BF",
     warning: "#FBBF24",
     error: "#F87171",
+    whatsapp: "#25D366",
   },
   fonts: {
     heading: "var(--font-playfair)",

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTenantId } from "@/lib/tenant";
+import { BRANDING } from "@/lib/branding";
 import { RecentLeads, type RecentLeadRow } from "@/components/dashboard/recent-leads";
 import {
   Users,
@@ -22,8 +23,9 @@ import {
 const OPEN_STATUSES = ["new", "contacted", "qualified", "quoted"];
 const WON_STATUSES = ["won", "installed", "in_service"];
 
-// Channel brand colours (external to the app palette — kept as literals).
-const WHATSAPP = "#25D366";
+// Channel brand colours. WhatsApp's comes from the branding token; Messenger/
+// Instagram have no in-app equivalent yet, so those stay as external literals.
+const WHATSAPP = BRANDING.semantic.whatsapp;
 const MESSENGER = "#0084FF";
 const INSTAGRAM = "#E1306C";
 
