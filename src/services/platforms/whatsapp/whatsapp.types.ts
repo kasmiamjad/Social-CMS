@@ -81,7 +81,7 @@ export interface WhatsAppIncomingMessage {
     | "button";
   text?: { body: string };
   image?: { id: string; mime_type: string; sha256: string; caption?: string };
-  audio?: { id: string; mime_type: string; sha256: string };
+  audio?: { id: string; mime_type: string; sha256: string; voice?: boolean };
   video?: { id: string; mime_type: string; sha256: string; caption?: string };
   document?: { id: string; mime_type: string; sha256: string; filename?: string; caption?: string };
   sticker?: { id: string; mime_type: string; sha256: string };

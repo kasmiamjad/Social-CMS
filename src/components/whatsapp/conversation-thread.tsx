@@ -126,7 +126,7 @@ function MessageBubble({ message }: { message: WhatsAppMessageRow }) {
         >
           <MediaContent message={message} />
           {message.body &&
-            !["sticker", "audio", "document", "location"].includes(message.message_type) && (
+            !["sticker", "audio", "audio_file", "document", "location"].includes(message.message_type) && (
               <p className="text-sm whitespace-pre-wrap break-words px-0.5 mt-1">{message.body}</p>
             )}
         </div>
@@ -187,6 +187,8 @@ function MediaContent({ message }: { message: WhatsAppMessageRow }) {
             variant={message.direction === "outbound" ? "outbound" : "inbound"}
           />
         );
+      case "audio_file":
+        return <audio controls src={media_url} className="w-64 max-w-full" />;
       case "document":
         return (
           <a
@@ -202,14 +204,16 @@ function MediaContent({ message }: { message: WhatsAppMessageRow }) {
   }
 
   // No media_url yet (download failed, or a non-media type) — text placeholder.
-  if (["image", "video", "audio", "document", "sticker"].includes(message_type)) {
+  if (["image", "video", "audio", "audio_file", "document", "sticker"].includes(message_type)) {
     const label =
       message_type === "image"
         ? "📷 Image"
         : message_type === "video"
         ? "🎥 Video"
         : message_type === "audio"
-        ? "🎙️ Audio"
+        ? "🎙️ Voice note"
+        : message_type === "audio_file"
+        ? "🎵 Audio file"
         : message_type === "document"
         ? "📎 Document"
         : "🎨 Sticker";

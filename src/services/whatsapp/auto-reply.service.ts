@@ -122,6 +122,11 @@ export class WhatsAppAutoReplyService {
 
     // 2. Persist inbound message
     const mediaUrl = await downloadInboundMedia(wa, userId, message);
+    // Meta marks a real recorded voice note with audio.voice === true; a
+    // regular shared audio file (e.g. a song) has voice === false and gets
+    // its own type so it renders as a plain player, not the voice-note UI.
+    const messageType =
+      message.type === "audio" && message.audio?.voice === false ? "audio_file" : message.type;
     const { data: inbound, error: inboundError } = await supabase
       .from("whatsapp_messages")
       .insert({
@@ -129,7 +134,7 @@ export class WhatsAppAutoReplyService {
         user_id: userId,
         wa_message_id: message.id,
         direction: "inbound",
-        message_type: message.type,
+        message_type: messageType,
         body: messagePreview || null,
         media_url: mediaUrl,
         status: "received",
@@ -1184,7 +1189,7 @@ function extractMessagePreview(message: WhatsAppIncomingMessage): string {
     case "video":
       return message.video?.caption ? `🎥 ${message.video.caption}` : "🎥 Video";
     case "audio":
-      return "🎙️ Audio";
+      return message.audio?.voice === false ? "🎵 Audio file" : "🎙️ Voice note";
     case "document":
       return message.document?.filename ? `📎 ${message.document.filename}` : "📎 Document";
     case "sticker":

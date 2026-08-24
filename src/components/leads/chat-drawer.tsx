@@ -569,7 +569,7 @@ function Bubble({ message }: { message: ChatMessage }) {
   );
 }
 
-const MEDIA_TYPES = ["image", "sticker", "video", "audio", "document"];
+const MEDIA_TYPES = ["image", "sticker", "video", "audio", "audio_file", "document"];
 
 /** Same media-rendering logic as the main WhatsApp thread, adapted for this drawer's ChatMessage shape. */
 function ChatMediaContent({ message }: { message: ChatMessage }) {
@@ -615,6 +615,8 @@ function ChatMediaContent({ message }: { message: ChatMessage }) {
         return (
           <VoiceNotePlayer src={media_url} seed={id} variant={direction === "outbound" ? "outbound" : "inbound"} />
         );
+      case "audio_file":
+        return <audio controls src={media_url} className="w-64 max-w-full" />;
       case "document":
         return (
           <a
