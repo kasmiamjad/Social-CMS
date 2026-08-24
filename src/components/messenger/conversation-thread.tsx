@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { AutoRefresh } from "@/components/whatsapp/auto-refresh";
 import { AiPauseToggle } from "@/components/whatsapp/ai-pause-toggle";
 import { ScrollToBottomOnMount } from "@/components/whatsapp/scroll-to-bottom-on-mount";
+import { ManualReplyInput } from "./manual-reply-input";
 
 export interface MessengerConversationDetail {
   id: string;
@@ -33,8 +34,8 @@ interface ConversationThreadProps {
 }
 
 /**
- * Read-only Messenger thread view (customer left, Page/AI right). Mirrors the
- * WhatsApp thread; manual reply + AI pause come in a later pass.
+ * Messenger thread view (customer left, Page/AI right), mirroring the
+ * WhatsApp thread — reply box, AI pause toggle, and auto-refresh included.
  */
 export function MessengerConversationThread({ conversation, messages }: ConversationThreadProps) {
   const displayName =
@@ -87,6 +88,8 @@ export function MessengerConversationThread({ conversation, messages }: Conversa
           ))}
         </div>
       )}
+
+      <ManualReplyInput conversationId={conversation.id} />
     </div>
   );
 }
