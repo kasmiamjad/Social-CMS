@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PRODUCT_MODEL_OPTIONS } from "@/lib/products";
-import { TEAM_MEMBERS, TEAM_MEMBER_COLORS, getActingAs, type TeamMember } from "@/lib/team";
+import { TEAM_MEMBERS, TEAM_MEMBER_COLORS, type TeamMember } from "@/lib/team";
 import { CALL_STATUS_OPTIONS } from "@/lib/lead-status";
 import {
   AlertCircle,
@@ -207,13 +207,10 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
     }
   }
 
-  // Opening an unread lead claims it: auto-assign to whoever this device is
-  // "acting as" and flip it to read. Best-effort — if no one has picked a
-  // name on this device yet, the lead just stays unread until someone does.
+  // Opening an unread lead claims it: the API auto-assigns it to whoever is
+  // actually signed in and flips it to read.
   useEffect(() => {
     if (mode !== "edit" || !initialLead?.id || initialLead.call_status !== "unread") return;
-    const actingAs = getActingAs();
-    if (!actingAs) return;
 
     let cancelled = false;
     (async () => {
@@ -221,11 +218,15 @@ export function LeadForm({ initialLead, mode }: LeadFormProps) {
         const res = await fetch(`/api/v1/leads/${initialLead.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assigned_to: actingAs, call_status: "read" }),
+          body: JSON.stringify({ call_status: "read" }),
         });
         const json = await res.json();
         if (!cancelled && res.ok && json.success) {
-          setLead((prev) => ({ ...prev, assigned_to: actingAs, call_status: "read" }));
+          setLead((prev) => ({
+            ...prev,
+            assigned_to: json.data.lead.assigned_to,
+            call_status: "read",
+          }));
         }
       } catch {
         // Best-effort — leave it unread if this fails, no user-facing error needed.

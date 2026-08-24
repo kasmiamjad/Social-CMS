@@ -93,6 +93,30 @@ export async function PATCH(
 
   const supabase = createAdminClient();
   const tenantId = getTenantId();
+
+  // Claim the lead for whoever actually read it first: on the unread -> read
+  // transition, auto-fill assigned_to from the caller's own profile (unless
+  // they explicitly sent their own assigned_to in this same request).
+  if (payload.call_status === "read" && payload.assigned_to === undefined) {
+    const { data: existing } = await supabase
+      .from("leads")
+      .select("call_status")
+      .eq("id", leadId)
+      .eq("user_id", tenantId)
+      .maybeSingle<{ call_status: string | null }>();
+
+    if (existing?.call_status === "unread") {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", userId)
+        .maybeSingle<{ display_name: string | null }>();
+      if (profile?.display_name?.trim()) {
+        payload.assigned_to = profile.display_name.trim();
+      }
+    }
+  }
+
   const { data, error } = await supabase
     .from("leads")
     .update(payload)
