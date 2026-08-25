@@ -92,7 +92,7 @@ export function ConversationThread({ conversation, messages }: ConversationThrea
       ) : (
         <div className="space-y-3">
           {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
+            <MessageBubble key={msg.id} message={msg} contactName={conversation.contact_name} />
           ))}
         </div>
       )}
@@ -103,7 +103,7 @@ export function ConversationThread({ conversation, messages }: ConversationThrea
   );
 }
 
-function MessageBubble({ message }: { message: WhatsAppMessageRow }) {
+function MessageBubble({ message, contactName }: { message: WhatsAppMessageRow; contactName: string | null }) {
   const isOutbound = message.direction === "outbound";
   const timestamp = message.sent_at || message.created_at;
 
@@ -123,7 +123,7 @@ function MessageBubble({ message }: { message: WhatsAppMessageRow }) {
               : "bg-surface-elevated border border-border text-foreground rounded-bl-sm"
           }`}
         >
-          <MediaContent message={message} />
+          <MediaContent message={message} contactName={contactName} />
           {message.body &&
             !["sticker", "audio", "audio_file", "document", "location"].includes(message.message_type) && (
               <p className="text-sm whitespace-pre-wrap break-words px-0.5 mt-1">{message.body}</p>
@@ -168,7 +168,13 @@ function MessageStatusTicks({ status }: { status: string }) {
  * Falls back to a text placeholder if the media couldn't be downloaded and
  * re-hosted (media_url is null) — e.g. a transient fetch failure.
  */
-function MediaContent({ message }: { message: WhatsAppMessageRow }) {
+function MediaContent({
+  message,
+  contactName,
+}: {
+  message: WhatsAppMessageRow;
+  contactName: string | null;
+}) {
   const { message_type, media_url, body } = message;
 
   if (media_url) {
@@ -197,6 +203,7 @@ function MediaContent({ message }: { message: WhatsAppMessageRow }) {
             src={media_url}
             seed={message.id}
             variant={message.direction === "outbound" ? "outbound" : "inbound"}
+            contactName={contactName}
           />
         );
       case "audio_file":

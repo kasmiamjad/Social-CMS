@@ -360,7 +360,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
           ) : messages.length === 0 ? (
             <p className="text-center text-sm text-text-muted py-10">No messages yet.</p>
           ) : (
-            messages.map((m) => <Bubble key={m.id} message={m} />)
+            messages.map((m) => <Bubble key={m.id} message={m} contactName={chat.name} />)
           )}
         </div>
 
@@ -534,7 +534,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
   );
 }
 
-function Bubble({ message }: { message: ChatMessage }) {
+function Bubble({ message, contactName }: { message: ChatMessage; contactName: string }) {
   const isOutbound = message.direction === "outbound";
   const timestamp = message.sent_at || message.created_at;
   return (
@@ -553,7 +553,7 @@ function Bubble({ message }: { message: ChatMessage }) {
               : "bg-surface border border-border text-foreground rounded-bl-sm"
           }`}
         >
-          <ChatMediaContent message={message} />
+          <ChatMediaContent message={message} contactName={chat.name} />
         </div>
         <div className={`flex items-center gap-1.5 text-[10px] text-text-muted px-1 ${isOutbound ? "flex-row-reverse" : ""}`}>
           <span>{formatTime(timestamp)}</span>
@@ -572,7 +572,7 @@ function Bubble({ message }: { message: ChatMessage }) {
 const MEDIA_TYPES = ["image", "sticker", "video", "audio", "audio_file", "document"];
 
 /** Same media-rendering logic as the main WhatsApp thread, adapted for this drawer's ChatMessage shape. */
-function ChatMediaContent({ message }: { message: ChatMessage }) {
+function ChatMediaContent({ message, contactName }: { message: ChatMessage; contactName: string }) {
   const { id, message_type, media_url, body, direction } = message;
 
   if (media_url) {
@@ -613,7 +613,12 @@ function ChatMediaContent({ message }: { message: ChatMessage }) {
         );
       case "audio":
         return (
-          <VoiceNotePlayer src={media_url} seed={id} variant={direction === "outbound" ? "outbound" : "inbound"} />
+          <VoiceNotePlayer
+            src={media_url}
+            seed={id}
+            variant={direction === "outbound" ? "outbound" : "inbound"}
+            contactName={contactName}
+          />
         );
       case "audio_file":
         return <audio controls src={media_url} className="w-64 max-w-full" />;

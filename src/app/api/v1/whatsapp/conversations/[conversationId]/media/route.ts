@@ -98,7 +98,9 @@ export async function POST(
         user_id: tenantId,
         wa_message_id: sent.messageId,
         direction: "outbound",
-        message_type: isImage ? "image" : "audio_file",
+        // Our own CRM shows outbound recordings with the custom voice-note
+        // player regardless of what the recipient's WhatsApp renders it as.
+        message_type: isImage ? "image" : "audio",
         body: isImage ? captionText || null : null,
         media_url: url,
         status: "sent",

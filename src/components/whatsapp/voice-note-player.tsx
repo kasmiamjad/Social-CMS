@@ -8,6 +8,8 @@ interface VoiceNotePlayerProps {
   /** Any stable per-message value (e.g. message id) — keeps the waveform shape from jittering on re-render. */
   seed: string;
   variant: "outbound" | "inbound";
+  /** The customer's name, for the small avatar circle on inbound voice notes — falls back to a generic icon. */
+  contactName?: string | null;
 }
 
 const BAR_COUNT = 28;
@@ -32,7 +34,7 @@ function formatTime(s: number): string {
 }
 
 /** WhatsApp-style voice note bubble: small avatar, round play button, waveform, duration. */
-export function VoiceNotePlayer({ src, seed, variant }: VoiceNotePlayerProps) {
+export function VoiceNotePlayer({ src, seed, variant, contactName }: VoiceNotePlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -77,15 +79,20 @@ export function VoiceNotePlayer({ src, seed, variant }: VoiceNotePlayerProps) {
 
   const isOutbound = variant === "outbound";
   const displayTime = playing || currentTime > 0 ? currentTime : duration;
+  const initial = !isOutbound ? contactName?.trim()?.[0]?.toUpperCase() : null;
 
   return (
     <div className="flex items-center gap-2 min-w-[230px]">
       <div
         className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-          isOutbound ? "bg-white/20" : "bg-surface border border-border"
+          isOutbound ? "bg-white/20" : "bg-whatsapp/15"
         }`}
       >
-        <User size={13} strokeWidth={1.8} className={isOutbound ? "text-white/90" : "text-text-muted"} />
+        {initial ? (
+          <span className="text-[11px] font-semibold text-whatsapp">{initial}</span>
+        ) : (
+          <User size={13} strokeWidth={1.8} className={isOutbound ? "text-white/90" : "text-text-muted"} />
+        )}
       </div>
       <button
         type="button"
