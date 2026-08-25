@@ -4,7 +4,7 @@ import { resolveUserId } from "@/lib/api-auth";
 import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
-import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
+import { transcodeToMp3, TranscodeError } from "@/lib/audio-transcode";
 import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
 
@@ -85,10 +85,10 @@ export async function POST(request: NextRequest) {
     let contentType = file.type;
     if (isAudio) {
       // Normalize every audio source (browser recordings, phone voice memos,
-      // etc.) to WhatsApp's own OGG/Opus voice-note format — see
-      // audio-transcode.ts for why this can't just pass the file through.
-      buffer = await transcodeToOggOpus(buffer);
-      contentType = "audio/ogg";
+      // etc.) to MP3 — see audio-transcode.ts for why this can't just pass
+      // the file through, and the voice-note-bubble trade-off vs OGG/Opus.
+      buffer = await transcodeToMp3(buffer);
+      contentType = "audio/mpeg";
     }
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         user_id: tenantId,
         wa_message_id: result.messageId,
         direction: "outbound",
-        message_type: isImage ? "image" : "audio",
+        message_type: isImage ? "image" : "audio_file",
         body: isImage ? captionText || null : null,
         media_url: url,
         status: "sent",
