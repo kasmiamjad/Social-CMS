@@ -553,7 +553,7 @@ function Bubble({ message, contactName }: { message: ChatMessage; contactName: s
               : "bg-surface border border-border text-foreground rounded-bl-sm"
           }`}
         >
-          <ChatMediaContent message={message} contactName={chat.name} />
+          <ChatMediaContent message={message} contactName={contactName} />
         </div>
         <div className={`flex items-center gap-1.5 text-[10px] text-text-muted px-1 ${isOutbound ? "flex-row-reverse" : ""}`}>
           <span>{formatTime(timestamp)}</span>
