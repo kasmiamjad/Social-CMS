@@ -51,7 +51,7 @@ export async function disconnectBaileys(): Promise<void> {
 async function connect(): Promise<WASocket> {
   const tenantId = getTenantId();
   const { state, saveCreds } = await makeSupabaseAuthState(tenantId);
-  const { version } = await fetchLatestBaileysVersion();
+  const version = await fetchVersionWithTimeout();
 
   const sock = makeWASocket({
     auth: {
@@ -59,7 +59,7 @@ async function connect(): Promise<WASocket> {
       keys: makeCacheableSignalKeyStore(state.keys, logger),
     },
     logger,
-    version,
+    ...(version ? { version } : {}),
     browser: ["SA'DA H2O CRM", "Chrome", "1.0.0"],
   });
 
@@ -69,6 +69,23 @@ async function connect(): Promise<WASocket> {
   sock.ev.on("messages.update", (updates) => void onMessagesUpdate(tenantId, updates));
 
   return sock;
+}
+
+/**
+ * Fetches the current WhatsApp Web protocol version, with a hard timeout —
+ * this is an outbound network call, and a hang here must never be able to
+ * stall the whole connection (or, at boot, the whole server). Falls back to
+ * Baileys' own bundled default version (version is optional to makeWASocket)
+ * if the check fails or times out.
+ */
+async function fetchVersionWithTimeout(): Promise<[number, number, number] | undefined> {
+  try {
+    const { version } = await fetchLatestBaileysVersion({ signal: AbortSignal.timeout(8000) });
+    return version;
+  } catch (err) {
+    console.warn("[baileys] Version check failed or timed out — using bundled default version", { err });
+    return undefined;
+  }
 }
 
 async function onConnectionUpdate(
