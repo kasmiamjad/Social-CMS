@@ -1,26 +1,17 @@
 /**
  * Booking confirmation constants + customer-message builders.
  *
- * Two delivery paths exist for the WhatsApp confirmation:
- *   - free_text: allowed only inside the 24-hour customer service window.
- *   - template:  a pre-approved Meta template, required outside that window.
- * Both paths must convey the SAME information (ref, product, total, date/time),
- * so the formatting helpers below are shared.
+ * The WhatsApp confirmation is always sent as free text — Baileys (WhatsApp
+ * Web link) has no 24-hour-window restriction or template mechanism the way
+ * Meta's Cloud API did.
  */
 
 /**
  * Master switch for auto-sending the WhatsApp confirmation.
- * OFF for now — the `booking_confirmation` template isn't approved yet, so the
- * UI shows a copy-paste box instead. Flip to `true` once Meta approves the
- * template to re-enable automatic delivery (free-text / template path).
+ * OFF for now — the UI shows a copy-paste box instead. Flip to `true` to
+ * enable automatic delivery.
  */
 export const BOOKING_WHATSAPP_AUTOSEND: boolean = false;
-
-/** Name of the approved template in Meta Business Manager (body has 7 variables). */
-export const BOOKING_TEMPLATE_NAME = "booking_confirmation";
-
-/** Language code the template was submitted under. */
-export const BOOKING_TEMPLATE_LANGUAGE = "en";
 
 /** Timezone used to render the installation date/time for the customer. */
 export const BOOKING_DISPLAY_TIMEZONE = "Asia/Riyadh";
@@ -54,29 +45,6 @@ export function buildBookingFreeText(f: BookingMessageFields): string {
     ``,
     `Need a different time? Just reply with your preferred date & time.`,
   ].join("\n");
-}
-
-/**
- * Builds the Meta template `components` array. The approved template body must
- * use {{1}}..{{7}} in this exact order:
- *   1 name, 2 ref, 3 product, 4 qty, 5 total, 6 date, 7 time.
- */
-export function buildBookingTemplateComponents(f: BookingMessageFields): unknown[] {
-  const text = (s: string) => ({ type: "text", text: s });
-  return [
-    {
-      type: "body",
-      parameters: [
-        text(f.clientName),
-        text(f.bookingRef),
-        text(f.product),
-        text(String(f.qty)),
-        text(`${f.currency} ${f.totalFormatted}`),
-        text(f.dateFormatted),
-        text(f.timeFormatted),
-      ],
-    },
-  ];
 }
 
 /** Composes the human-friendly booking reference, e.g. "SADA-2026-0042". */

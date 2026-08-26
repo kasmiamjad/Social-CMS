@@ -5,12 +5,8 @@ import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
 import { transcodeToMp3, TranscodeError } from "@/lib/audio-transcode";
-import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
-import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
-
-interface PlatformCredentialsRow {
-  credentials: WhatsAppCredentials;
-}
+import { BaileysWhatsAppService, BaileysSendError } from "@/services/platforms/whatsapp-baileys/baileys-whatsapp.service";
+import { getBaileysSocket } from "@/services/platforms/whatsapp-baileys/baileys-connection";
 
 const IMAGE_TYPES = ["image/jpeg", "image/png"];
 const MAX_BYTES = 16 * 1024 * 1024;
@@ -60,23 +56,17 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
   const tenantId = getTenantId();
-  const { data: credsRow, error: credsError } = await supabase
-    .from("platform_credentials")
-    .select("credentials")
+  const { data: connectionStatus } = await supabase
+    .from("whatsapp_connection_status")
+    .select("status")
     .eq("user_id", tenantId)
-    .eq("platform", "whatsapp")
-    .eq("is_active", true)
-    .maybeSingle<PlatformCredentialsRow>();
+    .maybeSingle<{ status: string }>();
 
-  if (credsError || !credsRow) {
-    return apiError(
-      "WHATSAPP_NOT_CONNECTED",
-      "Connect WhatsApp Cloud API credentials in Settings first.",
-      400
-    );
+  if (connectionStatus?.status !== "connected") {
+    return apiError("WHATSAPP_NOT_CONNECTED", "Scan the WhatsApp QR code in Settings first.", 400);
   }
 
-  const wa = new WhatsAppService(credsRow.credentials);
+  const wa = new BaileysWhatsAppService(await getBaileysSocket());
   const contactPhone = to.startsWith("+") ? to : `+${to}`;
   const captionText = typeof caption === "string" ? caption.trim() : "";
 
@@ -133,15 +123,9 @@ export async function POST(request: NextRequest) {
       console.error("[whatsapp/send-media] Audio transcode failed", { userId, to: contactPhone, err });
       return apiError("AUDIO_TRANSCODE_FAILED", err.message, 500);
     }
-    if (err instanceof WhatsAppApiError) {
-      console.error("[whatsapp/send-media] Meta API rejected the send", {
-        userId,
-        to: contactPhone,
-        statusCode: err.statusCode,
-        message: err.message,
-        apiError: err.apiError,
-      });
-      return apiError("WHATSAPP_API_ERROR", err.message, err.statusCode, err.apiError);
+    if (err instanceof BaileysSendError) {
+      console.error("[whatsapp/send-media] Baileys rejected the send", { userId, to: contactPhone, message: err.message });
+      return apiError("WHATSAPP_SEND_ERROR", err.message, 502);
     }
     console.error("[whatsapp/send-media] Unexpected failure", { userId, to: contactPhone, err });
     return apiError("UNEXPECTED_ERROR", err instanceof Error ? err.message : "Unknown error", 500);

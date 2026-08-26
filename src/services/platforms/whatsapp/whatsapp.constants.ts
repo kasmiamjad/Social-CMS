@@ -1,6 +1,3 @@
-export const WHATSAPP_GRAPH_API_VERSION = "v21.0";
-export const WHATSAPP_GRAPH_BASE_URL = `https://graph.facebook.com/${WHATSAPP_GRAPH_API_VERSION}`;
-
 export const DEFAULT_WHATSAPP_SYSTEM_PROMPT = `
 You are Social-CMS AI Agent — an automated WhatsApp customer-support assistant for a business.
 
