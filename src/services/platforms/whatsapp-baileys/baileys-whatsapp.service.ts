@@ -87,4 +87,25 @@ export class BaileysWhatsAppService {
   async markAsRead(fromPhone: string, waMessageId: string): Promise<void> {
     await this.sock.readMessages([{ remoteJid: this.jid(fromPhone), id: waMessageId, fromMe: false }]);
   }
+
+  /** Sends a free-form text message to a group. groupJid is already a full JID (ends in @g.us), no phone-number transform needed. */
+  async sendGroupTextMessage(groupJid: string, body: string): Promise<BaileysSendResult> {
+    return this.withRetry(async (sock) => {
+      const sent = await sock.sendMessage(groupJid, { text: body });
+      if (!sent?.key?.id) throw new BaileysSendError("Baileys group text send returned no message key");
+      return { messageId: sent.key.id };
+    });
+  }
+
+  /** Sends an image by public URL to a group. */
+  async sendGroupImageMessage(groupJid: string, imageUrl: string, caption?: string): Promise<BaileysSendResult> {
+    return this.withRetry(async (sock) => {
+      const sent = await sock.sendMessage(groupJid, {
+        image: { url: imageUrl },
+        ...(caption?.trim() && { caption: caption.trim() }),
+      });
+      if (!sent?.key?.id) throw new BaileysSendError("Baileys group image send returned no message key");
+      return { messageId: sent.key.id };
+    });
+  }
 }

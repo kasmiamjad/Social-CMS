@@ -20,6 +20,7 @@ import {
   CalendarDays,
   Send,
   Wrench,
+  UsersRound,
   X,
 } from "lucide-react";
 
@@ -30,6 +31,7 @@ const navItems = [
   { label: "Leads", href: "/leads", icon: Users, hidden: false },
   { label: "Follow-ups", href: "/leads/followups", icon: CalendarDays, hidden: false },
   { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, hidden: false },
+  { label: "WhatsApp Groups", href: "/whatsapp-groups", icon: UsersRound, hidden: false },
   { label: "Messenger", href: "/messenger", icon: Send, hidden: false },
   { label: "Instagram", href: "/instagram", icon: Camera, hidden: false },
   { label: "Settings", href: "/settings", icon: Settings, hidden: false },

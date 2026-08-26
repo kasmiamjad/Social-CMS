@@ -39,15 +39,17 @@ export async function handleIncomingBaileysMessage(
   waMessage: WAMessage
 ): Promise<void> {
   const remoteJid = waMessage.key.remoteJid;
-  if (
-    !remoteJid ||
-    remoteJid.endsWith("@g.us") ||
-    remoteJid.endsWith("@broadcast") ||
-    remoteJid === "status@broadcast"
-  ) {
-    return; // groups/status/broadcasts are out of scope — 1:1 customer chats only
+  if (!remoteJid || remoteJid.endsWith("@broadcast") || remoteJid === "status@broadcast") {
+    return; // status/broadcast updates are out of scope
   }
   if (!waMessage.message) return; // protocol/reaction-only events carry no content
+
+  // Groups are read + reply only — deliberately kept out of the AI/lead/
+  // booking pipeline below, which assumes one conversation = one customer.
+  if (remoteJid.endsWith("@g.us")) {
+    await handleGroupMessage(sock, tenantId, waMessage);
+    return;
+  }
 
   const contentType = getContentType(waMessage.message);
   if (!contentType) return;
@@ -230,5 +232,147 @@ async function persistPhoneSentMessage(
   });
   if (error && error.code !== "23505") {
     console.error("[baileys] Failed to persist phone-sent message", { error });
+  }
+}
+
+interface GroupContentDescription {
+  type: "text" | "image" | "video" | "audio" | "audio_file" | "document" | "sticker" | "location";
+  /** Text body for text messages, or an emoji-labeled preview for media (matches the 1:1 preview convention). */
+  body: string | null;
+  /** Set when this content type has media to download; the mimetype hint for that download. */
+  mimetype: string | null;
+}
+
+/** Same content-type switch as buildIncomingMessage, but returning a shape suited to a group thread (no customer-specific fields). */
+function describeGroupContent(
+  contentType: string,
+  content: NonNullable<WAMessage["message"]>
+): GroupContentDescription | null {
+  switch (contentType) {
+    case "conversation":
+      return { type: "text", body: content.conversation ?? "", mimetype: null };
+    case "extendedTextMessage":
+      return { type: "text", body: content.extendedTextMessage?.text ?? "", mimetype: null };
+    case "imageMessage":
+      return {
+        type: "image",
+        body: content.imageMessage?.caption ? `📷 ${content.imageMessage.caption}` : "📷 Image",
+        mimetype: content.imageMessage?.mimetype ?? "image/jpeg",
+      };
+    case "videoMessage":
+      return {
+        type: "video",
+        body: content.videoMessage?.caption ? `🎥 ${content.videoMessage.caption}` : "🎥 Video",
+        mimetype: content.videoMessage?.mimetype ?? "video/mp4",
+      };
+    case "audioMessage": {
+      const isVoice = content.audioMessage?.ptt !== false;
+      return {
+        type: isVoice ? "audio" : "audio_file",
+        body: isVoice ? "🎙️ Voice note" : "🎵 Audio file",
+        mimetype: content.audioMessage?.mimetype ?? "audio/ogg",
+      };
+    }
+    case "documentMessage":
+      return {
+        type: "document",
+        body: content.documentMessage?.fileName ? `📎 ${content.documentMessage.fileName}` : "📎 Document",
+        mimetype: content.documentMessage?.mimetype ?? "application/octet-stream",
+      };
+    case "stickerMessage":
+      return { type: "sticker", body: "🎨 Sticker", mimetype: content.stickerMessage?.mimetype ?? "image/webp" };
+    case "locationMessage": {
+      const loc = content.locationMessage;
+      const label = loc?.name || loc?.address;
+      return { type: "location", body: label ? `📍 ${label}` : "📍 Location", mimetype: null };
+    }
+    default:
+      return null; // reactions, polls, protocol messages, etc. — not real content
+  }
+}
+
+/**
+ * Persists an inbound or phone-sent group message into its own tables —
+ * deliberately not routed through WhatsAppAutoReplyService, which assumes
+ * one conversation = one customer and doesn't fit a multi-person group.
+ */
+async function handleGroupMessage(sock: WASocket, tenantId: string, waMessage: WAMessage): Promise<void> {
+  const groupJid = waMessage.key.remoteJid!;
+  const messageId = waMessage.key.id;
+  if (!messageId || !waMessage.message) return;
+
+  const contentType = getContentType(waMessage.message);
+  if (!contentType) return;
+  const described = describeGroupContent(contentType, waMessage.message);
+  if (!described) return;
+
+  const timestamp = toNumber(waMessage.messageTimestamp ?? Math.floor(Date.now() / 1000));
+  const sentAt = new Date(timestamp * 1000).toISOString();
+  const fromMe = Boolean(waMessage.key.fromMe);
+
+  let mediaUrl: string | null = null;
+  if (described.mimetype) {
+    const media = await downloadMedia(sock, waMessage, described.mimetype);
+    if (media) {
+      const folder = fromMe ? "whatsapp-group-outbound" : "whatsapp-group-inbound";
+      mediaUrl = (await uploadMediaBuffer(tenantId, folder, media.buffer, media.contentType)).url;
+    }
+  }
+
+  const supabase = createAdminClient();
+  const preview = (described.body ?? "").slice(0, 200);
+
+  const { data: existing } = await supabase
+    .from("whatsapp_group_conversations")
+    .select("id")
+    .eq("user_id", tenantId)
+    .eq("group_jid", groupJid)
+    .maybeSingle<{ id: string }>();
+
+  let conversationId: string;
+  if (existing) {
+    conversationId = existing.id;
+    await supabase
+      .from("whatsapp_group_conversations")
+      .update({ last_message_at: sentAt, last_message_preview: preview })
+      .eq("id", conversationId);
+  } else {
+    let groupName: string | null = null;
+    try {
+      const metadata = await sock.groupMetadata(groupJid);
+      groupName = metadata.subject || null;
+    } catch (err) {
+      console.warn("[baileys] Failed to fetch group metadata", { groupJid, err });
+    }
+    const { data: created } = await supabase
+      .from("whatsapp_group_conversations")
+      .insert({
+        user_id: tenantId,
+        group_jid: groupJid,
+        group_name: groupName,
+        last_message_at: sentAt,
+        last_message_preview: preview,
+      })
+      .select("id")
+      .single<{ id: string }>();
+    if (!created) return;
+    conversationId = created.id;
+  }
+
+  const { error } = await supabase.from("whatsapp_group_messages").insert({
+    group_conversation_id: conversationId,
+    user_id: tenantId,
+    wa_message_id: messageId,
+    direction: fromMe ? "outbound" : "inbound",
+    message_type: described.type,
+    sender_jid: fromMe ? null : (waMessage.key.participant ?? groupJid),
+    sender_name: fromMe ? null : (waMessage.pushName ?? null),
+    body: described.body,
+    media_url: mediaUrl,
+    status: fromMe ? "sent" : "received",
+    sent_at: sentAt,
+  });
+  if (error && error.code !== "23505") {
+    console.error("[baileys] Failed to persist group message", { error });
   }
 }
