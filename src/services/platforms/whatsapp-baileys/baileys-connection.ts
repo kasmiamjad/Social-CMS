@@ -19,6 +19,10 @@ import { handleIncomingBaileysMessage } from "./baileys-message-adapter";
 import { baileysLogger as logger } from "./baileys-logger";
 
 let sockPromise: Promise<WASocket> | null = null;
+// Bumped on every new connect() attempt so a superseded socket's late-firing
+// close event (from a previous, now-replaced connection) can recognize it's
+// stale and not race with — or stomp on — whatever the current one is doing.
+let generation = 0;
 
 /** Returns the singleton Baileys socket, connecting it on first call. Safe to call from any request. */
 export async function getBaileysSocket(): Promise<WASocket> {
@@ -49,6 +53,7 @@ export async function disconnectBaileys(): Promise<void> {
 }
 
 async function connect(): Promise<WASocket> {
+  const myGeneration = ++generation;
   const tenantId = getTenantId();
   const { state, saveCreds } = await makeSupabaseAuthState(tenantId);
   const version = await fetchVersionWithTimeout();
@@ -64,7 +69,7 @@ async function connect(): Promise<WASocket> {
   });
 
   sock.ev.on("creds.update", saveCreds);
-  sock.ev.on("connection.update", (update) => void onConnectionUpdate(tenantId, sock, update));
+  sock.ev.on("connection.update", (update) => void onConnectionUpdate(tenantId, sock, update, myGeneration));
   sock.ev.on("messages.upsert", ({ messages, type }) => void onMessagesUpsert(tenantId, sock, messages, type));
   sock.ev.on("messages.update", (updates) => void onMessagesUpdate(tenantId, updates));
 
@@ -91,8 +96,15 @@ async function fetchVersionWithTimeout(): Promise<[number, number, number] | und
 async function onConnectionUpdate(
   tenantId: string,
   sock: WASocket,
-  update: Partial<ConnectionState>
+  update: Partial<ConnectionState>,
+  myGeneration: number
 ): Promise<void> {
+  // A newer connect() has already taken over — this socket is a leftover
+  // from a superseded attempt (e.g. its own delayed reconnect firing late).
+  // Acting on it here is exactly what caused the connectionReplaced (440)
+  // loop: two live sockets fighting over the same session.
+  if (myGeneration !== generation) return;
+
   const { connection, lastDisconnect, qr } = update;
   const supabase = createAdminClient();
 
@@ -126,10 +138,9 @@ async function onConnectionUpdate(
     const loggedOut = statusCode === DisconnectReason.loggedOut;
     console.warn("[baileys] Connection closed", { statusCode, loggedOut });
 
-    sockPromise = null;
-
     if (loggedOut) {
       // The phone unlinked us — a fresh QR scan is required, don't auto-reconnect.
+      sockPromise = null;
       await clearBaileysAuthState(tenantId);
       await supabase
         .from("whatsapp_connection_status")
@@ -141,8 +152,13 @@ async function onConnectionUpdate(
     }
 
     // Network hiccup / server restart — reconnect after a short backoff.
-    await delay(3000);
-    void getBaileysSocket();
+    // sockPromise is reassigned directly to the pending reconnect (never set
+    // to null first) so any concurrent getBaileysSocket() caller awaits THIS
+    // same reconnect instead of racing to start a second, conflicting one.
+    sockPromise = (async () => {
+      await delay(3000);
+      return connect();
+    })();
   }
 }
 
