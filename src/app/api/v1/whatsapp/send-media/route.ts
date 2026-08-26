@@ -16,7 +16,6 @@ const MAX_BYTES = 16 * 1024 * 1024;
  *
  * Manually send an image or voice clip to a contact from the main WhatsApp
  * tab. multipart/form-data body: to, file, caption? (images only).
- * NOTE: Only allowed inside the 24-hour customer service window.
  */
 export async function POST(request: NextRequest) {
   const userId = await resolveUserId(request);

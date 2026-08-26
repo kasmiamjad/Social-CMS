@@ -20,7 +20,6 @@ const SendBodySchema = z.object({
  * POST /api/v1/whatsapp/send
  *
  * Manually send a free-form WhatsApp text message to a contact.
- * NOTE: Only allowed inside the 24-hour customer service window.
  *
  * Body: { to: "+1234567890", body: "Hello" }
  */

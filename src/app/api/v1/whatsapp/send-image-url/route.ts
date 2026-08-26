@@ -18,7 +18,7 @@ const SendImageUrlSchema = z.object({
  *
  * Sends an image that's already hosted (e.g. a quick-reply template's saved
  * image) without re-uploading it — unlike /send-media, which expects a fresh
- * file. Same 24-hour customer service window restriction applies.
+ * file.
  */
 export async function POST(request: NextRequest) {
   const userId = await resolveUserId(request);
