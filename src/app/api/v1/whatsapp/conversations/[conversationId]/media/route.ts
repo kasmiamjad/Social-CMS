@@ -4,9 +4,9 @@ import { resolveUserId } from "@/lib/api-auth";
 import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
-import { transcodeToMp3, TranscodeError } from "@/lib/audio-transcode";
-import { BaileysWhatsAppService, BaileysSendError } from "@/services/platforms/whatsapp-baileys/baileys-whatsapp.service";
-import { getBaileysSocket } from "@/services/platforms/whatsapp-baileys/baileys-connection";
+import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
+import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
+import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
 
 interface ConvRow {
   id: string;
@@ -63,25 +63,27 @@ export async function POST(
 
   if (!conv) return apiError("NOT_FOUND", "Conversation not found", 404);
 
-  const { data: connectionStatus } = await supabase
-    .from("whatsapp_connection_status")
-    .select("status")
+  const { data: credsRow } = await supabase
+    .from("platform_credentials")
+    .select("credentials")
     .eq("user_id", tenantId)
-    .maybeSingle<{ status: string }>();
+    .eq("platform", "whatsapp")
+    .eq("is_active", true)
+    .maybeSingle<{ credentials: WhatsAppCredentials }>();
 
-  if (connectionStatus?.status !== "connected") {
-    return apiError("WHATSAPP_NOT_CONNECTED", "Scan the WhatsApp QR code in Settings first.", 400);
+  if (!credsRow) {
+    return apiError("WHATSAPP_NOT_CONNECTED", "Connect WhatsApp in Settings first.", 400);
   }
 
-  const wa = new BaileysWhatsAppService(await getBaileysSocket());
+  const wa = new WhatsAppService(credsRow.credentials);
   const captionText = typeof caption === "string" ? caption.trim() : "";
 
   try {
     let buffer: Buffer = Buffer.from(await file.arrayBuffer());
     let contentType = file.type;
     if (isAudio) {
-      buffer = await transcodeToMp3(buffer);
-      contentType = "audio/mpeg";
+      buffer = await transcodeToOggOpus(buffer);
+      contentType = "audio/ogg; codecs=opus";
     }
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 
@@ -96,8 +98,6 @@ export async function POST(
         user_id: tenantId,
         wa_message_id: sent.messageId,
         direction: "outbound",
-        // Our own CRM shows outbound recordings with the custom voice-note
-        // player regardless of what the recipient's WhatsApp renders it as.
         message_type: isImage ? "image" : "audio",
         body: isImage ? captionText || null : null,
         media_url: url,
@@ -126,14 +126,16 @@ export async function POST(
       });
       return apiError("AUDIO_TRANSCODE_FAILED", err.message, 500);
     }
-    if (err instanceof BaileysSendError) {
-      console.error("[whatsapp/conversations/media] Baileys rejected the send", {
+    if (err instanceof WhatsAppApiError) {
+      console.error("[whatsapp/conversations/media] Meta API rejected the send", {
         userId,
         conversationId,
         to: conv.contact_phone,
+        statusCode: err.statusCode,
         message: err.message,
+        apiError: err.apiError,
       });
-      return apiError("WHATSAPP_SEND_ERROR", err.message, 502);
+      return apiError("WHATSAPP_API_ERROR", err.message, err.statusCode, err.apiError);
     }
     console.error("[whatsapp/conversations/media] Unexpected failure", {
       userId,

@@ -20,8 +20,8 @@ import {
 } from "@/services/platforms/whatsapp/whatsapp.constants";
 import { MessageCircle } from "lucide-react";
 
-interface ConnectionStatusRow {
-  status: string;
+interface CredentialsRow {
+  is_active: boolean;
 }
 
 /**
@@ -45,16 +45,17 @@ export default async function WhatsAppPage() {
     );
   }
 
-  // Check whether the WhatsApp Web link (Baileys) is connected yet.
+  // Check whether the tenant has saved WhatsApp credentials yet.
   const admin = createAdminClient();
   const tenantId = getTenantId();
-  const { data: connectionRow } = await admin
-    .from("whatsapp_connection_status")
-    .select("status")
+  const { data: credsRow } = await admin
+    .from("platform_credentials")
+    .select("is_active")
     .eq("user_id", tenantId)
-    .maybeSingle<ConnectionStatusRow>();
+    .eq("platform", "whatsapp")
+    .maybeSingle<CredentialsRow>();
 
-  if (connectionRow?.status !== "connected") {
+  if (!credsRow || !credsRow.is_active) {
     return (
       <div className="max-w-3xl">
         <PageHeader />
@@ -63,11 +64,11 @@ export default async function WhatsAppPage() {
             <MessageCircle size={22} strokeWidth={1.8} className="text-text-muted" />
           </div>
           <h3 className="text-base font-semibold text-foreground">
-            Link WhatsApp first
+            Connect WhatsApp Cloud API first
           </h3>
           <p className="mt-1 text-sm text-text-muted max-w-md">
-            Scan the QR code in Settings from the business phone (WhatsApp → Linked Devices), then
-            come back here to configure the AI auto-reply bot.
+            Paste your Meta Cloud API credentials in Settings, then come back here to configure the
+            AI auto-reply bot.
           </p>
           <Link
             href="/settings"
@@ -141,7 +142,7 @@ function PageHeader() {
         WhatsApp Automation
       </h1>
       <p className="text-sm text-text-muted mt-1">
-        AI auto-reply to customer messages via WhatsApp Web link
+        AI auto-reply to customer messages via WhatsApp Cloud API
       </p>
     </div>
   );

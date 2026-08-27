@@ -4,8 +4,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserId } from "@/lib/api-auth";
 import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
-import { BaileysWhatsAppService, BaileysSendError } from "@/services/platforms/whatsapp-baileys/baileys-whatsapp.service";
-import { getBaileysSocket } from "@/services/platforms/whatsapp-baileys/baileys-connection";
+import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
+import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
+
+interface PlatformCredentialsRow {
+  credentials: WhatsAppCredentials;
+}
 
 const SendImageUrlSchema = z.object({
   to: z.string().regex(/^\+?\d{8,20}$/),
@@ -18,7 +22,7 @@ const SendImageUrlSchema = z.object({
  *
  * Sends an image that's already hosted (e.g. a quick-reply template's saved
  * image) without re-uploading it — unlike /send-media, which expects a fresh
- * file.
+ * file. Same 24-hour customer service window restriction applies.
  */
 export async function POST(request: NextRequest) {
   const userId = await resolveUserId(request);
@@ -37,17 +41,23 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
   const tenantId = getTenantId();
-  const { data: connectionStatus } = await supabase
-    .from("whatsapp_connection_status")
-    .select("status")
+  const { data: credsRow, error: credsError } = await supabase
+    .from("platform_credentials")
+    .select("credentials")
     .eq("user_id", tenantId)
-    .maybeSingle<{ status: string }>();
+    .eq("platform", "whatsapp")
+    .eq("is_active", true)
+    .maybeSingle<PlatformCredentialsRow>();
 
-  if (connectionStatus?.status !== "connected") {
-    return apiError("WHATSAPP_NOT_CONNECTED", "Scan the WhatsApp QR code in Settings first.", 400);
+  if (credsError || !credsRow) {
+    return apiError(
+      "WHATSAPP_NOT_CONNECTED",
+      "Connect WhatsApp Cloud API credentials in Settings first.",
+      400
+    );
   }
 
-  const wa = new BaileysWhatsAppService(await getBaileysSocket());
+  const wa = new WhatsAppService(credsRow.credentials);
   const contactPhone = parsed.to.startsWith("+") ? parsed.to : `+${parsed.to}`;
 
   try {
@@ -84,9 +94,15 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess({ message_id: result.messageId, to: contactPhone, media_url: parsed.media_url });
   } catch (err) {
-    if (err instanceof BaileysSendError) {
-      console.error("[whatsapp/send-image-url] Baileys rejected the send", { userId, to: contactPhone, message: err.message });
-      return apiError("WHATSAPP_SEND_ERROR", err.message, 502);
+    if (err instanceof WhatsAppApiError) {
+      console.error("[whatsapp/send-image-url] Meta API rejected the send", {
+        userId,
+        to: contactPhone,
+        statusCode: err.statusCode,
+        message: err.message,
+        apiError: err.apiError,
+      });
+      return apiError("WHATSAPP_API_ERROR", err.message, err.statusCode, err.apiError);
     }
     console.error("[whatsapp/send-image-url] Unexpected failure", { userId, to: contactPhone, err });
     return apiError("UNEXPECTED_ERROR", err instanceof Error ? err.message : "Unknown error", 500);
