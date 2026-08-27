@@ -42,7 +42,11 @@ export class BaileysWhatsAppService {
    * eliminate, so this retries a few times with backoff rather than once.
    */
   private async withRetry<T>(fn: (sock: WASocket) => Promise<T>): Promise<T> {
-    const backoffMs = [2000, 4000, 6000];
+    // Short and escalating: getBaileysSocket() already awaits whatever
+    // reconnect is in flight rather than guessing when it'll finish, so
+    // these delays only need to cover the moment before baileys-connection.ts's
+    // own close handler has run and reassigned the pending-reconnect promise.
+    const backoffMs = [500, 1500, 3000];
     let lastErr: unknown;
     let sock = this.sock;
 
