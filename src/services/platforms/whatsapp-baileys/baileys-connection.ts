@@ -6,6 +6,9 @@ import makeWASocket, {
   makeCacheableSignalKeyStore,
   delay,
   proto,
+  isJidBroadcast,
+  isJidNewsletter,
+  isJidMetaAI,
   type WASocket,
   type WAMessage,
   type MessageUpsertType,
@@ -67,9 +70,17 @@ async function connect(): Promise<WASocket> {
     ...(version ? { version } : {}),
     // Deliberately NOT overriding `browser` — WhatsApp's servers appear to
     // treat a custom browser-identification string with more suspicion than
-    // Baileys' own default, which several users tracked down as the actual
-    // fix for a persistent connectionReplaced/reconnect-storm bug matching
-    // what we hit (https://github.com/WhiskeySockets/Baileys/issues/2249).
+    // Baileys' own default. This, together with the settings below, is the
+    // full config a community fix for a persistent connectionReplaced/
+    // reconnect-storm bug matching what we hit used — not just the browser
+    // change alone (https://github.com/WhiskeySockets/Baileys/issues/2249).
+    keepAliveIntervalMs: 20_000,
+    connectTimeoutMs: 60_000,
+    defaultQueryTimeoutMs: 60_000,
+    retryRequestDelayMs: 5_000,
+    // Skip broadcast/newsletter/Meta AI JIDs — NOT groups, since we still
+    // want those (see baileys-message-adapter.ts's group handling).
+    shouldIgnoreJid: (jid) => Boolean(isJidBroadcast(jid) || isJidNewsletter(jid) || isJidMetaAI(jid)),
   });
 
   sock.ev.on("creds.update", saveCreds);
