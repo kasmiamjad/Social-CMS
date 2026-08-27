@@ -82,11 +82,7 @@ export function ConversationList({ conversations }: ConversationListProps) {
           </div>
           <p className="text-sm font-medium text-foreground">No incoming messages yet</p>
           <p className="text-xs text-text-muted mt-1 max-w-md">
-            Once a customer sends a message to your WhatsApp business number, it&apos;ll appear here.
-            Webhook URL:{" "}
-            <code className="px-1.5 py-0.5 rounded bg-surface text-foreground font-mono text-[10px]">
-              /api/v1/whatsapp/webhook
-            </code>
+            Once a customer sends a message to your linked WhatsApp number, it&apos;ll appear here.
           </p>
         </div>
       ) : filtered.length === 0 ? (
