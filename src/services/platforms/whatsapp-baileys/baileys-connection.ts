@@ -65,7 +65,11 @@ async function connect(): Promise<WASocket> {
     },
     logger,
     ...(version ? { version } : {}),
-    browser: ["SA'DA H2O CRM", "Chrome", "1.0.0"],
+    // Deliberately NOT overriding `browser` — WhatsApp's servers appear to
+    // treat a custom browser-identification string with more suspicion than
+    // Baileys' own default, which several users tracked down as the actual
+    // fix for a persistent connectionReplaced/reconnect-storm bug matching
+    // what we hit (https://github.com/WhiskeySockets/Baileys/issues/2249).
   });
 
   sock.ev.on("creds.update", saveCreds);
