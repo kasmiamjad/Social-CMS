@@ -34,20 +34,30 @@ export class BaileysWhatsAppService {
 
   /**
    * Runs a send against the socket we were constructed with; if it fails
-   * because the connection had just dropped (a normal, occasional thing for
-   * this kind of WebSocket client — the auto-reconnect in
-   * baileys-connection.ts is very likely already mid-flight), wait briefly
-   * for that reconnect and retry once against a fresh socket before giving up.
+   * because the connection had just dropped, wait briefly for the
+   * auto-reconnect in baileys-connection.ts (very likely already mid-flight)
+   * and retry against a fresh socket. WhatsApp's own multi-device session
+   * management bounces linked-device connections periodically as a normal
+   * part of how it works — this isn't a one-off hiccup we can fully
+   * eliminate, so this retries a few times with backoff rather than once.
    */
   private async withRetry<T>(fn: (sock: WASocket) => Promise<T>): Promise<T> {
-    try {
-      return await fn(this.sock);
-    } catch (err) {
-      if (!isConnectionClosedError(err)) throw err;
-      await delay(2500);
-      const freshSock = await getBaileysSocket();
-      return fn(freshSock);
+    const backoffMs = [2000, 4000, 6000];
+    let lastErr: unknown;
+    let sock = this.sock;
+
+    for (let attempt = 0; attempt <= backoffMs.length; attempt++) {
+      try {
+        return await fn(sock);
+      } catch (err) {
+        if (!isConnectionClosedError(err) || attempt === backoffMs.length) throw err;
+        lastErr = err;
+        await delay(backoffMs[attempt]);
+        sock = await getBaileysSocket();
+      }
     }
+    // Unreachable — the loop always returns or throws — but keeps TS happy.
+    throw lastErr;
   }
 
   /** Sends a free-form text message. Baileys has no 24h-window restriction. */
