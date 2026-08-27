@@ -1,6 +1,7 @@
 import { Boom } from "@hapi/boom";
 import { delay, type WASocket } from "@whiskeysockets/baileys";
 import { getBaileysSocket } from "./baileys-connection";
+import { logWhatsAppDebugEvent } from "@/lib/whatsapp-debug-log";
 
 export class BaileysSendError extends Error {
   constructor(message: string) {
@@ -17,6 +18,10 @@ export interface BaileysSendResult {
 function isConnectionClosedError(err: unknown): boolean {
   if (err instanceof Boom) return err.output?.statusCode === 428;
   return err instanceof Error && err.message === "Connection Closed";
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 /**
@@ -41,7 +46,7 @@ export class BaileysWhatsAppService {
    * part of how it works — this isn't a one-off hiccup we can fully
    * eliminate, so this retries a few times with backoff rather than once.
    */
-  private async withRetry<T>(fn: (sock: WASocket) => Promise<T>): Promise<T> {
+  private async withRetry<T>(label: string, fn: (sock: WASocket) => Promise<T>): Promise<T> {
     // Short and escalating: getBaileysSocket() already awaits whatever
     // reconnect is in flight rather than guessing when it'll finish, so
     // these delays only need to cover the moment before baileys-connection.ts's
@@ -49,13 +54,34 @@ export class BaileysWhatsAppService {
     const backoffMs = [500, 1500, 3000];
     let lastErr: unknown;
     let sock = this.sock;
+    const startedAt = Date.now();
+    void logWhatsAppDebugEvent("info", "send_attempt", `Sending ${label}…`);
 
     for (let attempt = 0; attempt <= backoffMs.length; attempt++) {
       try {
-        return await fn(sock);
+        const result = await fn(sock);
+        const ms = Date.now() - startedAt;
+        void logWhatsAppDebugEvent(
+          "info",
+          "send_success",
+          attempt === 0
+            ? `Sent ${label} (${ms}ms).`
+            : `Sent ${label} after ${attempt} retr${attempt === 1 ? "y" : "ies"} (${ms}ms).`
+        );
+        return result;
       } catch (err) {
-        if (!isConnectionClosedError(err) || attempt === backoffMs.length) throw err;
+        if (!isConnectionClosedError(err) || attempt === backoffMs.length) {
+          void logWhatsAppDebugEvent("error", "send_failed", `Failed to send ${label}: ${errorMessage(err)}`, {
+            attempt,
+          });
+          throw err;
+        }
         lastErr = err;
+        void logWhatsAppDebugEvent(
+          "warn",
+          "send_retry",
+          `Connection dropped mid-send for ${label} — retrying in ${backoffMs[attempt]}ms (attempt ${attempt + 1}/${backoffMs.length}).`
+        );
         await delay(backoffMs[attempt]);
         sock = await getBaileysSocket();
       }
@@ -66,7 +92,7 @@ export class BaileysWhatsAppService {
 
   /** Sends a free-form text message. Baileys has no 24h-window restriction. */
   async sendTextMessage(toPhone: string, body: string): Promise<BaileysSendResult> {
-    return this.withRetry(async (sock) => {
+    return this.withRetry(`text message to ${toPhone}`, async (sock) => {
       const sent = await sock.sendMessage(this.jid(toPhone), { text: body });
       if (!sent?.key?.id) throw new BaileysSendError("Baileys text send returned no message key");
       return { messageId: sent.key.id };
@@ -75,7 +101,7 @@ export class BaileysWhatsAppService {
 
   /** Sends an image by public URL — Baileys fetches it directly. */
   async sendImageMessage(toPhone: string, imageUrl: string, caption?: string): Promise<BaileysSendResult> {
-    return this.withRetry(async (sock) => {
+    return this.withRetry(`image to ${toPhone}`, async (sock) => {
       const sent = await sock.sendMessage(this.jid(toPhone), {
         image: { url: imageUrl },
         ...(caption?.trim() && { caption: caption.trim() }),
@@ -87,7 +113,7 @@ export class BaileysWhatsAppService {
 
   /** Sends a voice/audio clip by public URL. Matches the mimetype our transcode pipeline uploads. */
   async sendAudioMessage(toPhone: string, audioUrl: string): Promise<BaileysSendResult> {
-    return this.withRetry(async (sock) => {
+    return this.withRetry(`audio to ${toPhone}`, async (sock) => {
       const sent = await sock.sendMessage(this.jid(toPhone), {
         audio: { url: audioUrl },
         mimetype: "audio/mpeg",
@@ -104,7 +130,7 @@ export class BaileysWhatsAppService {
 
   /** Sends a free-form text message to a group. groupJid is already a full JID (ends in @g.us), no phone-number transform needed. */
   async sendGroupTextMessage(groupJid: string, body: string): Promise<BaileysSendResult> {
-    return this.withRetry(async (sock) => {
+    return this.withRetry(`group text to ${groupJid}`, async (sock) => {
       const sent = await sock.sendMessage(groupJid, { text: body });
       if (!sent?.key?.id) throw new BaileysSendError("Baileys group text send returned no message key");
       return { messageId: sent.key.id };
@@ -113,7 +139,7 @@ export class BaileysWhatsAppService {
 
   /** Sends an image by public URL to a group. */
   async sendGroupImageMessage(groupJid: string, imageUrl: string, caption?: string): Promise<BaileysSendResult> {
-    return this.withRetry(async (sock) => {
+    return this.withRetry(`group image to ${groupJid}`, async (sock) => {
       const sent = await sock.sendMessage(groupJid, {
         image: { url: imageUrl },
         ...(caption?.trim() && { caption: caption.trim() }),

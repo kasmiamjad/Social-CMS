@@ -20,6 +20,7 @@ import { getTenantId } from "@/lib/tenant";
 import { makeSupabaseAuthState, clearBaileysAuthState } from "./baileys-auth-store";
 import { handleIncomingBaileysMessage } from "./baileys-message-adapter";
 import { baileysLogger as logger } from "./baileys-logger";
+import { logWhatsAppDebugEvent } from "@/lib/whatsapp-debug-log";
 
 let sockPromise: Promise<WASocket> | null = null;
 // Bumped on every new connect() attempt so a superseded socket's late-firing
@@ -128,6 +129,7 @@ async function onConnectionUpdate(
     await supabase
       .from("whatsapp_connection_status")
       .upsert({ user_id: tenantId, status: "qr_pending", qr_code: qrDataUrl }, { onConflict: "user_id" });
+    void logWhatsAppDebugEvent("info", "qr_generated", "New QR code generated — waiting to be scanned.");
   }
 
   if (connection === "open") {
@@ -146,12 +148,23 @@ async function onConnectionUpdate(
       { onConflict: "user_id" }
     );
     console.log("[baileys] Connected", { connectedNumber });
+    void logWhatsAppDebugEvent("info", "connected", `Connected as ${connectedNumber ?? "(unknown number)"}`, {
+      connectedNumber,
+    });
   }
 
   if (connection === "close") {
     const statusCode = (lastDisconnect?.error as Boom | undefined)?.output?.statusCode;
     const loggedOut = statusCode === DisconnectReason.loggedOut;
     console.warn("[baileys] Connection closed", { statusCode, loggedOut });
+    void logWhatsAppDebugEvent(
+      loggedOut ? "info" : "warn",
+      "connection_closed",
+      loggedOut
+        ? "Logged out — a fresh QR scan is required."
+        : `Connection closed (statusCode ${statusCode ?? "unknown"}) — reconnecting in 3s.`,
+      { statusCode, loggedOut }
+    );
 
     if (loggedOut) {
       // The phone unlinked us — a fresh QR scan is required, don't auto-reconnect.
@@ -189,6 +202,9 @@ async function onMessagesUpsert(
       await handleIncomingBaileysMessage(sock, tenantId, message);
     } catch (err) {
       console.error("[baileys] Failed to process incoming message", { err });
+      void logWhatsAppDebugEvent("error", "incoming_message_failed", "Failed to process an incoming message.", {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 }
