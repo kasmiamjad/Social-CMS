@@ -91,7 +91,12 @@ export async function uploadMediaBuffer(
   contentType: string
 ): Promise<{ url: string; path: string }> {
   const supabase = createAdminClient();
-  const ext = CONTENT_TYPE_TO_EXT[contentType] ?? "bin";
+  // Strip any parameters (e.g. "audio/ogg; codecs=opus" -> "audio/ogg") before
+  // the lookup — an exact-string miss here falls back to .bin, and Supabase's
+  // public URL then serves the file as application/octet-stream regardless of
+  // the contentType set below, which Meta's Cloud API rejects outright.
+  const bareContentType = contentType.split(";")[0].trim();
+  const ext = CONTENT_TYPE_TO_EXT[bareContentType] ?? "bin";
   const path = `${userId}/${subfolder}/${Date.now()}.${ext}`;
 
   const { error } = await supabase.storage
