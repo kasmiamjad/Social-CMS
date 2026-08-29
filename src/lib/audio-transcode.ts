@@ -67,3 +67,42 @@ export async function transcodeToMp3(input: Buffer): Promise<Buffer> {
     await unlink(outPath).catch(() => {});
   }
 }
+
+/**
+ * Transcodes an arbitrary audio buffer to OGG/Opus via the system `ffmpeg`
+ * binary — the exact format WhatsApp's own recorder produces, required for
+ * the native voice-note waveform bubble (mic icon, play/pause, timer).
+ *
+ * Used together with the Media Upload API's upload-then-send-by-id flow
+ * (`WhatsAppService.sendAudioMessage`) and the documented `voice: true`
+ * flag, per Meta's own voice-message docs.
+ */
+export async function transcodeToOggOpus(input: Buffer): Promise<Buffer> {
+  const id = crypto.randomUUID();
+  const inPath = path.join(tmpdir(), `${id}-in`);
+  const outPath = path.join(tmpdir(), `${id}-out.ogg`);
+
+  try {
+    await writeFile(inPath, input);
+    await execFileAsync("ffmpeg", [
+      "-y",
+      "-i", inPath,
+      "-c:a", "libopus",
+      "-b:a", "64k",
+      "-vn",
+      outPath,
+    ]);
+    return await readFile(outPath);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("ENOENT")) {
+      throw new TranscodeError(
+        "ffmpeg is not installed on the server. Run: sudo apt install -y ffmpeg"
+      );
+    }
+    throw new TranscodeError(`Audio conversion failed: ${message}`);
+  } finally {
+    await unlink(inPath).catch(() => {});
+    await unlink(outPath).catch(() => {});
+  }
+}
