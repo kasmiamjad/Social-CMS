@@ -89,6 +89,8 @@ export async function transcodeToOggOpus(input: Buffer): Promise<Buffer> {
       "-i", inPath,
       "-c:a", "libopus",
       "-b:a", "64k",
+      "-ac", "1",
+      "-ar", "48000",
       "-vn",
       outPath,
     ]);
