@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { WHATSAPP_GRAPH_BASE_URL } from "./whatsapp.constants";
+import { logWhatsAppDebugEvent } from "@/lib/whatsapp-debug-log";
 import type {
   WhatsAppApiErrorResponse,
   WhatsAppCredentials,
@@ -246,6 +247,10 @@ export class WhatsAppService {
   // ── Internal Graph API helper ────────────────────────────────────────────
 
   private async graphPost<T>(path: string, payload: unknown): Promise<T> {
+    const { to, type } = describeOutboundPayload(payload);
+    const label = `${type}${to ? ` to ${to}` : ""}`;
+    void logWhatsAppDebugEvent("info", "send_attempt", `Sending ${label}…`);
+
     const url = `${WHATSAPP_GRAPH_BASE_URL}${path}`;
     const res = await fetch(url, {
       method: "POST",
@@ -259,12 +264,16 @@ export class WhatsAppService {
     const data = await res.json();
     if (!res.ok) {
       const errPayload = data as WhatsAppApiErrorResponse;
-      throw new WhatsAppApiError(
-        errPayload.error?.message ?? "WhatsApp API error",
-        res.status,
-        data
+      const errMessage = errPayload.error?.message ?? "WhatsApp API error";
+      void logWhatsAppDebugEvent(
+        "error",
+        "send_failed",
+        `Failed to send ${label}: ${errMessage} (HTTP ${res.status})`,
+        { statusCode: res.status, apiError: errPayload.error }
       );
+      throw new WhatsAppApiError(errMessage, res.status, data);
     }
+    void logWhatsAppDebugEvent("info", "send_success", `Sent ${label}.`);
     return data as T;
   }
 }
@@ -275,4 +284,14 @@ export class WhatsAppService {
  */
 function normalizePhoneNumber(phone: string): string {
   return phone.replace(/[^\d]/g, "");
+}
+
+/** Pulls a readable recipient/type out of a Graph API payload for debug-log labels. */
+function describeOutboundPayload(payload: unknown): { to: string | null; type: string } {
+  if (payload && typeof payload === "object") {
+    const p = payload as { to?: string; type?: string; status?: string };
+    if (p.status === "read") return { to: null, type: "read receipt" };
+    return { to: p.to ?? null, type: p.type ?? "message" };
+  }
+  return { to: null, type: "message" };
 }

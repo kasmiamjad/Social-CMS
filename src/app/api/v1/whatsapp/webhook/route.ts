@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WhatsAppService } from "@/services/platforms/whatsapp/whatsapp.service";
 import { WhatsAppAutoReplyService } from "@/services/whatsapp/auto-reply.service";
+import { logWhatsAppDebugEvent } from "@/lib/whatsapp-debug-log";
 import type {
   WhatsAppCredentials,
   WhatsAppStatusUpdate,
@@ -152,12 +153,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             from: message.from,
             messageId: message.id,
           });
+          void logWhatsAppDebugEvent(
+            "info",
+            "message_received",
+            `Received ${message.type} from +${message.from}.`,
+            { messageId: message.id }
+          );
         } catch (err) {
           console.error("WhatsApp webhook: processIncomingMessage failed", {
             userId: credsRow.user_id,
             messageId: message.id,
             err,
           });
+          void logWhatsAppDebugEvent(
+            "error",
+            "message_processing_failed",
+            `Failed to process incoming message from +${message.from}: ${err instanceof Error ? err.message : String(err)}`,
+            { messageId: message.id }
+          );
           // Continue processing other messages — don't bail out the whole batch.
         }
       }
@@ -186,12 +199,24 @@ async function processStatusUpdates(
         recipient: status.recipient_id,
         errors: status.errors,
       });
+      const errText = status.errors?.map((e) => e.title || e.message).filter(Boolean).join("; ");
+      void logWhatsAppDebugEvent(
+        "error",
+        "delivery_failed",
+        `Delivery to ${status.recipient_id} failed${errText ? `: ${errText}` : "."}`,
+        { waMessageId: status.id, errors: status.errors }
+      );
     } else {
       console.log("[whatsapp/webhook] Message status update", {
         userId,
         waMessageId: status.id,
         status: status.status,
       });
+      void logWhatsAppDebugEvent(
+        "info",
+        "status_update",
+        `Message to ${status.recipient_id} is now "${status.status}".`
+      );
     }
 
     const { error } = await supabase

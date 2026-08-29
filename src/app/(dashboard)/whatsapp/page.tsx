@@ -137,13 +137,21 @@ export default async function WhatsAppPage() {
 
 function PageHeader() {
   return (
-    <div>
-      <h1 className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
-        WhatsApp Automation
-      </h1>
-      <p className="text-sm text-text-muted mt-1">
-        AI auto-reply to customer messages via WhatsApp Cloud API
-      </p>
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h1 className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
+          WhatsApp Automation
+        </h1>
+        <p className="text-sm text-text-muted mt-1">
+          AI auto-reply to customer messages via WhatsApp Cloud API
+        </p>
+      </div>
+      <Link
+        href="/whatsapp/logs"
+        className="shrink-0 mt-1 text-xs font-medium text-primary hover:text-primary-hover transition-colors"
+      >
+        View send &amp; webhook log →
+      </Link>
     </div>
   );
 }
