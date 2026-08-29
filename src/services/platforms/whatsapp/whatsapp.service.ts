@@ -87,6 +87,41 @@ export class WhatsAppService {
   }
 
   /**
+   * Sends a document (PDF, etc.) to a customer by public URL.
+   * The URL must be publicly accessible over HTTPS — Meta fetches it directly.
+   */
+  async sendDocumentMessage(
+    toPhone: string,
+    documentUrl: string,
+    filename?: string,
+    caption?: string
+  ): Promise<WhatsAppSendTextResult> {
+    const normalizedPhone = normalizePhoneNumber(toPhone);
+    const payload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: normalizedPhone,
+      type: "document",
+      document: {
+        link: documentUrl,
+        ...(filename?.trim() && { filename: filename.trim() }),
+        ...(caption?.trim() && { caption: caption.trim() }),
+      },
+    };
+
+    const res = await this.graphPost<WhatsAppSendApiResponse>(
+      `/${this.credentials.phone_number_id}/messages`,
+      payload
+    );
+
+    const messageId = res.messages?.[0]?.id;
+    if (!messageId) {
+      throw new WhatsAppApiError("WhatsApp document send returned no message ID", 500, res);
+    }
+    return { messageId };
+  }
+
+  /**
    * Sends a voice/audio clip to a customer by public URL.
    * The URL must be publicly accessible over HTTPS — Meta fetches it directly.
    */

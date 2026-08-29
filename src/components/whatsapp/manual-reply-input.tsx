@@ -7,7 +7,7 @@ import { useReplyTemplates } from "@/hooks/use-reply-templates";
 import { matchSlashQuery, filterTemplates, applyTemplate, type ReplyTemplate } from "@/lib/reply-templates";
 import { TemplateSuggestions } from "./template-suggestions";
 
-const ATTACHMENT_ACCEPT = "image/jpeg,image/png,audio/*";
+const ATTACHMENT_ACCEPT = "image/jpeg,image/png,application/pdf,audio/*";
 
 /** Picks the best audio mimeType this browser's MediaRecorder actually supports. */
 function pickRecorderMimeType(): string {
@@ -163,7 +163,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
       const formData = new FormData();
       formData.append("to", contactPhone);
       formData.append("file", file);
-      if (file.type.startsWith("image/") && text.trim()) {
+      if ((file.type.startsWith("image/") || file.type === "application/pdf") && text.trim()) {
         formData.append("caption", text.trim());
       }
 
@@ -346,7 +346,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
             onClick={() => fileInputRef.current?.click()}
             disabled={sending}
             className="inline-flex items-center justify-center w-11 h-11 rounded-lg border border-border text-text-muted hover:text-foreground hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
-            title="Attach image or voice clip"
+            title="Attach image, PDF, or voice clip"
           >
             <Paperclip size={16} strokeWidth={1.8} />
           </button>
@@ -417,7 +417,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
       <p className="mt-1.5 text-[10px] text-text-muted">
         Free-form messages work only within the 24-hour customer service window.
         Outside that window, only pre-approved templates will deliver.
-        Attachments: JPEG/PNG images or any audio file — max 16MB.
+        Attachments: JPEG/PNG images, PDF documents, or any audio file — max 16MB.
       </p>
     </div>
   );

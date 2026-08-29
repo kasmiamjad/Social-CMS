@@ -9,7 +9,7 @@ import { matchSlashQuery, filterTemplates, applyTemplate, type ReplyTemplate } f
 import { TemplateSuggestions } from "@/components/whatsapp/template-suggestions";
 import { VoiceNotePlayer } from "@/components/whatsapp/voice-note-player";
 
-const ATTACHMENT_ACCEPT = "image/jpeg,image/png,audio/*";
+const ATTACHMENT_ACCEPT = "image/jpeg,image/png,application/pdf,audio/*";
 
 /** Picks the best audio mimeType this browser's MediaRecorder actually supports. */
 function pickRecorderMimeType(): string {
@@ -209,7 +209,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      if (file.type.startsWith("image/") && reply.trim()) {
+      if ((file.type.startsWith("image/") || file.type === "application/pdf") && reply.trim()) {
         formData.append("caption", reply.trim());
       }
 
@@ -436,7 +436,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
                     onClick={() => fileInputRef.current?.click()}
                     disabled={sending}
                     className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-border text-text-muted hover:text-foreground hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
-                    title="Attach image or voice clip"
+                    title="Attach image, PDF, or voice clip"
                   >
                     <Paperclip size={15} strokeWidth={1.8} />
                   </button>

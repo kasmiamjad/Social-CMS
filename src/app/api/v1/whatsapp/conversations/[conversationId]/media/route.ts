@@ -14,13 +14,14 @@ interface ConvRow {
 }
 
 const IMAGE_TYPES = ["image/jpeg", "image/png"];
+const DOCUMENT_TYPES = ["application/pdf"];
 const MAX_BYTES = 16 * 1024 * 1024;
 
 /**
  * POST /api/v1/whatsapp/conversations/:conversationId/media
  *
- * Sends an image or voice clip to the conversation's contact from the Leads
- * chat drawer. multipart/form-data body: file, caption? (images only).
+ * Sends an image, PDF, or voice clip to the conversation's contact from the
+ * Leads chat drawer. multipart/form-data body: file, caption? (images/PDFs).
  */
 export async function POST(
   request: NextRequest,
@@ -42,12 +43,13 @@ export async function POST(
   }
 
   const isImage = IMAGE_TYPES.includes(file.type);
+  const isDocument = DOCUMENT_TYPES.includes(file.type);
   // See send-media/route.ts for why audio isn't matched against a fixed list.
   const isAudio = file.type.startsWith("audio/");
-  if (!isImage && !isAudio) {
+  if (!isImage && !isDocument && !isAudio) {
     return apiError(
       "INVALID_REQUEST",
-      `Unsupported file type: ${file.type || "(unknown)"}. Allowed: JPEG/PNG images or any audio file.`,
+      `Unsupported file type: ${file.type || "(unknown)"}. Allowed: JPEG/PNG images, PDF documents, or any audio file.`,
       400
     );
   }
@@ -90,7 +92,12 @@ export async function POST(
 
     const sent = isImage
       ? await wa.sendImageMessage(conv.contact_phone, url, captionText || undefined)
-      : await wa.sendAudioMessage(conv.contact_phone, url);
+      : isDocument
+        ? await wa.sendDocumentMessage(conv.contact_phone, url, file.name, captionText || undefined)
+        : await wa.sendAudioMessage(conv.contact_phone, url);
+
+    const messageType = isImage ? "image" : isDocument ? "document" : "audio";
+    const preview = isImage ? captionText || "📷 Image" : isDocument ? `📎 ${file.name}` : "🎙️ Audio";
 
     const { data: message } = await supabase
       .from("whatsapp_messages")
@@ -99,8 +106,8 @@ export async function POST(
         user_id: tenantId,
         wa_message_id: sent.messageId,
         direction: "outbound",
-        message_type: isImage ? "image" : "audio",
-        body: isImage ? captionText || null : null,
+        message_type: messageType,
+        body: isImage ? captionText || null : isDocument ? `📎 ${file.name}` : null,
         media_url: url,
         status: "sent",
         ai_generated: false,
@@ -113,7 +120,7 @@ export async function POST(
       .from("whatsapp_conversations")
       .update({
         last_message_at: new Date().toISOString(),
-        last_message_preview: isImage ? captionText || "📷 Image" : "🎙️ Audio",
+        last_message_preview: preview,
       })
       .eq("id", conv.id);
 
