@@ -1,8 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateOpenRouterJsonResponse } from "@/lib/openrouter";
 import { uploadMediaBuffer } from "@/services/media.service";
-import { BaileysWhatsAppService, BaileysSendError } from "@/services/platforms/whatsapp-baileys/baileys-whatsapp.service";
-import { getBaileysSocket } from "@/services/platforms/whatsapp-baileys/baileys-connection";
+import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import {
   DEFAULT_WHATSAPP_SIGNATURE_SUFFIX,
   DEFAULT_WHATSAPP_SYSTEM_PROMPT,
@@ -16,8 +15,8 @@ import {
 } from "@/services/booking/booking.constants";
 import type {
   WhatsAppAIDecision,
+  WhatsAppCredentials,
   WhatsAppIncomingMessage,
-  WhatsAppInboundMedia,
   WhatsAppContact,
 } from "@/services/platforms/whatsapp/whatsapp.types";
 
@@ -84,9 +83,9 @@ export class WhatsAppAutoReplyService {
    */
   async processIncomingMessage(
     userId: string,
+    credentials: WhatsAppCredentials,
     contact: WhatsAppContact | undefined,
-    message: WhatsAppIncomingMessage,
-    media: WhatsAppInboundMedia | null
+    message: WhatsAppIncomingMessage
   ): Promise<{
     conversationId: string;
     inboundMessageId: string;
@@ -95,12 +94,11 @@ export class WhatsAppAutoReplyService {
     skippedReason: string | null;
   }> {
     const supabase = createAdminClient();
-    const sock = await getBaileysSocket();
-    const wa = new BaileysWhatsAppService(sock);
+    const wa = new WhatsAppService(credentials);
 
     // 1. Upsert conversation
     const contactPhone = `+${message.from}`;
-    const contactName = contact?.name ?? null;
+    const contactName = contact?.profile?.name ?? null;
     const messagePreview = extractMessagePreview(message);
 
     const { data: conversation, error: convError } = await supabase
@@ -123,7 +121,7 @@ export class WhatsAppAutoReplyService {
     }
 
     // 2. Persist inbound message
-    const mediaUrl = await downloadInboundMedia(userId, media);
+    const mediaUrl = await downloadInboundMedia(wa, userId, message);
     // Meta marks a real recorded voice note with audio.voice === true; a
     // regular shared audio file (e.g. a song) has voice === false and gets
     // its own type so it renders as a plain player, not the voice-note UI.
@@ -162,7 +160,7 @@ export class WhatsAppAutoReplyService {
 
     // Acknowledge read — fire-and-forget. Don't make the AI reply wait for
     // a slow WhatsApp Graph API call.
-    void wa.markAsRead(contactPhone, message.id).catch((err: unknown) => {
+    void wa.markAsRead(message.id).catch((err: unknown) => {
       console.warn("Failed to mark message read (non-blocking)", {
         messageId: message.id,
         err: err instanceof Error ? err.message : err,
@@ -437,7 +435,7 @@ export class WhatsAppAutoReplyService {
         skippedReason: null,
       };
     } catch (err) {
-      const reason = err instanceof BaileysSendError ? err.message : "send_failed";
+      const reason = err instanceof WhatsAppApiError ? err.message : "send_failed";
       console.error("Failed to send WhatsApp AI reply", { contactPhone, err });
       return {
         conversationId: conversation.id,
@@ -937,7 +935,7 @@ export class WhatsAppAutoReplyService {
   private async handleRescheduleIfAny(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     supabase: any,
-    wa: BaileysWhatsAppService,
+    wa: WhatsAppService,
     params: {
       conversationId: string;
       contactPhone: string;
@@ -1148,30 +1146,41 @@ function formatSlotList(slots: Array<{ start_time: string; end_time: string }>):
 }
 
 /**
- * Re-hosts an inbound image/sticker/video/audio/document's already-downloaded
- * bytes into Supabase Storage so they display in the CRM. Unlike Meta's Graph
- * API (which required a separate download-by-id step), Baileys hands us the
- * decrypted bytes directly on the event, so the adapter downloads them and
- * passes the buffer straight through here. Returns null (never throws) for
- * text/location messages or non-media types, or if uploading fails, so a
- * media hiccup never blocks the rest of the pipeline.
+ * Downloads and re-hosts an inbound image/sticker/video/audio/document so it
+ * can be displayed in the CRM — Meta's own media URLs expire within minutes.
+ * Returns null (never throws) for text/location/interactive messages, or if
+ * the download fails, so a media hiccup never blocks the rest of the pipeline.
  */
 async function downloadInboundMedia(
+  wa: WhatsAppService,
   userId: string,
-  media: WhatsAppInboundMedia | null
+  message: WhatsAppIncomingMessage
 ): Promise<string | null> {
-  if (!media) return null;
+  const mediaId =
+    message.image?.id ??
+    message.sticker?.id ??
+    message.video?.id ??
+    message.audio?.id ??
+    message.document?.id ??
+    null;
+  if (!mediaId) return null;
 
   try {
-    const { url } = await uploadMediaBuffer(userId, "whatsapp-inbound", media.buffer, media.contentType);
+    const { buffer, contentType } = await wa.downloadMedia(mediaId);
+    const { url } = await uploadMediaBuffer(userId, "whatsapp-inbound", buffer, contentType);
     return url;
   } catch (err) {
-    console.error("Failed to store inbound WhatsApp media", { userId, err });
+    console.error("Failed to download/store inbound WhatsApp media", {
+      userId,
+      messageType: message.type,
+      mediaId,
+      err,
+    });
     return null;
   }
 }
 
-export function extractMessagePreview(message: WhatsAppIncomingMessage): string {
+function extractMessagePreview(message: WhatsAppIncomingMessage): string {
   switch (message.type) {
     case "text":
       return message.text?.body ?? "";

@@ -415,6 +415,8 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
       )}
 
       <p className="mt-1.5 text-[10px] text-text-muted">
+        Free-form messages work only within the 24-hour customer service window.
+        Outside that window, only pre-approved templates will deliver.
         Attachments: JPEG/PNG images or any audio file — max 16MB.
       </p>
     </div>

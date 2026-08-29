@@ -4,9 +4,13 @@ import { resolveUserId } from "@/lib/api-auth";
 import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
-import { transcodeToMp3, TranscodeError } from "@/lib/audio-transcode";
-import { BaileysWhatsAppService, BaileysSendError } from "@/services/platforms/whatsapp-baileys/baileys-whatsapp.service";
-import { getBaileysSocket } from "@/services/platforms/whatsapp-baileys/baileys-connection";
+import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
+import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
+import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
+
+interface PlatformCredentialsRow {
+  credentials: WhatsAppCredentials;
+}
 
 const IMAGE_TYPES = ["image/jpeg", "image/png"];
 const MAX_BYTES = 16 * 1024 * 1024;
@@ -16,6 +20,7 @@ const MAX_BYTES = 16 * 1024 * 1024;
  *
  * Manually send an image or voice clip to a contact from the main WhatsApp
  * tab. multipart/form-data body: to, file, caption? (images only).
+ * NOTE: Only allowed inside the 24-hour customer service window.
  */
 export async function POST(request: NextRequest) {
   const userId = await resolveUserId(request);
@@ -55,17 +60,23 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
   const tenantId = getTenantId();
-  const { data: connectionStatus } = await supabase
-    .from("whatsapp_connection_status")
-    .select("status")
+  const { data: credsRow, error: credsError } = await supabase
+    .from("platform_credentials")
+    .select("credentials")
     .eq("user_id", tenantId)
-    .maybeSingle<{ status: string }>();
+    .eq("platform", "whatsapp")
+    .eq("is_active", true)
+    .maybeSingle<PlatformCredentialsRow>();
 
-  if (connectionStatus?.status !== "connected") {
-    return apiError("WHATSAPP_NOT_CONNECTED", "Scan the WhatsApp QR code in Settings first.", 400);
+  if (credsError || !credsRow) {
+    return apiError(
+      "WHATSAPP_NOT_CONNECTED",
+      "Connect WhatsApp Cloud API credentials in Settings first.",
+      400
+    );
   }
 
-  const wa = new BaileysWhatsAppService(await getBaileysSocket());
+  const wa = new WhatsAppService(credsRow.credentials);
   const contactPhone = to.startsWith("+") ? to : `+${to}`;
   const captionText = typeof caption === "string" ? caption.trim() : "";
 
@@ -74,10 +85,10 @@ export async function POST(request: NextRequest) {
     let contentType = file.type;
     if (isAudio) {
       // Normalize every audio source (browser recordings, phone voice memos,
-      // etc.) to MP3 — see audio-transcode.ts for why this can't just pass
-      // the file through, and the voice-note-bubble trade-off vs OGG/Opus.
-      buffer = await transcodeToMp3(buffer);
-      contentType = "audio/mpeg";
+      // etc.) to OGG/Opus — WhatsApp's own voice-note format — see
+      // audio-transcode.ts for why this can't just pass the file through.
+      buffer = await transcodeToOggOpus(buffer);
+      contentType = "audio/ogg; codecs=opus";
     }
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 
@@ -105,8 +116,6 @@ export async function POST(request: NextRequest) {
         user_id: tenantId,
         wa_message_id: result.messageId,
         direction: "outbound",
-        // Our own CRM shows outbound recordings with the custom voice-note
-        // player regardless of what the recipient's WhatsApp renders it as.
         message_type: isImage ? "image" : "audio",
         body: isImage ? captionText || null : null,
         media_url: url,
@@ -122,9 +131,15 @@ export async function POST(request: NextRequest) {
       console.error("[whatsapp/send-media] Audio transcode failed", { userId, to: contactPhone, err });
       return apiError("AUDIO_TRANSCODE_FAILED", err.message, 500);
     }
-    if (err instanceof BaileysSendError) {
-      console.error("[whatsapp/send-media] Baileys rejected the send", { userId, to: contactPhone, message: err.message });
-      return apiError("WHATSAPP_SEND_ERROR", err.message, 502);
+    if (err instanceof WhatsAppApiError) {
+      console.error("[whatsapp/send-media] Meta API rejected the send", {
+        userId,
+        to: contactPhone,
+        statusCode: err.statusCode,
+        message: err.message,
+        apiError: err.apiError,
+      });
+      return apiError("WHATSAPP_API_ERROR", err.message, err.statusCode, err.apiError);
     }
     console.error("[whatsapp/send-media] Unexpected failure", { userId, to: contactPhone, err });
     return apiError("UNEXPECTED_ERROR", err instanceof Error ? err.message : "Unknown error", 500);

@@ -1,15 +1,21 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToTechnician } from "@/lib/web-push";
-import { BaileysWhatsAppService, BaileysSendError } from "@/services/platforms/whatsapp-baileys/baileys-whatsapp.service";
-import { getBaileysSocket } from "@/services/platforms/whatsapp-baileys/baileys-connection";
+import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
+import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
 import {
+  BOOKING_TEMPLATE_LANGUAGE,
+  BOOKING_TEMPLATE_NAME,
   BOOKING_WHATSAPP_AUTOSEND,
   buildBookingFreeText,
+  buildBookingTemplateComponents,
   composeBookingRef,
   formatBookingDate,
   formatBookingTime,
   type BookingMessageFields,
 } from "./booking.constants";
+
+/** Window (ms) inside which Meta allows free-form text. */
+const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type BookingStatus =
   | "scheduled"
@@ -38,7 +44,7 @@ export interface CreateBookingResult {
   confirmationText: string;
   /** Whether the WhatsApp confirmation was auto-delivered (false while paused). */
   confirmationSent: boolean;
-  deliveryMethod: "free_text" | null;
+  deliveryMethod: "template" | "free_text" | null;
   /** Human-readable reason the confirmation failed (if any). */
   confirmationError: string | null;
 }
@@ -52,6 +58,10 @@ interface LeadRow {
   product_qty: number | null;
   location_address: string | null;
   whatsapp_conversation_id: string | null;
+}
+
+interface PlatformCredentialsRow {
+  credentials: WhatsAppCredentials;
 }
 
 /**
@@ -403,7 +413,7 @@ export class BookingService {
   ): Promise<{
     confirmationText: string;
     confirmationSent: boolean;
-    deliveryMethod: "free_text" | null;
+    deliveryMethod: "template" | "free_text" | null;
     confirmationError: string | null;
   }> {
     const confirmationText = buildBookingFreeText(fields);
@@ -432,11 +442,9 @@ export class BookingService {
   }
 
   /**
-   * Sends the booking confirmation as free text and persists it into the
-   * thread. Baileys has no 24h-window restriction or template mechanism the
-   * way Meta's Cloud API did — a linked WhatsApp Web/Business-app account can
-   * send free-form text to any contact at any time. Never throws — failures
-   * are returned so the booking still succeeds.
+   * Picks the delivery path (free text inside the 24h window, template
+   * otherwise), sends it, and persists the outbound message into the thread.
+   * Never throws — failures are returned so the booking still succeeds.
    */
   private async sendConfirmation(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -446,44 +454,94 @@ export class BookingService {
     fields: BookingMessageFields
   ): Promise<{
     messageId: string | null;
-    method: "free_text" | null;
+    method: "template" | "free_text" | null;
     error: string | null;
   }> {
     const phone = lead.client_phone as string;
 
-    const { data: connectionStatus } = (await supabase
-      .from("whatsapp_connection_status")
-      .select("status")
+    // Load WhatsApp credentials
+    const { data: credsRow } = (await supabase
+      .from("platform_credentials")
+      .select("credentials")
       .eq("user_id", userId)
-      .maybeSingle()) as { data: { status: string } | null };
+      .eq("platform", "whatsapp")
+      .eq("is_active", true)
+      .maybeSingle()) as { data: PlatformCredentialsRow | null };
 
-    if (connectionStatus?.status !== "connected") {
+    if (!credsRow) {
       return {
         messageId: null,
         method: null,
-        error: "WhatsApp is not connected. Scan the QR code in Settings to send confirmations.",
+        error: "WhatsApp is not connected. Connect it in Settings to send confirmations.",
       };
     }
 
-    const sock = await getBaileysSocket();
-    const wa = new BaileysWhatsAppService(sock);
+    const wa = new WhatsAppService(credsRow.credentials);
+    const windowOpen = await this.isServiceWindowOpen(supabase, lead.whatsapp_conversation_id);
+    const method: "template" | "free_text" = windowOpen ? "free_text" : "template";
 
     try {
-      const body = buildBookingFreeText(fields);
-      const sent = await wa.sendTextMessage(phone, body);
-      await this.persistOutbound(supabase, userId, phone, lead.whatsapp_conversation_id, {
-        messageId: sent.messageId,
-        body,
-      });
-      return { messageId: sent.messageId, method: "free_text", error: null };
+      let messageId: string;
+      if (method === "free_text") {
+        const body = buildBookingFreeText(fields);
+        const sent = await wa.sendTextMessage(phone, body);
+        messageId = sent.messageId;
+        await this.persistOutbound(supabase, userId, phone, lead.whatsapp_conversation_id, {
+          messageId,
+          messageType: "text",
+          body,
+        });
+      } else {
+        const components = buildBookingTemplateComponents(fields);
+        const sent = await wa.sendTemplateMessage(
+          phone,
+          BOOKING_TEMPLATE_NAME,
+          BOOKING_TEMPLATE_LANGUAGE,
+          components
+        );
+        messageId = sent.messageId;
+        await this.persistOutbound(supabase, userId, phone, lead.whatsapp_conversation_id, {
+          messageId,
+          messageType: "template",
+          body: buildBookingFreeText(fields), // store readable copy in the thread
+        });
+      }
+      return { messageId, method, error: null };
     } catch (err) {
       const error =
-        err instanceof BaileysSendError || err instanceof Error
-          ? err.message
-          : "Failed to send WhatsApp confirmation";
-      console.error("Booking confirmation send failed", { leadId: lead.id, err });
-      return { messageId: null, method: "free_text", error };
+        err instanceof WhatsAppApiError
+          ? `${err.message}${method === "template" ? " (is the 'booking_confirmation' template approved?)" : ""}`
+          : err instanceof Error
+            ? err.message
+            : "Failed to send WhatsApp confirmation";
+      console.error("Booking confirmation send failed", { leadId: lead.id, method, err });
+      return { messageId: null, method, error };
     }
+  }
+
+  /**
+   * Returns true if the customer messaged us within the last 24h, meaning
+   * free-form text is permitted. No conversation / no inbound → window closed.
+   */
+  private async isServiceWindowOpen(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+    conversationId: string | null
+  ): Promise<boolean> {
+    if (!conversationId) return false;
+
+    const { data } = (await supabase
+      .from("whatsapp_messages")
+      .select("sent_at, created_at")
+      .eq("conversation_id", conversationId)
+      .eq("direction", "inbound")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()) as { data: { sent_at: string | null; created_at: string } | null };
+
+    if (!data) return false;
+    const last = new Date(data.sent_at ?? data.created_at).getTime();
+    return Date.now() - last < SERVICE_WINDOW_MS;
   }
 
   /**
@@ -496,7 +554,7 @@ export class BookingService {
     userId: string,
     phone: string,
     conversationId: string | null,
-    msg: { messageId: string; body: string }
+    msg: { messageId: string; messageType: "text" | "template"; body: string }
   ): Promise<void> {
     const contactPhone = phone.startsWith("+") ? phone : `+${phone}`;
     let convId = conversationId;
@@ -525,7 +583,7 @@ export class BookingService {
       user_id: userId,
       wa_message_id: msg.messageId,
       direction: "outbound",
-      message_type: "text",
+      message_type: msg.messageType,
       body: msg.body,
       status: "sent",
       ai_generated: false,
