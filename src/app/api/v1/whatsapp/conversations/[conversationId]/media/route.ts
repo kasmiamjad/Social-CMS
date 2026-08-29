@@ -83,7 +83,8 @@ export async function POST(
     let contentType = file.type;
     if (isAudio) {
       buffer = await transcodeToOggOpus(buffer);
-      contentType = "audio/ogg; codecs=opus";
+      // Bare "audio/ogg", not "audio/ogg; codecs=opus" — see send-media/route.ts.
+      contentType = "audio/ogg";
     }
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 

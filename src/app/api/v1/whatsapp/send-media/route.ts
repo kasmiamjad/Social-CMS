@@ -88,7 +88,11 @@ export async function POST(request: NextRequest) {
       // etc.) to OGG/Opus — WhatsApp's own voice-note format — see
       // audio-transcode.ts for why this can't just pass the file through.
       buffer = await transcodeToOggOpus(buffer);
-      contentType = "audio/ogg; codecs=opus";
+      // Bare "audio/ogg", not "audio/ogg; codecs=opus" — the file's actual
+      // bytes are genuinely Opus-encoded (ffmpeg's job), but the parameterized
+      // content-type value doesn't survive Supabase Storage's upload/serving
+      // path intact — Meta then fetches the URL and sees application/octet-stream.
+      contentType = "audio/ogg";
     }
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 
