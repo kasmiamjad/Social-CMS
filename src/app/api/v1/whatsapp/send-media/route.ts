@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       // sendAudioMessage's upload-then-send-by-id flow now, not a hosted
       // link — see whatsapp.service.ts for why that's the fix.
       buffer = await transcodeToOggOpus(buffer);
-      contentType = "audio/ogg";
+      contentType = "audio/ogg; codecs=opus";
     }
     // Still re-host to our own storage too, for the CRM's own thread display
     // (media_url) — independent of what gets sent to Meta below.

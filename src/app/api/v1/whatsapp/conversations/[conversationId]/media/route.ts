@@ -86,7 +86,7 @@ export async function POST(
     if (isAudio) {
       // See send-media/route.ts for why OGG/Opus + upload-then-send-by-id.
       buffer = await transcodeToOggOpus(buffer);
-      contentType = "audio/ogg";
+      contentType = "audio/ogg; codecs=opus";
     }
     // Still re-host to our own storage too, for the CRM's own thread display.
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);

@@ -169,6 +169,7 @@ export class WhatsAppService {
 
     const form = new FormData();
     form.append("messaging_product", "whatsapp");
+    form.append("type", contentType);
     form.append("file", new Blob([Uint8Array.from(buffer)], { type: contentType }), `upload.${extFromContentType(contentType)}`);
 
     const url = `${WHATSAPP_GRAPH_BASE_URL}/${this.credentials.phone_number_id}/media`;
