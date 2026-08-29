@@ -4,7 +4,7 @@ import { resolveUserId } from "@/lib/api-auth";
 import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
-import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
+import { transcodeToMp3, TranscodeError } from "@/lib/audio-transcode";
 import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
 
@@ -85,14 +85,12 @@ export async function POST(request: NextRequest) {
     let contentType = file.type;
     if (isAudio) {
       // Normalize every audio source (browser recordings, phone voice memos,
-      // etc.) to OGG/Opus — WhatsApp's own voice-note format — see
-      // audio-transcode.ts for why this can't just pass the file through.
-      buffer = await transcodeToOggOpus(buffer);
-      // Bare "audio/ogg", not "audio/ogg; codecs=opus" — the file's actual
-      // bytes are genuinely Opus-encoded (ffmpeg's job), but the parameterized
-      // content-type value doesn't survive Supabase Storage's upload/serving
-      // path intact — Meta then fetches the URL and sees application/octet-stream.
-      contentType = "audio/ogg";
+      // etc.) to MP3 — see audio-transcode.ts for why OGG/Opus isn't used
+      // despite it being the format that renders WhatsApp's native voice-note
+      // bubble: verified correct at every layer, but Meta's Cloud API still
+      // rejected it for this app/WABA. MP3 is what's confirmed to deliver.
+      buffer = await transcodeToMp3(buffer);
+      contentType = "audio/mpeg";
     }
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 

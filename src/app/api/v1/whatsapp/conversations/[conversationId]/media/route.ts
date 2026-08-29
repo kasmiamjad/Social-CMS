@@ -4,7 +4,7 @@ import { resolveUserId } from "@/lib/api-auth";
 import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
-import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
+import { transcodeToMp3, TranscodeError } from "@/lib/audio-transcode";
 import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
 
@@ -82,9 +82,9 @@ export async function POST(
     let buffer: Buffer = Buffer.from(await file.arrayBuffer());
     let contentType = file.type;
     if (isAudio) {
-      buffer = await transcodeToOggOpus(buffer);
-      // Bare "audio/ogg", not "audio/ogg; codecs=opus" — see send-media/route.ts.
-      contentType = "audio/ogg";
+      // See send-media/route.ts for why MP3, not OGG/Opus.
+      buffer = await transcodeToMp3(buffer);
+      contentType = "audio/mpeg";
     }
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 

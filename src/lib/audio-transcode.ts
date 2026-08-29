@@ -15,32 +15,41 @@ export class TranscodeError extends Error {
 }
 
 /**
- * Transcodes an arbitrary audio buffer into WhatsApp's own voice-note format
- * (OGG container, Opus codec) via the system `ffmpeg` binary.
+ * Transcodes an arbitrary audio buffer to MP3 via the system `ffmpeg` binary.
  *
  * Why: Meta's Cloud API only documents support for aac/amr/mp3/mp4/ogg-opus.
  * Browser MediaRecorder output (webm/opus) and assorted phone recordings
  * (m4a, wav, ...) aren't guaranteed to be accepted as-is — sends were
  * observed failing silently (status: "failed" via the delivery webhook)
- * with no conversion step. Normalizing everything through ffmpeg to the
- * exact format WhatsApp's own client produces removes that guesswork.
+ * with no conversion step. Normalizing everything through ffmpeg removes
+ * that guesswork.
+ *
+ * NOTE: WhatsApp only renders the native voice-note waveform bubble (mic
+ * icon, play/pause, timer) for OGG/Opus — the exact format its own recorder
+ * produces. OGG/Opus was tried here and verified correct at every layer
+ * (valid Opus content, correct served Content-Type, unaffected by
+ * user-agent) — Meta's Cloud API still rejected every send with a generic
+ * "Media upload error" (code 131053) for this specific app/WABA, for
+ * reasons outside what's diagnosable from our side. MP3 is the format
+ * confirmed to actually deliver; it shows up on the recipient's side as a
+ * plain audio-file attachment instead of a voice-note bubble.
  *
  * Requires ffmpeg installed on the host (`apt install ffmpeg` on Debian/
  * Ubuntu) — throws a clear TranscodeError if the binary is missing so the
  * failure surfaces through the existing error banner instead of a vague 500.
  */
-export async function transcodeToOggOpus(input: Buffer): Promise<Buffer> {
+export async function transcodeToMp3(input: Buffer): Promise<Buffer> {
   const id = crypto.randomUUID();
   const inPath = path.join(tmpdir(), `${id}-in`);
-  const outPath = path.join(tmpdir(), `${id}-out.ogg`);
+  const outPath = path.join(tmpdir(), `${id}-out.mp3`);
 
   try {
     await writeFile(inPath, input);
     await execFileAsync("ffmpeg", [
       "-y",
       "-i", inPath,
-      "-c:a", "libopus",
-      "-b:a", "64k",
+      "-c:a", "libmp3lame",
+      "-b:a", "128k",
       "-vn",
       outPath,
     ]);
