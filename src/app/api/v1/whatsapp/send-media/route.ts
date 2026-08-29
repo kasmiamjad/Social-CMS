@@ -4,7 +4,7 @@ import { resolveUserId } from "@/lib/api-auth";
 import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
-import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
+import { transcodeToMp3, TranscodeError } from "@/lib/audio-transcode";
 import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
 
@@ -87,21 +87,20 @@ export async function POST(request: NextRequest) {
     let contentType = file.type;
     if (isAudio) {
       // Normalize every audio source (browser recordings, phone voice memos,
-      // etc.) to OGG/Opus — WhatsApp's own voice-note format. Sent via
-      // sendAudioMessage's upload-then-send-by-id flow now, not a hosted
-      // link — see whatsapp.service.ts for why that's the fix.
-      buffer = await transcodeToOggOpus(buffer);
-      contentType = "audio/ogg";
+      // etc.) to MP3 — the format proven to actually deliver for this WABA.
+      // OGG/Opus voice notes were tried extensively (link and upload-by-id,
+      // multiple MIME/encoding variations) and consistently rejected by
+      // Meta with a "Media upload error"; see whatsapp.service.ts.
+      buffer = await transcodeToMp3(buffer);
+      contentType = "audio/mpeg";
     }
-    // Still re-host to our own storage too, for the CRM's own thread display
-    // (media_url) — independent of what gets sent to Meta below.
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 
     const result = isImage
       ? await wa.sendImageMessage(contactPhone, url, captionText || undefined)
       : isDocument
         ? await wa.sendDocumentMessage(contactPhone, url, file.name, captionText || undefined)
-        : await wa.sendAudioMessage(contactPhone, buffer, contentType);
+        : await wa.sendAudioMessage(contactPhone, url);
 
     const messageType = isImage ? "image" : isDocument ? "document" : "audio";
     const preview = isImage ? captionText || "📷 Image" : isDocument ? `📎 ${file.name}` : "🎙️ Audio";
