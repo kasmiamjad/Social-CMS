@@ -4,7 +4,7 @@ import { resolveUserId } from "@/lib/api-auth";
 import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
-import { transcodeToMp3, TranscodeError } from "@/lib/audio-transcode";
+import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
 import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
 
@@ -84,17 +84,18 @@ export async function POST(
     let buffer: Buffer = Buffer.from(await file.arrayBuffer());
     let contentType = file.type;
     if (isAudio) {
-      // See send-media/route.ts for why MP3, not OGG/Opus.
-      buffer = await transcodeToMp3(buffer);
-      contentType = "audio/mpeg";
+      // See send-media/route.ts for why OGG/Opus + upload-then-send-by-id.
+      buffer = await transcodeToOggOpus(buffer);
+      contentType = "audio/ogg";
     }
+    // Still re-host to our own storage too, for the CRM's own thread display.
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 
     const sent = isImage
       ? await wa.sendImageMessage(conv.contact_phone, url, captionText || undefined)
       : isDocument
         ? await wa.sendDocumentMessage(conv.contact_phone, url, file.name, captionText || undefined)
-        : await wa.sendAudioMessage(conv.contact_phone, url);
+        : await wa.sendAudioMessage(conv.contact_phone, buffer, contentType);
 
     const messageType = isImage ? "image" : isDocument ? "document" : "audio";
     const preview = isImage ? captionText || "📷 Image" : isDocument ? `📎 ${file.name}` : "🎙️ Audio";

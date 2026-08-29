@@ -122,17 +122,29 @@ export class WhatsAppService {
   }
 
   /**
-   * Sends a voice/audio clip to a customer by public URL.
-   * The URL must be publicly accessible over HTTPS — Meta fetches it directly.
+   * Sends a voice note by uploading the audio directly to Meta first (the
+   * documented, recommended path — sending by "link" is explicitly called
+   * out as "not recommended" and was the likely cause of persistent
+   * "Media upload error" failures when hosted-URL delivery was used
+   * instead). `voice: true` is the explicit flag for the mic-icon/waveform
+   * voice-note rendering — audio.ogg + OPUS codec is still required for it
+   * to actually display that way; other formats deliver as a plain
+   * audio-file attachment regardless of this flag.
    */
-  async sendAudioMessage(toPhone: string, audioUrl: string): Promise<WhatsAppSendTextResult> {
+  async sendAudioMessage(
+    toPhone: string,
+    buffer: Buffer,
+    contentType: string,
+    isVoiceNote: boolean = true
+  ): Promise<WhatsAppSendTextResult> {
+    const { mediaId } = await this.uploadMedia(buffer, contentType);
     const normalizedPhone = normalizePhoneNumber(toPhone);
     const payload = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
       to: normalizedPhone,
       type: "audio",
-      audio: { link: audioUrl },
+      audio: { id: mediaId, voice: isVoiceNote },
     };
 
     const res = await this.graphPost<WhatsAppSendApiResponse>(
@@ -145,6 +157,39 @@ export class WhatsAppService {
       throw new WhatsAppApiError("WhatsApp audio send returned no message ID", 500, res);
     }
     return { messageId };
+  }
+
+  /**
+   * Uploads a media buffer directly to Meta (the recommended path over
+   * sending by hosted "link" — see sendAudioMessage). Returns a media id
+   * valid for 30 days, referenced in a subsequent send via {id: mediaId}.
+   */
+  async uploadMedia(buffer: Buffer, contentType: string): Promise<{ mediaId: string }> {
+    void logWhatsAppDebugEvent("info", "media_upload_attempt", `Uploading ${contentType} (${buffer.length} bytes) to Meta…`);
+
+    const form = new FormData();
+    form.append("messaging_product", "whatsapp");
+    form.append("file", new Blob([buffer], { type: contentType }), `upload.${extFromContentType(contentType)}`);
+
+    const url = `${WHATSAPP_GRAPH_BASE_URL}/${this.credentials.phone_number_id}/media`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.credentials.access_token}` },
+      body: form,
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.id) {
+      const errPayload = data as WhatsAppApiErrorResponse;
+      const errMessage = errPayload.error?.message ?? "WhatsApp media upload failed";
+      void logWhatsAppDebugEvent("error", "media_upload_failed", `Media upload failed: ${errMessage}`, {
+        statusCode: res.status,
+        apiError: errPayload.error,
+      });
+      throw new WhatsAppApiError(errMessage, res.status, data);
+    }
+    void logWhatsAppDebugEvent("info", "media_upload_success", `Media uploaded to Meta (id ${data.id}).`);
+    return { mediaId: data.id as string };
   }
 
   /**
@@ -319,6 +364,19 @@ export class WhatsAppService {
  */
 function normalizePhoneNumber(phone: string): string {
   return phone.replace(/[^\d]/g, "");
+}
+
+const EXT_BY_CONTENT_TYPE: Record<string, string> = {
+  "audio/ogg": "ogg",
+  "audio/mpeg": "mp3",
+  "audio/aac": "aac",
+  "audio/amr": "amr",
+  "audio/mp4": "m4a",
+};
+
+/** Filename extension for the multipart upload — Meta infers actual type from the `type` field, this is just cosmetic. */
+function extFromContentType(contentType: string): string {
+  return EXT_BY_CONTENT_TYPE[contentType.split(";")[0].trim()] ?? "bin";
 }
 
 /** Pulls a readable recipient/type out of a Graph API payload for debug-log labels. */

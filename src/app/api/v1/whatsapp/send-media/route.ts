@@ -4,7 +4,7 @@ import { resolveUserId } from "@/lib/api-auth";
 import { getTenantId } from "@/lib/tenant";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { uploadMediaBuffer } from "@/services/media.service";
-import { transcodeToMp3, TranscodeError } from "@/lib/audio-transcode";
+import { transcodeToOggOpus, TranscodeError } from "@/lib/audio-transcode";
 import { WhatsAppService, WhatsAppApiError } from "@/services/platforms/whatsapp/whatsapp.service";
 import type { WhatsAppCredentials } from "@/services/platforms/whatsapp/whatsapp.types";
 
@@ -87,20 +87,21 @@ export async function POST(request: NextRequest) {
     let contentType = file.type;
     if (isAudio) {
       // Normalize every audio source (browser recordings, phone voice memos,
-      // etc.) to MP3 — see audio-transcode.ts for why OGG/Opus isn't used
-      // despite it being the format that renders WhatsApp's native voice-note
-      // bubble: verified correct at every layer, but Meta's Cloud API still
-      // rejected it for this app/WABA. MP3 is what's confirmed to deliver.
-      buffer = await transcodeToMp3(buffer);
-      contentType = "audio/mpeg";
+      // etc.) to OGG/Opus — WhatsApp's own voice-note format. Sent via
+      // sendAudioMessage's upload-then-send-by-id flow now, not a hosted
+      // link — see whatsapp.service.ts for why that's the fix.
+      buffer = await transcodeToOggOpus(buffer);
+      contentType = "audio/ogg";
     }
+    // Still re-host to our own storage too, for the CRM's own thread display
+    // (media_url) — independent of what gets sent to Meta below.
     const { url } = await uploadMediaBuffer(tenantId, "whatsapp-outbound", buffer, contentType);
 
     const result = isImage
       ? await wa.sendImageMessage(contactPhone, url, captionText || undefined)
       : isDocument
         ? await wa.sendDocumentMessage(contactPhone, url, file.name, captionText || undefined)
-        : await wa.sendAudioMessage(contactPhone, url);
+        : await wa.sendAudioMessage(contactPhone, buffer, contentType);
 
     const messageType = isImage ? "image" : isDocument ? "document" : "audio";
     const preview = isImage ? captionText || "📷 Image" : isDocument ? `📎 ${file.name}` : "🎙️ Audio";
