@@ -20,7 +20,7 @@ export function DailyTrendChart({ points }: DailyTrendChartProps) {
         </h3>
       </div>
 
-      <div className="h-72">
+      <div className="h-96">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={points} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -49,6 +49,16 @@ export function DailyTrendChart({ points }: DailyTrendChartProps) {
                 dot={false}
               />
             ))}
+            {/* Drawn last so it renders on top — the aggregate across every status. */}
+            <Line
+              type="monotone"
+              dataKey="total"
+              name="Total"
+              stroke="var(--foreground)"
+              strokeWidth={2.5}
+              strokeDasharray="5 3"
+              dot={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>

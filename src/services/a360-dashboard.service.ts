@@ -22,17 +22,20 @@ export function computeDailyTrend(leads: A360LeadRow[]): A360TrendPoint[] {
     if (!point) {
       point = {
         date,
-        converted: 0,
+        total: 0,
+        unread: 0,
+        read: 0,
         follow_up: 0,
+        unanswered: 0,
         not_interested: 0,
         link_send: 0,
-        unanswered: 0,
-        pending: 0,
+        converted: 0,
       };
       byDate.set(date, point);
     }
     const status = toA360Status(lead.call_status);
     point[status] += 1;
+    point.total += 1;
   }
   return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
 }

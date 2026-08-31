@@ -1,66 +1,72 @@
-/** The dashboard's status buckets. Mirrors CALL_STATUS_VALUES from lib/lead-status.ts,
- * with "unread"+"read" collapsed into a single "pending" bucket so every lead
- * lands in exactly one bucket and totals reconcile. */
+/** The dashboard's status buckets — the exact 7 call_status values from
+ * lib/lead-status.ts, kept distinct (unread and read are NOT collapsed) so
+ * every status is individually visible in the donut/trend/badges. */
 export const A360_STATUS_VALUES = [
-  "converted",
+  "unread",
+  "read",
   "follow_up",
+  "unanswered",
   "not_interested",
   "link_send",
-  "unanswered",
-  "pending",
+  "converted",
 ] as const;
 
 export type A360Status = (typeof A360_STATUS_VALUES)[number];
 
 export const A360_STATUS_LABELS: Record<A360Status, string> = {
-  converted: "Converted",
+  unread: "Unread",
+  read: "Read",
   follow_up: "Follow-up",
+  unanswered: "Unanswered",
   not_interested: "Not Interested",
   link_send: "Link Sent",
-  unanswered: "Unanswered",
-  pending: "Pending",
+  converted: "Converted",
 };
 
 /** Reuses the exact Tailwind classes already defined for call_status badges
- * elsewhere in the app (src/lib/lead-status.ts) — "pending" (unread/read)
- * gets the neutral "read" styling since it's not one of the 7 named statuses. */
+ * elsewhere in the app (src/lib/lead-status.ts). */
 export const A360_STATUS_BADGE_CLASS: Record<A360Status, string> = {
-  converted: "bg-success/15 text-success",
+  unread: "bg-primary/15 text-primary",
+  read: "bg-surface text-text-muted border border-border",
   follow_up: "bg-violet-500/15 text-violet-400",
-  not_interested: "bg-error/15 text-error",
-  link_send: "bg-sky-500/15 text-sky-400",
   unanswered: "bg-amber-500/15 text-amber-400",
-  pending: "bg-surface text-text-muted border border-border",
+  not_interested: "bg-error/15 text-error",
+  link_send: "bg-cyan-500/15 text-cyan-400",
+  converted: "bg-success/15 text-success",
 };
 
 export const A360_STATUS_DOT_CLASS: Record<A360Status, string> = {
-  converted: "bg-success",
+  unread: "bg-primary",
+  read: "bg-text-muted",
   follow_up: "bg-violet-500",
-  not_interested: "bg-error",
-  link_send: "bg-sky-500",
   unanswered: "bg-amber-500",
-  pending: "bg-text-muted",
+  not_interested: "bg-error",
+  link_send: "bg-cyan-500",
+  converted: "bg-success",
 };
 
 /** Literal hex colors for recharts (SVG fill/stroke needs real color strings,
- * not Tailwind classes) — matches the Tailwind classes above exactly. */
+ * not Tailwind classes) — 7 deliberately distinct hues so all lines stay
+ * legible together on one chart (badges elsewhere use link_send=sky-500,
+ * same as primary/unread — fine for a single badge, not for 7 overlapping
+ * lines, hence cyan here instead). */
 export const A360_STATUS_HEX: Record<A360Status, string> = {
-  converted: "#2DD4BF", // success / teal
+  unread: "#3B82F6", // blue-500
+  read: "#94A3B8", // text-muted / slate-400
   follow_up: "#8B5CF6", // violet-500
-  not_interested: "#F87171", // error
-  link_send: "#0EA5E9", // sky-500 / primary
   unanswered: "#F59E0B", // amber-500
-  pending: "#94A3B8", // text-muted
+  not_interested: "#F87171", // error
+  link_send: "#06B6D4", // cyan-500
+  converted: "#2DD4BF", // success / teal
 };
 
-/** Maps a raw call_status column value (including unread/read) to a dashboard bucket. */
+/** Maps a raw call_status column value to a dashboard bucket — null (leads
+ * created before the call_status workflow existed) defaults to "unread". */
 export function toA360Status(callStatus: string | null): A360Status {
-  if (callStatus === "converted") return "converted";
-  if (callStatus === "follow_up") return "follow_up";
-  if (callStatus === "not_interested") return "not_interested";
-  if (callStatus === "link_send") return "link_send";
-  if (callStatus === "unanswered") return "unanswered";
-  return "pending"; // unread, read, or null
+  if ((A360_STATUS_VALUES as readonly string[]).includes(callStatus ?? "")) {
+    return callStatus as A360Status;
+  }
+  return "unread";
 }
 
 export interface A360LeadRow {
@@ -83,7 +89,8 @@ export interface A360StatusShare {
   sharePct: number;
 }
 
-export type A360TrendPoint = { date: string } & Record<A360Status, number>;
+/** Per-day counts, one field per status plus a "total" across all of them. */
+export type A360TrendPoint = { date: string; total: number } & Record<A360Status, number>;
 
 export interface A360AgentSummary {
   agentName: string;
