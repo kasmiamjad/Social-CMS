@@ -13,8 +13,11 @@ export function KpiCards({ totalLeads, followUpCount, convertedCount }: KpiCards
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <Card>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <Users size={18} strokeWidth={1.8} className="text-primary" />
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+            style={{ backgroundColor: `${A360_ACCENT}1A` }}
+          >
+            <Users size={18} strokeWidth={1.8} style={{ color: A360_ACCENT }} />
           </div>
           <div>
             <p className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
