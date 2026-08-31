@@ -33,7 +33,7 @@ export function StatusDonut({ shares, totalLeads }: StatusDonutProps) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
-        <div className="relative h-56">
+        <div className="relative h-56 [&_*:focus]:outline-none [&_*]:focus-visible:outline-none">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -52,8 +52,10 @@ export function StatusDonut({ shares, totalLeads }: StatusDonutProps) {
                     stroke={selected === entry.status ? "#fff" : "transparent"}
                     strokeWidth={selected === entry.status ? 3 : 0}
                     onClick={() => toggle(entry.status)}
+                    tabIndex={-1}
                     style={{
                       cursor: "pointer",
+                      outline: "none",
                       filter: selected && selected !== entry.status ? "opacity(0.45)" : "none",
                     }}
                   />
