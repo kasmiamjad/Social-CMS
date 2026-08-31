@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { A360_STATUS_BADGE_CLASS, A360_STATUS_LABELS, A360_STATUS_VALUES, toA360Status } from "@/types/a360";
-import type { A360LeadRow, A360Status } from "@/types/a360";
+import { A360_STATUS_BADGE_CLASS, A360_STATUS_LABELS, toA360Status } from "@/types/a360";
+import type { A360LeadRow } from "@/types/a360";
 
 interface LeadListDetailProps {
   leads: A360LeadRow[];
@@ -31,7 +31,6 @@ export function LeadListDetail({ leads }: LeadListDetailProps) {
   const [rows, setRows] = useState(leads);
   const [selectedId, setSelectedId] = useState<string | null>(leads[0]?.id ?? null);
   const [notesDraft, setNotesDraft] = useState("");
-  const [statusDraft, setStatusDraft] = useState<A360Status>("pending");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,11 +45,14 @@ export function LeadListDetail({ leads }: LeadListDetailProps) {
   useEffect(() => {
     if (!selected) return;
     setNotesDraft(selected.internal_notes ?? selected.remarks ?? "");
-    setStatusDraft(toA360Status(selected.call_status));
     setError(null);
   }, [selected]);
 
-  async function handleSave() {
+  // TODO: status-change control is hidden for now — it was defaulting to the
+  // wrong value ("Converted") for leads whose real status is "Pending"
+  // (unread/read), since "pending" isn't one of the 5 selectable call_status
+  // values. Re-add once that's fixed properly.
+  async function handleSaveNotes() {
     if (!selected) return;
     setSaving(true);
     setError(null);
@@ -58,21 +60,14 @@ export function LeadListDetail({ leads }: LeadListDetailProps) {
       const res = await fetch(`/api/v1/leads/${selected.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          call_status: statusDraft === "pending" ? "read" : statusDraft,
-          internal_notes: notesDraft,
-        }),
+        body: JSON.stringify({ internal_notes: notesDraft }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setError(json.error?.message ?? "Failed to update lead");
+        setError(json.error?.message ?? "Failed to save notes");
         return;
       }
-      setRows((prev) =>
-        prev.map((l) =>
-          l.id === selected.id ? { ...l, call_status: json.data.lead.call_status, internal_notes: notesDraft } : l
-        )
-      );
+      setRows((prev) => (prev.map((l) => (l.id === selected.id ? { ...l, internal_notes: notesDraft } : l))));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
@@ -166,22 +161,9 @@ export function LeadListDetail({ leads }: LeadListDetailProps) {
                 <p className="text-sm text-foreground">{new Date(selected.created_at).toLocaleDateString()}</p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <select
-                  value={statusDraft}
-                  onChange={(e) => setStatusDraft(e.target.value as A360Status)}
-                  className="px-3 py-2 rounded-lg border border-border bg-surface-elevated text-foreground text-sm"
-                >
-                  {A360_STATUS_VALUES.filter((s) => s !== "pending").map((s) => (
-                    <option key={s} value={s}>
-                      {A360_STATUS_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-                <Button onClick={handleSave} loading={saving} variant="cta">
-                  Update Lead Status
-                </Button>
-              </div>
+              <Button onClick={handleSaveNotes} loading={saving} variant="cta">
+                Save Notes
+              </Button>
             </div>
           </div>
         )}
