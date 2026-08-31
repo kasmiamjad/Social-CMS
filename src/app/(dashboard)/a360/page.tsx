@@ -20,7 +20,7 @@ import {
   computeStatusShares,
   computeDailyTrend,
   computeAgentSummary,
-  computeTopLocation,
+  computeLocationBreakdown,
   computeTopAgent,
 } from "@/services/a360-dashboard.service";
 import { toA360Status, A360_STATUS_LABELS } from "@/types/a360";
@@ -152,7 +152,7 @@ export default async function A360Page({ searchParams }: A360PageProps) {
   const statusShares = computeStatusShares(periodLeads);
   const trendPoints = computeDailyTrend(periodLeads);
   const agentSummary = computeAgentSummary(periodLeads);
-  const topLocation = computeTopLocation(periodLeads);
+  const locationBreakdown = computeLocationBreakdown(periodLeads);
   const topAgent = computeTopAgent(agentSummary);
 
   const totalLeads = periodLeads.length;
@@ -193,7 +193,7 @@ export default async function A360Page({ searchParams }: A360PageProps) {
         <StatusDonut shares={statusShares} totalLeads={totalLeads} />
         <div className="space-y-4">
           <TopCards
-            topLocation={topLocation}
+            locationBreakdown={locationBreakdown}
             topAgent={topAgent ? { agentName: topAgent.agentName, conversionRatePct: topAgent.conversionRatePct } : null}
           />
           <ChannelsCard whatsapp={waCount} messenger={msgrCount} instagram={igCount} total={totalConvs} />

@@ -71,18 +71,15 @@ export function computeAgentSummary(leads: A360LeadRow[]): A360AgentSummary[] {
   return summaries.sort((a, b) => b.totalAssigned - a.totalAssigned);
 }
 
-export function computeTopLocation(leads: A360LeadRow[]): { city: string; count: number } | null {
+/** Every location that appears on at least one lead, sorted most-leads-first. */
+export function computeLocationBreakdown(leads: A360LeadRow[]): { city: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const lead of leads) {
     const city = lead.city?.trim();
     if (!city) continue;
     counts.set(city, (counts.get(city) ?? 0) + 1);
   }
-  let top: { city: string; count: number } | null = null;
-  for (const [city, count] of counts) {
-    if (!top || count > top.count) top = { city, count };
-  }
-  return top;
+  return Array.from(counts, ([city, count]) => ({ city, count })).sort((a, b) => b.count - a.count);
 }
 
 /** Highest conversion rate among agents with at least one assigned lead. */
