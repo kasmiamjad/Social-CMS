@@ -17,6 +17,15 @@ function initials(name: string): string {
   return (parts[0]?.[0] ?? "?").toUpperCase() + (parts[1]?.[0] ?? "").toUpperCase();
 }
 
+/** "Today", "Tomorrow", or a short date — matches the follow-up date convention elsewhere in the app. */
+function formatFollowupDate(dateStr: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  if (dateStr === today) return "Today";
+  if (dateStr === tomorrow) return "Tomorrow";
+  return new Date(dateStr).toLocaleDateString();
+}
+
 export function LeadListDetail({ leads }: LeadListDetailProps) {
   const router = useRouter();
   const [rows, setRows] = useState(leads);
@@ -128,7 +137,10 @@ export function LeadListDetail({ leads }: LeadListDetailProps) {
                   Sales Agent <span className="text-foreground font-medium">{selected.assigned_to || "Unassigned"}</span>
                 </p>
                 <p>
-                  Contact <span className="text-foreground font-medium">{selected.client_phone || "—"}</span>
+                  Follow-up{" "}
+                  <span className="text-foreground font-medium">
+                    {selected.next_followup_date ? formatFollowupDate(selected.next_followup_date) : "None scheduled"}
+                  </span>
                 </p>
                 {selected.city && <p>{selected.city}</p>}
               </div>

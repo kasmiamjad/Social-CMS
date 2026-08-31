@@ -73,6 +73,8 @@ export interface A360LeadRow {
   remarks: string | null;
   internal_notes: string | null;
   created_at: string;
+  /** Most recent still-pending follow-up date, from buildFollowupInfo() — null if none scheduled. */
+  next_followup_date: string | null;
 }
 
 export interface A360StatusShare {

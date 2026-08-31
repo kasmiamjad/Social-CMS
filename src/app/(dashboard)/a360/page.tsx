@@ -12,6 +12,7 @@ import { ChannelsCard } from "@/components/dashboard/channels-card";
 import { PeriodFilter } from "@/components/a360/period-filter";
 import { TableFilters } from "@/components/ui/table-filters";
 import { LeadListDetail } from "@/components/a360/lead-list-detail";
+import { buildFollowupInfo } from "@/lib/followup-info";
 import {
   computeStatusShares,
   computeDailyTrend,
@@ -74,7 +75,13 @@ export default async function A360Page({ searchParams }: A360PageProps) {
     if (start) periodQuery = periodQuery.gte("created_at", start);
   }
   const { data: periodData } = await periodQuery.order("created_at", { ascending: false });
-  const periodLeads = (periodData ?? []) as A360LeadRow[];
+  const rawPeriodLeads = (periodData ?? []) as Omit<A360LeadRow, "next_followup_date">[];
+
+  const followupInfo = await buildFollowupInfo(admin, rawPeriodLeads.map((l) => l.id));
+  const periodLeads: A360LeadRow[] = rawPeriodLeads.map((l) => ({
+    ...l,
+    next_followup_date: followupInfo.get(l.id)?.date ?? null,
+  }));
 
   // ── Channel conversation counts (same source as the main Dashboard's Channels card) ──
   const [waRes, msgrRes, igRes] = await Promise.all([
