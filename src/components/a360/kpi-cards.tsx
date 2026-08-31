@@ -30,11 +30,17 @@ export function KpiCards({ totalLeads, followUpCount, convertedCount }: KpiCards
 
       <Card>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
-            <Clock size={18} strokeWidth={1.8} className="text-warning" />
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+            style={{ backgroundColor: `${A360_ACCENT}1A` }}
+          >
+            <Clock size={18} strokeWidth={1.8} style={{ color: A360_ACCENT }} />
           </div>
           <div>
-            <p className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
+            <p
+              className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)]"
+              style={{ color: A360_ACCENT }}
+            >
               {followUpCount}
             </p>
             <p className="text-xs text-text-muted">Open Follow-ups</p>
