@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { BRANDING } from "@/lib/branding";
-import { MessageCircle, Send, Camera, type LucideIcon } from "lucide-react";
+import { WhatsAppIcon, MessengerIcon, InstagramIcon } from "@/components/icons/platform-icons";
+
+type IconComponent = React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 
 // Channel brand colours. WhatsApp's comes from the branding token; Messenger/
 // Instagram have no in-app equivalent yet, so those stay as external literals.
@@ -17,10 +19,10 @@ interface ChannelsCardProps {
 
 /** Per-channel conversation-count breakdown with a share bar, linking to each inbox. */
 export function ChannelsCard({ whatsapp, messenger, instagram, total }: ChannelsCardProps) {
-  const rows: { label: string; count: number; color: string; icon: LucideIcon; href: string }[] = [
-    { label: "WhatsApp", count: whatsapp, color: WHATSAPP, icon: MessageCircle, href: "/whatsapp" },
-    { label: "Messenger", count: messenger, color: MESSENGER, icon: Send, href: "/messenger" },
-    { label: "Instagram", count: instagram, color: INSTAGRAM, icon: Camera, href: "/instagram" },
+  const rows: { label: string; count: number; color: string; icon: IconComponent; href: string }[] = [
+    { label: "WhatsApp", count: whatsapp, color: WHATSAPP, icon: WhatsAppIcon, href: "/whatsapp" },
+    { label: "Messenger", count: messenger, color: MESSENGER, icon: MessengerIcon, href: "/messenger" },
+    { label: "Instagram", count: instagram, color: INSTAGRAM, icon: InstagramIcon, href: "/instagram" },
   ];
   return (
     <div className="rounded-2xl border border-border bg-surface-elevated p-5 animate-fade-up" style={{ animationDelay: "160ms" }}>

@@ -6,19 +6,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getTenantId } from "@/lib/tenant";
 import { RecentLeads, type RecentLeadRow } from "@/components/dashboard/recent-leads";
 import { ChannelsCard, WHATSAPP, MESSENGER, INSTAGRAM } from "@/components/dashboard/channels-card";
+import { WhatsAppIcon, MessengerIcon, InstagramIcon } from "@/components/icons/platform-icons";
 import {
   Users,
   Clock,
   CheckCircle2,
   TrendingUp,
-  MessageCircle,
-  Send,
-  Camera,
   ArrowRight,
   Inbox,
   Plus,
   type LucideIcon,
 } from "lucide-react";
+
+type IconComponent = React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 
 const OPEN_STATUSES = ["new", "contacted", "qualified", "quoted"];
 const WON_STATUSES = ["won", "installed", "in_service"];
@@ -227,10 +227,10 @@ function Kpi({
 
 /* ── Unified recent activity across channels ──────────────────────────────── */
 function RecentActivity({ conversations }: { conversations: RecentConv[] }) {
-  const meta: Record<RecentConv["channel"], { color: string; icon: LucideIcon; label: string }> = {
-    whatsapp: { color: WHATSAPP, icon: MessageCircle, label: "WhatsApp" },
-    messenger: { color: MESSENGER, icon: Send, label: "Messenger" },
-    instagram: { color: INSTAGRAM, icon: Camera, label: "Instagram" },
+  const meta: Record<RecentConv["channel"], { color: string; icon: IconComponent; label: string }> = {
+    whatsapp: { color: WHATSAPP, icon: WhatsAppIcon, label: "WhatsApp" },
+    messenger: { color: MESSENGER, icon: MessengerIcon, label: "Messenger" },
+    instagram: { color: INSTAGRAM, icon: InstagramIcon, label: "Instagram" },
   };
   return (
     <div className="rounded-2xl border border-border bg-surface-elevated">
@@ -280,11 +280,11 @@ function RecentActivity({ conversations }: { conversations: RecentConv[] }) {
 
 /* ── Quick actions ────────────────────────────────────────────────────────── */
 function QuickActionsCard() {
-  const actions: { label: string; href: string; icon: LucideIcon; color: string }[] = [
+  const actions: { label: string; href: string; icon: IconComponent; color: string }[] = [
     { label: "Add lead manually", href: "/leads/new", icon: Plus, color: "var(--color-primary)" },
-    { label: "WhatsApp inbox", href: "/whatsapp", icon: MessageCircle, color: WHATSAPP },
-    { label: "Messenger inbox", href: "/messenger", icon: Send, color: MESSENGER },
-    { label: "Instagram inbox", href: "/instagram", icon: Camera, color: INSTAGRAM },
+    { label: "WhatsApp inbox", href: "/whatsapp", icon: WhatsAppIcon, color: WHATSAPP },
+    { label: "Messenger inbox", href: "/messenger", icon: MessengerIcon, color: MESSENGER },
+    { label: "Instagram inbox", href: "/instagram", icon: InstagramIcon, color: INSTAGRAM },
   ];
   return (
     <div className="rounded-2xl border border-border bg-surface-elevated p-5 animate-fade-up" style={{ animationDelay: "200ms" }}>

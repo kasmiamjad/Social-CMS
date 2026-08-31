@@ -30,7 +30,7 @@ export interface ManualPlatformDefinition {
   id: string;
   name: string;
   description: string;
-  icon: LucideIcon;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   fields: ManualCredentialField[];
   setupGuide: ManualSetupStep[];
 }

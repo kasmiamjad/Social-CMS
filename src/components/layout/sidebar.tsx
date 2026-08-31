@@ -12,17 +12,15 @@ import {
   Settings,
   Images,
   PlayCircle,
-  MessageCircle,
-  Camera,
   Users,
   UserCheck,
   CalendarCheck,
   CalendarDays,
-  Send,
   Wrench,
   BarChart3,
   X,
 } from "lucide-react";
+import { WhatsAppIcon, MessengerIcon, InstagramIcon } from "@/components/icons/platform-icons";
 
 // `hidden: true` keeps the route/code intact but hides the menu entry.
 // Flip back to `hidden: false` (or remove the flag) when you want it visible again.
@@ -32,9 +30,9 @@ const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, hidden: false },
   { label: "Leads", href: "/leads", icon: Users, hidden: false },
   { label: "Follow-ups", href: "/leads/followups", icon: CalendarDays, hidden: false },
-  { label: "WhatsApp", href: "/whatsapp", icon: MessageCircle, hidden: false },
-  { label: "Messenger", href: "/messenger", icon: Send, hidden: false },
-  { label: "Instagram", href: "/instagram", icon: Camera, hidden: false },
+  { label: "WhatsApp", href: "/whatsapp", icon: WhatsAppIcon, hidden: false },
+  { label: "Messenger", href: "/messenger", icon: MessengerIcon, hidden: false },
+  { label: "Instagram", href: "/instagram", icon: InstagramIcon, hidden: false },
   { label: "Settings", href: "/settings", icon: Settings, hidden: false },
   { label: "A360 Dashboard", href: "/a360", icon: BarChart3, hidden: false, section: "A360 CRM" },
   // ── Hidden for now (code + routes still work, just not in the sidebar) ──

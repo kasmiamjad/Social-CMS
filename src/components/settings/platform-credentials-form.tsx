@@ -1,6 +1,7 @@
 "use client";
 
-import { Camera, PlayCircle, Globe, Briefcase, Hash, Key, MessageCircle, Phone, ShieldCheck, Lock } from "lucide-react";
+import { PlayCircle, Globe, Briefcase, Hash, Key, Phone, ShieldCheck, Lock } from "lucide-react";
+import { WhatsAppIcon, MessengerIcon, InstagramIcon } from "@/components/icons/platform-icons";
 import { OAuthConnectCard, type OAuthPlatformDefinition } from "./oauth-connect-card";
 import { ManualCredentialsCard, type ManualPlatformDefinition } from "./manual-credentials-card";
 import type { OAuthConnection } from "@/services/oauth/types";
@@ -75,7 +76,7 @@ const MANUAL_PLATFORMS: ManualPlatformDefinition[] = [
   {
     id: "instagram",
     name: "Instagram",
-    icon: Camera,
+    icon: InstagramIcon,
     description: "Post + AI auto-reply to DMs and comments",
     fields: [
       {
@@ -158,7 +159,7 @@ const MANUAL_PLATFORMS: ManualPlatformDefinition[] = [
   {
     id: "whatsapp",
     name: "WhatsApp Cloud API",
-    icon: MessageCircle,
+    icon: WhatsAppIcon,
     description: "AI auto-reply to customer WhatsApp messages",
     fields: [
       {
@@ -236,7 +237,7 @@ const MANUAL_PLATFORMS: ManualPlatformDefinition[] = [
   {
     id: "messenger",
     name: "Facebook Messenger",
-    icon: MessageCircle,
+    icon: MessengerIcon,
     description: "AI auto-reply to your Facebook Page messages",
     fields: [
       {
