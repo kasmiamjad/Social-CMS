@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTenantId } from "@/lib/tenant";
@@ -12,6 +13,8 @@ import { ChannelsCard } from "@/components/dashboard/channels-card";
 import { PeriodFilter } from "@/components/a360/period-filter";
 import { TableFilters } from "@/components/ui/table-filters";
 import { LeadListDetail } from "@/components/a360/lead-list-detail";
+import { DayFollowupsPanel, type FollowupChip } from "@/components/leads/day-followups-panel";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { buildFollowupInfo } from "@/lib/followup-info";
 import {
   computeStatusShares,
@@ -22,6 +25,25 @@ import {
 } from "@/services/a360-dashboard.service";
 import { toA360Status, A360_STATUS_LABELS } from "@/types/a360";
 import type { A360LeadRow } from "@/types/a360";
+
+interface FollowupLeadRef {
+  client_name: string;
+  client_phone: string | null;
+}
+
+interface FollowupRow {
+  id: string;
+  lead_id: string;
+  follow_up_date: string;
+  note: string | null;
+  logged_by: string | null;
+  completed_at: string | null;
+  lead: FollowupLeadRef | FollowupLeadRef[] | null;
+}
+
+function leadRef(f: FollowupRow): FollowupLeadRef | null {
+  return Array.isArray(f.lead) ? (f.lead[0] ?? null) : f.lead;
+}
 
 const SELECT_COLS = "id, client_name, client_phone, city, assigned_to, call_status, remarks, internal_notes, created_at";
 
@@ -47,6 +69,13 @@ function startDateForPeriod(period: string): string | null {
   if (period === "30d") return new Date(now.getTime() - 30 * 86400000).toISOString();
   return null;
 }
+
+/** UTC-anchored, matches todayYmd() in leads/followups/page.tsx — follow_up_date is a plain DATE column. */
+function todayYmd(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+const TODAY_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
 
 export default async function A360Page({ searchParams }: A360PageProps) {
   const supabase = await createClient();
@@ -85,6 +114,28 @@ export default async function A360Page({ searchParams }: A360PageProps) {
     ...l,
     next_followup_date: followupInfo.get(l.id)?.date ?? null,
   }));
+
+  // ── Today's follow-ups (same source/shape as leads/followups' Day view) ──
+  const today = todayYmd();
+  const { data: todayFollowupData } = await admin
+    .from("lead_followups")
+    .select("id, lead_id, follow_up_date, note, logged_by, completed_at, lead:leads(client_name, client_phone)")
+    .eq("user_id", tenantId)
+    .eq("follow_up_date", today)
+    .order("created_at", { ascending: false });
+  const todayFollowups: FollowupChip[] = ((todayFollowupData ?? []) as FollowupRow[]).map((r) => {
+    const lead = leadRef(r);
+    return {
+      id: r.id,
+      lead_id: r.lead_id,
+      lead_name: lead?.client_name ?? "Unknown lead",
+      lead_phone: lead?.client_phone ?? null,
+      follow_up_date: r.follow_up_date,
+      note: r.note,
+      logged_by: r.logged_by,
+      completed_at: r.completed_at,
+    };
+  });
 
   // ── Channel conversation counts (same source as the main Dashboard's Channels card) ──
   const [waRes, msgrRes, igRes] = await Promise.all([
@@ -150,6 +201,19 @@ export default async function A360Page({ searchParams }: A360PageProps) {
       </div>
 
       <DailyTrendChart points={trendPoints} />
+
+      <Card>
+        <CardHeader className="flex items-start justify-between gap-4 flex-row">
+          <div>
+            <CardTitle>Today&apos;s Follow-ups</CardTitle>
+            <CardDescription>{TODAY_FMT.format(new Date(`${today}T00:00:00Z`))}</CardDescription>
+          </div>
+          <Link href="/leads/followups" className="text-xs font-semibold text-primary hover:text-primary-hover shrink-0">
+            View calendar
+          </Link>
+        </CardHeader>
+        <DayFollowupsPanel date={today} entries={todayFollowups} showAddForm={false} />
+      </Card>
 
       <AgentSummaryTable agents={agentSummary} />
 
