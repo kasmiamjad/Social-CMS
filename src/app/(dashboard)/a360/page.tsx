@@ -25,6 +25,9 @@ import type { A360LeadRow } from "@/types/a360";
 
 const SELECT_COLS = "id, client_name, client_phone, city, assigned_to, call_status, remarks, internal_notes, created_at";
 
+// Flip to true to bring back the search/filters + lead list & detail panel section.
+const SHOW_LEAD_LIST = false;
+
 interface A360PageProps {
   searchParams: Promise<{
     period?: string;
@@ -150,38 +153,42 @@ export default async function A360Page({ searchParams }: A360PageProps) {
 
       <AgentSummaryTable agents={agentSummary} />
 
-      <div>
-        <TableFilters
-          searchPlaceholder="Search name, phone, or notes…"
-          selects={[
-            {
-              param: "agent",
-              ariaLabel: "Agent",
-              options: [
-                { value: "", label: `All Agents (${totalLeads})` },
-                ...agentOptions.map((a) => ({ value: a as string, label: a as string })),
-              ],
-            },
-            {
-              param: "status",
-              ariaLabel: "Status",
-              options: [
-                { value: "", label: "All Statuses" },
-                ...statusShares.map((s) => ({ value: s.status, label: A360_STATUS_LABELS[s.status] })),
-              ],
-            },
-            {
-              param: "city",
-              ariaLabel: "Location",
-              options: [
-                { value: "", label: "All Locations" },
-                ...cityOptions.map((c) => ({ value: c as string, label: c as string })),
-              ],
-            },
-          ]}
-        />
-        <LeadListDetail leads={filteredLeads} />
-      </div>
+      {/* Hidden for now per request — code kept intact, same "hidden" convention as
+          sidebar.tsx's navItems, so this can come back with a one-line flip. */}
+      {SHOW_LEAD_LIST && (
+        <div>
+          <TableFilters
+            searchPlaceholder="Search name, phone, or notes…"
+            selects={[
+              {
+                param: "agent",
+                ariaLabel: "Agent",
+                options: [
+                  { value: "", label: `All Agents (${totalLeads})` },
+                  ...agentOptions.map((a) => ({ value: a as string, label: a as string })),
+                ],
+              },
+              {
+                param: "status",
+                ariaLabel: "Status",
+                options: [
+                  { value: "", label: "All Statuses" },
+                  ...statusShares.map((s) => ({ value: s.status, label: A360_STATUS_LABELS[s.status] })),
+                ],
+              },
+              {
+                param: "city",
+                ariaLabel: "Location",
+                options: [
+                  { value: "", label: "All Locations" },
+                  ...cityOptions.map((c) => ({ value: c as string, label: c as string })),
+                ],
+              },
+            ]}
+          />
+          <LeadListDetail leads={filteredLeads} />
+        </div>
+      )}
     </div>
   );
 }
