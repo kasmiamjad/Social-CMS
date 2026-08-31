@@ -97,7 +97,6 @@ export default async function A360Page({ searchParams }: A360PageProps) {
   const totalLeads = periodLeads.length;
   const followUpCount = statusShares.find((s) => s.status === "follow_up")?.count ?? 0;
   const convertedCount = statusShares.find((s) => s.status === "converted")?.count ?? 0;
-  const conversionRatePct = totalLeads > 0 ? (convertedCount / totalLeads) * 100 : 0;
 
   // ── Drill-down filters for the lead list (agent / status / city / search) ──
   const agentOptions = Array.from(new Set(periodLeads.map((l) => l.assigned_to?.trim()).filter(Boolean))).sort();
@@ -127,12 +126,7 @@ export default async function A360Page({ searchParams }: A360PageProps) {
         <PeriodFilter />
       </div>
 
-      <KpiCards
-        totalLeads={totalLeads}
-        followUpCount={followUpCount}
-        convertedCount={convertedCount}
-        conversionRatePct={conversionRatePct}
-      />
+      <KpiCards totalLeads={totalLeads} followUpCount={followUpCount} convertedCount={convertedCount} />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
         <StatusDonut shares={statusShares} totalLeads={totalLeads} />

@@ -1,23 +1,15 @@
 import { Card } from "@/components/ui/card";
-import { Users, Clock, Target, CheckCircle2 } from "lucide-react";
+import { Users, Clock, CheckCircle2 } from "lucide-react";
 
 interface KpiCardsProps {
   totalLeads: number;
   followUpCount: number;
   convertedCount: number;
-  conversionRatePct: number;
-  targetPct?: number;
 }
 
-export function KpiCards({
-  totalLeads,
-  followUpCount,
-  convertedCount,
-  conversionRatePct,
-  targetPct = 5,
-}: KpiCardsProps) {
+export function KpiCards({ totalLeads, followUpCount, convertedCount }: KpiCardsProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <Card>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -42,20 +34,6 @@ export function KpiCards({
               {followUpCount}
             </p>
             <p className="text-xs text-text-muted">Open Follow-ups</p>
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
-            <Target size={18} strokeWidth={1.8} className="text-success" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
-              {conversionRatePct.toFixed(1)}%
-            </p>
-            <p className="text-xs text-text-muted">Conversion Rate · Target {targetPct.toFixed(1)}%</p>
           </div>
         </div>
       </Card>
