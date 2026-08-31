@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Users, Clock, CheckCircle2 } from "lucide-react";
+import { A360_ACCENT } from "@/types/a360";
 
 interface KpiCardsProps {
   totalLeads: number;
@@ -40,11 +41,17 @@ export function KpiCards({ totalLeads, followUpCount, convertedCount }: KpiCards
 
       <Card>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
-            <CheckCircle2 size={18} strokeWidth={1.8} className="text-success" />
+          <div
+            className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+            style={{ backgroundColor: `${A360_ACCENT}1A` }}
+          >
+            <CheckCircle2 size={18} strokeWidth={1.8} style={{ color: A360_ACCENT }} />
           </div>
           <div>
-            <p className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
+            <p
+              className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)]"
+              style={{ color: A360_ACCENT }}
+            >
               {convertedCount}
             </p>
             <p className="text-xs text-text-muted">Converted Leads</p>

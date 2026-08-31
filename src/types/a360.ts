@@ -1,3 +1,11 @@
+/** A360's own accent color (lime green) — matches the original
+ * a360crm-view dashboard being recreated here. Kept as a literal outside
+ * branding.ts like the Messenger/Instagram brand colors in
+ * components/dashboard/channels-card.tsx, since it's specific to this one
+ * section, not the app's SA'DA H2O identity. */
+export const A360_ACCENT = "#A3E635";
+export const A360_ACCENT_ON = "#000000"; // text/icon color on top of the accent fill
+
 /** The dashboard's status buckets — the exact 7 call_status values from
  * lib/lead-status.ts, kept distinct (unread and read are NOT collapsed) so
  * every status is individually visible in the donut/trend/badges. */

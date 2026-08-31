@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { A360_ACCENT, A360_ACCENT_ON } from "@/types/a360";
 
 const PERIODS = [
   { value: "all", label: "All Time" },
@@ -48,10 +49,9 @@ export function PeriodFilter() {
           onClick={() => setPeriod(p.value)}
           className={cn(
             "px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors",
-            active === p.value
-              ? "bg-success text-black"
-              : "bg-surface text-text-muted hover:text-foreground"
+            active !== p.value && "bg-surface text-text-muted hover:text-foreground"
           )}
+          style={active === p.value ? { backgroundColor: A360_ACCENT, color: A360_ACCENT_ON } : undefined}
         >
           {p.label}
         </button>
