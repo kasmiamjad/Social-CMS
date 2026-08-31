@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Card } from "@/components/ui/card";
 import { A360_STATUS_DOT_CLASS, A360_STATUS_HEX, A360_STATUS_LABELS } from "@/types/a360";
-import type { A360StatusShare } from "@/types/a360";
+import type { A360Status, A360StatusShare } from "@/types/a360";
 
 interface StatusDonutProps {
   shares: A360StatusShare[];
@@ -11,9 +12,16 @@ interface StatusDonutProps {
 }
 
 export function StatusDonut({ shares, totalLeads }: StatusDonutProps) {
+  const [selected, setSelected] = useState<A360Status | null>(null);
   const chartData = shares
     .filter((s) => s.count > 0)
     .map((s) => ({ name: A360_STATUS_LABELS[s.status], value: s.count, status: s.status }));
+
+  function toggle(status: A360Status) {
+    setSelected((prev) => (prev === status ? null : status));
+  }
+
+  const selectedShare = selected ? shares.find((s) => s.status === selected) : null;
 
   return (
     <Card>
@@ -38,22 +46,59 @@ export function StatusDonut({ shares, totalLeads }: StatusDonutProps) {
                 stroke="none"
               >
                 {chartData.map((entry) => (
-                  <Cell key={entry.status} fill={A360_STATUS_HEX[entry.status]} />
+                  <Cell
+                    key={entry.status}
+                    fill={A360_STATUS_HEX[entry.status]}
+                    stroke={selected === entry.status ? "#fff" : "transparent"}
+                    strokeWidth={selected === entry.status ? 3 : 0}
+                    onClick={() => toggle(entry.status)}
+                    style={{
+                      cursor: "pointer",
+                      filter: selected && selected !== entry.status ? "opacity(0.45)" : "none",
+                    }}
+                  />
                 ))}
               </Pie>
             </PieChart>
           </ResponsiveContainer>
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <p className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
-              {totalLeads}
-            </p>
-            <p className="text-[10px] uppercase tracking-wider text-text-muted">Total Leads</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-6 text-center">
+            {selectedShare ? (
+              <>
+                <p
+                  className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)]"
+                  style={{ color: A360_STATUS_HEX[selectedShare.status] }}
+                >
+                  {selectedShare.count}
+                </p>
+                <p
+                  className="text-[10px] uppercase tracking-wider font-semibold"
+                  style={{ color: A360_STATUS_HEX[selectedShare.status] }}
+                >
+                  {A360_STATUS_LABELS[selectedShare.status]} ({selectedShare.sharePct.toFixed(1)}%)
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
+                  {totalLeads}
+                </p>
+                <p className="text-[10px] uppercase tracking-wider text-text-muted">Total Leads</p>
+              </>
+            )}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           {shares.map((s) => (
-            <div key={s.status}>
+            <button
+              key={s.status}
+              type="button"
+              onClick={() => toggle(s.status)}
+              disabled={s.count === 0}
+              className={`text-left rounded-lg px-1.5 py-1 -mx-1.5 transition-colors ${
+                selected === s.status ? "bg-surface" : "hover:bg-surface/60"
+              } ${s.count === 0 ? "opacity-40 cursor-default" : "cursor-pointer"}`}
+            >
               <div className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${A360_STATUS_DOT_CLASS[s.status]}`} />
                 <span className="text-xs text-text-muted">
@@ -61,7 +106,7 @@ export function StatusDonut({ shares, totalLeads }: StatusDonutProps) {
                 </span>
               </div>
               <p className="text-sm font-semibold text-foreground mt-0.5">{s.sharePct.toFixed(1)}% Share</p>
-            </div>
+            </button>
           ))}
         </div>
       </div>
