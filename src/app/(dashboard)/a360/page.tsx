@@ -8,6 +8,7 @@ import { StatusDonut } from "@/components/a360/status-donut";
 import { TopCards } from "@/components/a360/top-cards";
 import { DailyTrendChart } from "@/components/a360/daily-trend-chart";
 import { AgentSummaryTable } from "@/components/a360/agent-summary-table";
+import { ChannelsCard } from "@/components/dashboard/channels-card";
 import { PeriodFilter } from "@/components/a360/period-filter";
 import { TableFilters } from "@/components/ui/table-filters";
 import { LeadListDetail } from "@/components/a360/lead-list-detail";
@@ -75,6 +76,17 @@ export default async function A360Page({ searchParams }: A360PageProps) {
   const { data: periodData } = await periodQuery.order("created_at", { ascending: false });
   const periodLeads = (periodData ?? []) as A360LeadRow[];
 
+  // ── Channel conversation counts (same source as the main Dashboard's Channels card) ──
+  const [waRes, msgrRes, igRes] = await Promise.all([
+    admin.from("whatsapp_conversations").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
+    admin.from("messenger_conversations").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
+    admin.from("instagram_dm_conversations").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
+  ]);
+  const waCount = waRes.count ?? 0;
+  const msgrCount = msgrRes.count ?? 0;
+  const igCount = igRes.count ?? 0;
+  const totalConvs = waCount + msgrCount + igCount;
+
   // ── Aggregates (always over the full period-filtered set, independent of the drill-down filters below) ──
   const statusShares = computeStatusShares(periodLeads);
   const trendPoints = computeDailyTrend(periodLeads);
@@ -124,10 +136,13 @@ export default async function A360Page({ searchParams }: A360PageProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
         <StatusDonut shares={statusShares} totalLeads={totalLeads} />
-        <TopCards
-          topLocation={topLocation}
-          topAgent={topAgent ? { agentName: topAgent.agentName, conversionRatePct: topAgent.conversionRatePct } : null}
-        />
+        <div className="space-y-4">
+          <TopCards
+            topLocation={topLocation}
+            topAgent={topAgent ? { agentName: topAgent.agentName, conversionRatePct: topAgent.conversionRatePct } : null}
+          />
+          <ChannelsCard whatsapp={waCount} messenger={msgrCount} instagram={igCount} total={totalConvs} />
+        </div>
       </div>
 
       <DailyTrendChart points={trendPoints} />
