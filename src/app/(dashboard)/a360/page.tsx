@@ -23,7 +23,7 @@ import {
   computeLocationBreakdown,
   computeTopAgent,
 } from "@/services/a360-dashboard.service";
-import { toA360Status, A360_STATUS_LABELS } from "@/types/a360";
+import { toA360Status, A360_STATUS_LABELS, A360_ACCENT } from "@/types/a360";
 import type { A360LeadRow } from "@/types/a360";
 
 interface FollowupLeadRef {
@@ -218,7 +218,13 @@ export default async function A360Page({ searchParams }: A360PageProps) {
             locationBreakdown={locationBreakdown}
             topAgent={topAgent ? { agentName: topAgent.agentName, conversionRatePct: topAgent.conversionRatePct } : null}
           />
-          <ChannelsCard whatsapp={waCount} messenger={msgrCount} instagram={igCount} total={totalConvs} />
+          <ChannelsCard
+            whatsapp={waCount}
+            messenger={msgrCount}
+            instagram={igCount}
+            total={totalConvs}
+            countColor={A360_ACCENT}
+          />
         </div>
       </div>
 

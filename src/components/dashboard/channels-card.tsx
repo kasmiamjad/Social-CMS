@@ -15,10 +15,12 @@ interface ChannelsCardProps {
   messenger: number;
   instagram: number;
   total: number;
+  /** Overrides the total-count and per-row count numbers' color — e.g. the A360 page's lime accent. Leaves the main Dashboard's default styling untouched when omitted. */
+  countColor?: string;
 }
 
 /** Per-channel conversation-count breakdown with a share bar, linking to each inbox. */
-export function ChannelsCard({ whatsapp, messenger, instagram, total }: ChannelsCardProps) {
+export function ChannelsCard({ whatsapp, messenger, instagram, total, countColor }: ChannelsCardProps) {
   const rows: { label: string; count: number; color: string; icon: IconComponent; href: string }[] = [
     { label: "WhatsApp", count: whatsapp, color: WHATSAPP, icon: WhatsAppIcon, href: "/whatsapp" },
     { label: "Messenger", count: messenger, color: MESSENGER, icon: MessengerIcon, href: "/messenger" },
@@ -28,7 +30,9 @@ export function ChannelsCard({ whatsapp, messenger, instagram, total }: Channels
     <div className="rounded-2xl border border-border bg-surface-elevated p-5 animate-fade-up" style={{ animationDelay: "160ms" }}>
       <div className="flex items-baseline justify-between mb-4">
         <h2 className="text-base font-bold text-foreground font-[family-name:var(--font-heading)]">Channels</h2>
-        <span className="text-xs text-text-muted">{total} conversation{total === 1 ? "" : "s"}</span>
+        <span className="text-xs text-text-muted" style={countColor ? { color: countColor } : undefined}>
+          {total} conversation{total === 1 ? "" : "s"}
+        </span>
       </div>
       <div className="space-y-3.5">
         {rows.map((r) => {
@@ -43,7 +47,12 @@ export function ChannelsCard({ whatsapp, messenger, instagram, total }: Channels
                   <r.icon size={14} strokeWidth={1.9} />
                 </div>
                 <span className="text-sm text-foreground flex-1 group-hover:text-primary transition-colors">{r.label}</span>
-                <span className="text-sm font-semibold text-foreground tabular-nums">{r.count}</span>
+                <span
+                  className="text-sm font-semibold text-foreground tabular-nums"
+                  style={countColor ? { color: countColor } : undefined}
+                >
+                  {r.count}
+                </span>
               </div>
               <div className="mt-1.5 ml-[38px] h-1.5 rounded-full bg-surface overflow-hidden">
                 <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: r.color }} />
