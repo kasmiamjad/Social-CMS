@@ -31,42 +31,40 @@ export const A360_STATUS_LABELS: Record<A360Status, string> = {
   converted: "Converted",
 };
 
-/** Matches the reference a360crm-view dashboard's exact per-status palette
- * (Converted=teal, Follow-up=amber, Not Interested=red, Link Sent=violet,
- * Unanswered=muted slate); Unread/Read are this app's own addition
- * (not present in the original 5-status version) so get their own
- * non-colliding colors. Unread/Not Interested swapped on request — Unread
- * red, Not Interested blue. */
+/** "Sunset Glow" palette, applied per status on request — a custom 7-color
+ * gradient (not any of this app's semantic tokens or Tailwind's named
+ * palette), so badge/dot classes below use arbitrary-value Tailwind
+ * classes to stay pixel-accurate to the requested hex values. */
 export const A360_STATUS_BADGE_CLASS: Record<A360Status, string> = {
-  unread: "bg-error/15 text-error",
-  read: "bg-surface text-text-muted border border-border",
-  follow_up: "bg-amber-500/15 text-amber-400",
-  unanswered: "bg-slate-500/15 text-slate-400",
-  not_interested: "bg-primary/15 text-primary",
-  link_send: "bg-violet-500/15 text-violet-400",
-  converted: "bg-success/15 text-success",
+  read: "bg-[#F94144]/15 text-[#F94144]",
+  unread: "bg-[#F3722C]/15 text-[#F3722C]",
+  unanswered: "bg-[#F8961E]/15 text-[#F8961E]",
+  not_interested: "bg-[#F9C74F]/15 text-[#F9C74F]",
+  link_send: "bg-[#90BE6D]/15 text-[#90BE6D]",
+  follow_up: "bg-[#43AA8B]/15 text-[#43AA8B]",
+  converted: "bg-[#577590]/15 text-[#577590]",
 };
 
 export const A360_STATUS_DOT_CLASS: Record<A360Status, string> = {
-  unread: "bg-error",
-  read: "bg-text-muted",
-  follow_up: "bg-amber-500",
-  unanswered: "bg-slate-500",
-  not_interested: "bg-primary",
-  link_send: "bg-violet-500",
-  converted: "bg-success",
+  read: "bg-[#F94144]",
+  unread: "bg-[#F3722C]",
+  unanswered: "bg-[#F8961E]",
+  not_interested: "bg-[#F9C74F]",
+  link_send: "bg-[#90BE6D]",
+  follow_up: "bg-[#43AA8B]",
+  converted: "bg-[#577590]",
 };
 
 /** Literal hex colors for recharts (SVG fill/stroke needs real color strings,
  * not Tailwind classes) — matches the Tailwind classes above exactly. */
 export const A360_STATUS_HEX: Record<A360Status, string> = {
-  unread: "#EF4444", // red-500
-  read: "#CBD5E1", // slate-300
-  follow_up: "#F59E0B", // amber-500
-  unanswered: "#64748B", // slate-500
-  not_interested: "#3B82F6", // blue-500
-  link_send: "#8B5CF6", // violet-500
-  converted: "#2DD4BF", // success / teal
+  read: "#F94144",
+  unread: "#F3722C",
+  unanswered: "#F8961E",
+  not_interested: "#F9C74F",
+  link_send: "#90BE6D",
+  follow_up: "#43AA8B",
+  converted: "#577590",
 };
 
 /** Maps a raw call_status column value to a dashboard bucket — null (leads
