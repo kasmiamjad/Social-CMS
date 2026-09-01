@@ -35,23 +35,24 @@ export const A360_STATUS_LABELS: Record<A360Status, string> = {
  * (Converted=teal, Follow-up=amber, Not Interested=red, Link Sent=violet,
  * Unanswered=muted slate); Unread/Read are this app's own addition
  * (not present in the original 5-status version) so get their own
- * non-colliding colors (blue / light gray). */
+ * non-colliding colors. Unread/Not Interested swapped on request — Unread
+ * red, Not Interested blue. */
 export const A360_STATUS_BADGE_CLASS: Record<A360Status, string> = {
-  unread: "bg-primary/15 text-primary",
+  unread: "bg-error/15 text-error",
   read: "bg-surface text-text-muted border border-border",
   follow_up: "bg-amber-500/15 text-amber-400",
   unanswered: "bg-slate-500/15 text-slate-400",
-  not_interested: "bg-error/15 text-error",
+  not_interested: "bg-primary/15 text-primary",
   link_send: "bg-violet-500/15 text-violet-400",
   converted: "bg-success/15 text-success",
 };
 
 export const A360_STATUS_DOT_CLASS: Record<A360Status, string> = {
-  unread: "bg-primary",
+  unread: "bg-error",
   read: "bg-text-muted",
   follow_up: "bg-amber-500",
   unanswered: "bg-slate-500",
-  not_interested: "bg-error",
+  not_interested: "bg-primary",
   link_send: "bg-violet-500",
   converted: "bg-success",
 };
@@ -59,11 +60,11 @@ export const A360_STATUS_DOT_CLASS: Record<A360Status, string> = {
 /** Literal hex colors for recharts (SVG fill/stroke needs real color strings,
  * not Tailwind classes) — matches the Tailwind classes above exactly. */
 export const A360_STATUS_HEX: Record<A360Status, string> = {
-  unread: "#3B82F6", // blue-500
+  unread: "#EF4444", // red-500
   read: "#CBD5E1", // slate-300
   follow_up: "#F59E0B", // amber-500
   unanswered: "#64748B", // slate-500
-  not_interested: "#EF4444", // red-500 — a more saturated red than the app's own error/#F87171 token, matching the reference dashboard's "Not Interested" color
+  not_interested: "#3B82F6", // blue-500
   link_send: "#8B5CF6", // violet-500
   converted: "#2DD4BF", // success / teal
 };
