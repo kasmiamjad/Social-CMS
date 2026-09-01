@@ -1,6 +1,6 @@
 "use client";
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Card } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
 import { A360_STATUS_HEX, A360_STATUS_LABELS, A360_STATUS_VALUES } from "@/types/a360";
@@ -22,7 +22,7 @@ export function DailyTrendChart({ points }: DailyTrendChartProps) {
 
       <div className="h-96">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={points} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+          <ComposedChart data={points} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--text-muted)" }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
             <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} tickLine={false} axisLine={{ stroke: "var(--border)" }} allowDecimals={false} />
@@ -38,6 +38,17 @@ export function DailyTrendChart({ points }: DailyTrendChartProps) {
             <Legend
               formatter={(value) => <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{value}</span>}
             />
+            {/* Filled area under the usually-dominant "Not Interested" series, drawn first
+                so every Line renders on top of it — matches the reference dashboard. */}
+            <Area
+              type="monotone"
+              dataKey="not_interested"
+              fill={A360_STATUS_HEX.not_interested}
+              fillOpacity={0.18}
+              stroke="none"
+              legendType="none"
+              isAnimationActive={false}
+            />
             {A360_STATUS_VALUES.map((status) => (
               <Line
                 key={status}
@@ -46,7 +57,7 @@ export function DailyTrendChart({ points }: DailyTrendChartProps) {
                 name={A360_STATUS_LABELS[status]}
                 stroke={A360_STATUS_HEX[status]}
                 strokeWidth={2}
-                dot={false}
+                dot={{ r: 3, fill: A360_STATUS_HEX[status], strokeWidth: 0 }}
               />
             ))}
             {/* Drawn last so it renders on top — the aggregate across every status. */}
@@ -59,7 +70,7 @@ export function DailyTrendChart({ points }: DailyTrendChartProps) {
               strokeDasharray="5 3"
               dot={false}
             />
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </Card>

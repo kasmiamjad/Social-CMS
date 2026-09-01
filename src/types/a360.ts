@@ -31,40 +31,40 @@ export const A360_STATUS_LABELS: Record<A360Status, string> = {
   converted: "Converted",
 };
 
-/** Reuses the exact Tailwind classes already defined for call_status badges
- * elsewhere in the app (src/lib/lead-status.ts). */
+/** Matches the reference a360crm-view dashboard's exact per-status palette
+ * (Converted=teal, Follow-up=amber, Not Interested=red, Link Sent=violet,
+ * Unanswered=muted slate); Unread/Read are this app's own addition
+ * (not present in the original 5-status version) so get their own
+ * non-colliding colors (blue / light gray). */
 export const A360_STATUS_BADGE_CLASS: Record<A360Status, string> = {
   unread: "bg-primary/15 text-primary",
   read: "bg-surface text-text-muted border border-border",
-  follow_up: "bg-violet-500/15 text-violet-400",
-  unanswered: "bg-amber-500/15 text-amber-400",
+  follow_up: "bg-amber-500/15 text-amber-400",
+  unanswered: "bg-slate-500/15 text-slate-400",
   not_interested: "bg-error/15 text-error",
-  link_send: "bg-cyan-500/15 text-cyan-400",
+  link_send: "bg-violet-500/15 text-violet-400",
   converted: "bg-success/15 text-success",
 };
 
 export const A360_STATUS_DOT_CLASS: Record<A360Status, string> = {
   unread: "bg-primary",
   read: "bg-text-muted",
-  follow_up: "bg-violet-500",
-  unanswered: "bg-amber-500",
+  follow_up: "bg-amber-500",
+  unanswered: "bg-slate-500",
   not_interested: "bg-error",
-  link_send: "bg-cyan-500",
+  link_send: "bg-violet-500",
   converted: "bg-success",
 };
 
 /** Literal hex colors for recharts (SVG fill/stroke needs real color strings,
- * not Tailwind classes) — 7 deliberately distinct hues so all lines stay
- * legible together on one chart (badges elsewhere use link_send=sky-500,
- * same as primary/unread — fine for a single badge, not for 7 overlapping
- * lines, hence cyan here instead). */
+ * not Tailwind classes) — matches the Tailwind classes above exactly. */
 export const A360_STATUS_HEX: Record<A360Status, string> = {
   unread: "#3B82F6", // blue-500
-  read: "#94A3B8", // text-muted / slate-400
-  follow_up: "#8B5CF6", // violet-500
-  unanswered: "#F59E0B", // amber-500
+  read: "#CBD5E1", // slate-300
+  follow_up: "#F59E0B", // amber-500
+  unanswered: "#64748B", // slate-500
   not_interested: "#F87171", // error
-  link_send: "#06B6D4", // cyan-500
+  link_send: "#8B5CF6", // violet-500
   converted: "#2DD4BF", // success / teal
 };
 
