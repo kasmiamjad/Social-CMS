@@ -10,7 +10,7 @@ interface KpiCardsProps {
 
 export function KpiCards({ totalLeads, followUpCount, convertedCount }: KpiCardsProps) {
   return (
-    <div className="flex flex-wrap gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <Card>
         <div className="flex items-center gap-3">
           <div
@@ -26,6 +26,9 @@ export function KpiCards({ totalLeads, followUpCount, convertedCount }: KpiCards
             <p className="text-xs text-text-muted">Total Leads</p>
           </div>
         </div>
+        <p className="text-xs text-text-muted mt-3">
+          {totalLeads} Leads <span style={{ color: A360_ACCENT }}>Across All Statuses</span>
+        </p>
       </Card>
 
       <Card>
@@ -46,6 +49,9 @@ export function KpiCards({ totalLeads, followUpCount, convertedCount }: KpiCards
             <p className="text-xs text-text-muted">Open Follow-ups</p>
           </div>
         </div>
+        <p className="text-xs text-text-muted mt-3">
+          {followUpCount} Leads <span style={{ color: A360_ACCENT }}>Awaiting a Call Back</span>
+        </p>
       </Card>
 
       <Card>
@@ -66,6 +72,9 @@ export function KpiCards({ totalLeads, followUpCount, convertedCount }: KpiCards
             <p className="text-xs text-text-muted">Converted Leads</p>
           </div>
         </div>
+        <p className="text-xs text-text-muted mt-3">
+          {convertedCount} Leads <span style={{ color: A360_ACCENT }}>Successfully Closed</span>
+        </p>
       </Card>
     </div>
   );
