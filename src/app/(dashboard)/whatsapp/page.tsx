@@ -22,6 +22,8 @@ import { MessageCircle } from "lucide-react";
 
 // Flip to true to bring back the Product Images card.
 const SHOW_PRODUCT_IMAGES = false;
+// Flip to true to bring back the AI Auto-Reply Configuration card.
+const SHOW_AUTOMATION_CONFIG = false;
 
 interface CredentialsRow {
   is_active: boolean;
@@ -131,7 +133,7 @@ export default async function WhatsAppPage() {
         <ConversationList conversations={conversations} />
         <div className="space-y-6">
           {SHOW_PRODUCT_IMAGES && <ProductImagesForm initialImages={productImages} />}
-          <AutomationConfigForm initialConfig={config} />
+          {SHOW_AUTOMATION_CONFIG && <AutomationConfigForm initialConfig={config} />}
         </div>
       </div>
     </div>
