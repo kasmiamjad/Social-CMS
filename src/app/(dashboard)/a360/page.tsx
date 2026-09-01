@@ -211,7 +211,7 @@ export default async function A360Page({ searchParams }: A360PageProps) {
 
       <KpiCards totalLeads={totalLeads} followUpCount={followUpCount} convertedCount={convertedCount} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
         <StatusDonut shares={statusShares} totalLeads={totalLeads} />
         <div className="space-y-4">
           <TopCards

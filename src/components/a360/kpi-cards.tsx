@@ -10,7 +10,7 @@ interface KpiCardsProps {
 
 export function KpiCards({ totalLeads, followUpCount, convertedCount }: KpiCardsProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="flex flex-wrap gap-4">
       <Card>
         <div className="flex items-center gap-3">
           <div
