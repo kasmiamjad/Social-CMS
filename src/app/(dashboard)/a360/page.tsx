@@ -137,6 +137,28 @@ export default async function A360Page({ searchParams }: A360PageProps) {
     };
   });
 
+  // ── Overdue follow-ups: still-pending entries dated before today ──
+  const { data: overdueFollowupData } = await admin
+    .from("lead_followups")
+    .select("id, lead_id, follow_up_date, note, logged_by, completed_at, lead:leads(client_name, client_phone)")
+    .eq("user_id", tenantId)
+    .lt("follow_up_date", today)
+    .is("completed_at", null)
+    .order("follow_up_date", { ascending: true });
+  const overdueFollowups: FollowupChip[] = ((overdueFollowupData ?? []) as FollowupRow[]).map((r) => {
+    const lead = leadRef(r);
+    return {
+      id: r.id,
+      lead_id: r.lead_id,
+      lead_name: lead?.client_name ?? "Unknown lead",
+      lead_phone: lead?.client_phone ?? null,
+      follow_up_date: r.follow_up_date,
+      note: r.note,
+      logged_by: r.logged_by,
+      completed_at: r.completed_at,
+    };
+  });
+
   // ── Channel conversation counts (same source as the main Dashboard's Channels card) ──
   const [waRes, msgrRes, igRes] = await Promise.all([
     admin.from("whatsapp_conversations").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
@@ -202,18 +224,28 @@ export default async function A360Page({ searchParams }: A360PageProps) {
 
       <DailyTrendChart points={trendPoints} />
 
-      <Card>
-        <CardHeader className="flex items-start justify-between gap-4 flex-row">
-          <div>
-            <CardTitle>Today&apos;s Follow-ups</CardTitle>
-            <CardDescription>{TODAY_FMT.format(new Date(`${today}T00:00:00Z`))}</CardDescription>
-          </div>
-          <Link href="/leads/followups" className="text-xs font-semibold text-primary hover:text-primary-hover shrink-0">
-            View calendar
-          </Link>
-        </CardHeader>
-        <DayFollowupsPanel date={today} entries={todayFollowups} showAddForm={false} />
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="flex items-start justify-between gap-4 flex-row">
+            <div>
+              <CardTitle>Today&apos;s Follow-ups</CardTitle>
+              <CardDescription>{TODAY_FMT.format(new Date(`${today}T00:00:00Z`))}</CardDescription>
+            </div>
+            <Link href="/leads/followups" className="text-xs font-semibold text-primary hover:text-primary-hover shrink-0">
+              View calendar
+            </Link>
+          </CardHeader>
+          <DayFollowupsPanel date={today} entries={todayFollowups} showAddForm={false} />
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-error">Overdue Follow-ups</CardTitle>
+            <CardDescription>Still pending, dated before today</CardDescription>
+          </CardHeader>
+          <DayFollowupsPanel date={today} entries={overdueFollowups} showAddForm={false} showEntryDates />
+        </Card>
+      </div>
 
       <AgentSummaryTable agents={agentSummary} />
 

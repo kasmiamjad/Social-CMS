@@ -27,6 +27,8 @@ interface DayFollowupsPanelProps {
   entries: FollowupChip[];
   /** Hide the "Add follow-up for this day" form — used to keep the standalone Day view read-only. */
   showAddForm?: boolean;
+  /** Show each entry's own follow_up_date — for lists spanning multiple days (e.g. an overdue list), where the single `date` prop doesn't apply per-item. */
+  showEntryDates?: boolean;
 }
 
 /**
@@ -34,7 +36,7 @@ interface DayFollowupsPanelProps {
  * used both inline (Day view) and inside the slide-over (Month/Week view's
  * DayFollowupsDrawer), so the interactive logic lives in exactly one place.
  */
-export function DayFollowupsPanel({ date, entries, showAddForm = true }: DayFollowupsPanelProps) {
+export function DayFollowupsPanel({ date, entries, showAddForm = true, showEntryDates = false }: DayFollowupsPanelProps) {
   const router = useRouter();
   const [items, setItems] = useState(entries);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -228,15 +230,26 @@ export function DayFollowupsPanel({ date, entries, showAddForm = true }: DayFoll
             return (
               <li key={e.id} className="py-3">
                 <div className="flex items-start justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setViewingLeadId(e.lead_id)}
-                    className={`text-left text-sm font-semibold hover:text-primary-hover ${
-                      done ? "text-text-muted line-through" : "text-primary"
-                    }`}
-                  >
-                    {e.lead_name}
-                  </button>
+                  <div className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setViewingLeadId(e.lead_id)}
+                      className={`text-left text-sm font-semibold hover:text-primary-hover ${
+                        done ? "text-text-muted line-through" : "text-primary"
+                      }`}
+                    >
+                      {e.lead_name}
+                    </button>
+                    {showEntryDates && (
+                      <div className="text-[11px] text-error font-medium mt-0.5">
+                        Due {new Date(`${e.follow_up_date}T00:00:00Z`).toLocaleDateString(undefined, {
+                          timeZone: "UTC",
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleToggle(e)}
