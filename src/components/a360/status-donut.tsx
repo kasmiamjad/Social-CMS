@@ -36,7 +36,7 @@ export function StatusDonut({ shares, totalLeads }: StatusDonutProps) {
         <span className="text-xs text-text-muted">{totalLeads} Leads Total</span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
         <div className="relative h-56 [&_*:focus]:outline-none [&_*]:focus-visible:outline-none">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
