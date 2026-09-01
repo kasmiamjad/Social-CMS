@@ -14,6 +14,7 @@ import { PeriodFilter } from "@/components/a360/period-filter";
 import { TableFilters } from "@/components/ui/table-filters";
 import { LeadListDetail } from "@/components/a360/lead-list-detail";
 import { DayFollowupsPanel, type FollowupChip } from "@/components/leads/day-followups-panel";
+import { RecentLeads, type RecentLeadRow } from "@/components/dashboard/recent-leads";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { buildFollowupInfo } from "@/lib/followup-info";
 import {
@@ -115,6 +116,15 @@ export default async function A360Page({ searchParams }: A360PageProps) {
     next_followup_date: followupInfo.get(l.id)?.date ?? null,
   }));
 
+  // ── 3 most recent leads, same shape/query as the main Dashboard's Recent Leads ──
+  const { data: recentLeadsData } = await admin
+    .from("leads")
+    .select("id, serial_no, client_name, client_phone, client_business_type, product_model, status, source, created_at")
+    .eq("user_id", tenantId)
+    .order("created_at", { ascending: false })
+    .limit(3);
+  const recentLeads = (recentLeadsData ?? []) as RecentLeadRow[];
+
   // ── Today's follow-ups (same source/shape as leads/followups' Day view) ──
   const today = todayYmd();
   const { data: todayFollowupData } = await admin
@@ -212,7 +222,10 @@ export default async function A360Page({ searchParams }: A360PageProps) {
       <KpiCards totalLeads={totalLeads} followUpCount={followUpCount} convertedCount={convertedCount} />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
-        <StatusDonut shares={statusShares} totalLeads={totalLeads} />
+        <div className="space-y-4">
+          <StatusDonut shares={statusShares} totalLeads={totalLeads} />
+          <RecentLeads leads={recentLeads} />
+        </div>
         <div className="space-y-4">
           <TopCards
             locationBreakdown={locationBreakdown}
