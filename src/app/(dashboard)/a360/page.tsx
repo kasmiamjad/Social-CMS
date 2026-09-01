@@ -47,8 +47,8 @@ function leadRef(f: FollowupRow): FollowupLeadRef | null {
 
 const SELECT_COLS = "id, client_name, client_phone, city, assigned_to, call_status, remarks, internal_notes, created_at";
 
-// Flip to true to bring back the search/filters + lead list & detail panel section.
-const SHOW_LEAD_LIST = false;
+// Flip to false to hide the search/filters + lead list & detail panel section again.
+const SHOW_LEAD_LIST = true;
 
 interface A360PageProps {
   searchParams: Promise<{
