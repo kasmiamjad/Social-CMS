@@ -17,8 +17,12 @@ export function StatusDonut({ shares, totalLeads }: StatusDonutProps) {
     .filter((s) => s.count > 0)
     .map((s) => ({ name: A360_STATUS_LABELS[s.status], value: s.count, status: s.status }));
 
-  function toggle(status: A360Status) {
-    setSelected((prev) => (prev === status ? null : status));
+  function hoverOn(status: A360Status) {
+    setSelected(status);
+  }
+
+  function hoverOff() {
+    setSelected(null);
   }
 
   const selectedShare = selected ? shares.find((s) => s.status === selected) : null;
@@ -51,7 +55,8 @@ export function StatusDonut({ shares, totalLeads }: StatusDonutProps) {
                     fill={A360_STATUS_HEX[entry.status]}
                     stroke={selected === entry.status ? "#fff" : "transparent"}
                     strokeWidth={selected === entry.status ? 3 : 0}
-                    onClick={() => toggle(entry.status)}
+                    onMouseEnter={() => hoverOn(entry.status)}
+                    onMouseLeave={hoverOff}
                     tabIndex={-1}
                     style={{
                       cursor: "pointer",
@@ -92,14 +97,13 @@ export function StatusDonut({ shares, totalLeads }: StatusDonutProps) {
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           {shares.map((s) => (
-            <button
+            <div
               key={s.status}
-              type="button"
-              onClick={() => toggle(s.status)}
-              disabled={s.count === 0}
+              onMouseEnter={() => s.count > 0 && hoverOn(s.status)}
+              onMouseLeave={hoverOff}
               className={`text-left rounded-lg px-1.5 py-1 -mx-1.5 transition-colors ${
                 selected === s.status ? "bg-surface" : "hover:bg-surface/60"
-              } ${s.count === 0 ? "opacity-40 cursor-default" : "cursor-pointer"}`}
+              } ${s.count === 0 ? "opacity-40" : ""}`}
             >
               <div className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${A360_STATUS_DOT_CLASS[s.status]}`} />
@@ -108,7 +112,7 @@ export function StatusDonut({ shares, totalLeads }: StatusDonutProps) {
                 </span>
               </div>
               <p className="text-sm font-semibold text-foreground mt-0.5">{s.sharePct.toFixed(1)}% Share</p>
-            </button>
+            </div>
           ))}
         </div>
       </div>
