@@ -14,6 +14,48 @@ function gradientId(status: string): string {
   return `a360Gradient-${status}`;
 }
 
+interface TooltipEntry {
+  dataKey: string;
+  name: string;
+  value: number;
+  color: string;
+}
+
+/**
+ * Each status renders as both an Area (for the gradient shadow) and a Line,
+ * sharing the same dataKey — recharts' default tooltip lists every series
+ * independently, so without this it shows each status twice (once with no
+ * name/color for the Area). Dedupe by dataKey, keeping the later (Line)
+ * entry, which is the one with a proper name/color.
+ */
+function TrendTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipEntry[]; label?: string }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const seen = new Set<string>();
+  const deduped = [...payload].reverse().filter((entry) => {
+    if (seen.has(entry.dataKey)) return false;
+    seen.add(entry.dataKey);
+    return true;
+  });
+  return (
+    <div
+      style={{
+        background: "var(--surface-elevated)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        padding: "8px 10px",
+        fontSize: 12,
+      }}
+    >
+      <p style={{ color: "var(--foreground)", margin: "0 0 4px" }}>{label}</p>
+      {deduped.map((entry) => (
+        <p key={entry.dataKey} style={{ color: entry.color, margin: 0 }}>
+          {entry.name}: {entry.value}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export function DailyTrendChart({ points }: DailyTrendChartProps) {
   return (
     <Card>
@@ -38,15 +80,7 @@ export function DailyTrendChart({ points }: DailyTrendChartProps) {
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--text-muted)" }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
             <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} tickLine={false} axisLine={{ stroke: "var(--border)" }} allowDecimals={false} />
-            <Tooltip
-              contentStyle={{
-                background: "var(--surface-elevated)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                fontSize: 12,
-              }}
-              labelStyle={{ color: "var(--foreground)" }}
-            />
+            <Tooltip content={<TrendTooltip />} />
             <Legend
               formatter={(value) => <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{value}</span>}
             />
