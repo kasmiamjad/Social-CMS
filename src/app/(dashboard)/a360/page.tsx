@@ -117,13 +117,14 @@ export default async function A360Page({ searchParams }: A360PageProps) {
     next_followup_date: followupInfo.get(l.id)?.date ?? null,
   }));
 
-  // ── 3 most recent leads, same shape/query as the main Dashboard's Recent Leads ──
+  // ── Recent leads, same shape/query as the main Dashboard's Recent Leads —
+  // enough rows to roughly match the right column's height (Top Location + Channels + Quick Actions stacked). ──
   const { data: recentLeadsData } = await admin
     .from("leads")
     .select("id, serial_no, client_name, client_phone, client_business_type, product_model, status, source, created_at")
     .eq("user_id", tenantId)
     .order("created_at", { ascending: false })
-    .limit(3);
+    .limit(7);
   const recentLeads = (recentLeadsData ?? []) as RecentLeadRow[];
 
   // ── Today's follow-ups (same source/shape as leads/followups' Day view) ──
