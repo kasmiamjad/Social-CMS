@@ -129,13 +129,19 @@ export default async function WhatsAppPage() {
     <div>
       <PageHeader />
 
-      <div className="mt-6 grid gap-6 grid-cols-1 xl:grid-cols-2">
-        <ConversationList conversations={conversations} />
-        <div className="space-y-6">
-          {SHOW_PRODUCT_IMAGES && <ProductImagesForm initialImages={productImages} />}
-          {SHOW_AUTOMATION_CONFIG && <AutomationConfigForm initialConfig={config} />}
+      {SHOW_PRODUCT_IMAGES || SHOW_AUTOMATION_CONFIG ? (
+        <div className="mt-6 grid gap-6 grid-cols-1 xl:grid-cols-2">
+          <ConversationList conversations={conversations} />
+          <div className="space-y-6">
+            {SHOW_PRODUCT_IMAGES && <ProductImagesForm initialImages={productImages} />}
+            {SHOW_AUTOMATION_CONFIG && <AutomationConfigForm initialConfig={config} />}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mt-6">
+          <ConversationList conversations={conversations} />
+        </div>
+      )}
     </div>
   );
 }
