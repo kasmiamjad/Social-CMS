@@ -63,7 +63,7 @@ export const A360_STATUS_HEX: Record<A360Status, string> = {
   read: "#CBD5E1", // slate-300
   follow_up: "#F59E0B", // amber-500
   unanswered: "#64748B", // slate-500
-  not_interested: "#F87171", // error
+  not_interested: "#EF4444", // red-500 — a more saturated red than the app's own error/#F87171 token, matching the reference dashboard's "Not Interested" color
   link_send: "#8B5CF6", // violet-500
   converted: "#2DD4BF", // success / teal
 };
