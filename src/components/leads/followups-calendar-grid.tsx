@@ -49,7 +49,7 @@ export function FollowupsCalendarGrid({ cells, month, today, entriesByDay }: Fol
                 <>
                   <div
                     className={`text-xs font-semibold mb-1 w-5 h-5 flex items-center justify-center rounded-full ${
-                      isToday ? "bg-primary text-white" : "text-foreground"
+                      isToday ? "bg-primary text-black" : "text-foreground"
                     }`}
                   >
                     {day}

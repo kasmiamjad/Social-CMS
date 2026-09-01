@@ -170,7 +170,7 @@ export function MediaInput({
             type="button"
             onClick={handleUrlSubmit}
             disabled={!urlInput.trim() || urlWorking}
-            className="px-4 py-2.5 bg-primary hover:bg-primary-hover text-white text-xs font-semibold rounded-lg disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+            className="px-4 py-2.5 bg-primary hover:bg-primary-hover text-black text-xs font-semibold rounded-lg disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
           >
             Add
           </button>

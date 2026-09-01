@@ -69,7 +69,7 @@ export default async function InstagramEngagementPage() {
           </p>
           <Link
             href="/settings"
-            className="mt-4 inline-flex items-center px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold"
+            className="mt-4 inline-flex items-center px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-black text-xs font-semibold"
           >
             Go to Settings
           </Link>

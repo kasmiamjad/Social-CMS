@@ -374,7 +374,7 @@ export function ScheduleBookingPanel({
                         title={selectable ? "" : "Already booked"}
                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
                           selected
-                            ? "border-primary bg-primary text-white"
+                            ? "border-primary bg-primary text-black"
                             : selectable
                               ? "border-border hover:border-primary text-foreground"
                               : "border-border bg-surface text-text-muted opacity-60 cursor-not-allowed line-through"

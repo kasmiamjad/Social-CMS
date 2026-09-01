@@ -172,7 +172,7 @@ export default async function TechJobDetailPage({
           {lead?.client_phone && (
             <a
               href={`tel:${lead.client_phone}`}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-black text-sm font-semibold transition-colors"
             >
               <Phone size={15} strokeWidth={1.8} /> Call
             </a>

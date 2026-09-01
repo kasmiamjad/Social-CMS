@@ -304,7 +304,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
           <button
             type="button"
             onClick={stopRecording}
-            className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-white hover:bg-primary-hover transition-all shrink-0"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-black hover:bg-primary-hover transition-all shrink-0"
             title="Stop recording"
           >
             <Square size={14} strokeWidth={1.8} fill="currentColor" />
@@ -326,7 +326,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
             type="button"
             onClick={sendRecording}
             disabled={sending}
-            className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-white hover:bg-primary-hover disabled:opacity-40 transition-all shrink-0"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-black hover:bg-primary-hover disabled:opacity-40 transition-all shrink-0"
             title="Send voice note"
           >
             {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} strokeWidth={1.8} />}
@@ -395,7 +395,7 @@ export function ManualReplyInput({ contactPhone }: ManualReplyInputProps) {
               type="button"
               onClick={handleSend}
               disabled={sending}
-              className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-primary text-white hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
+              className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-primary text-black hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
               title="Send (Enter)"
             >
               {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} strokeWidth={1.8} />}

@@ -43,7 +43,7 @@ export function FollowupsWeekStrip({ days, today, entriesByDay }: FollowupsWeekS
                   </span>
                   <span
                     className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${
-                      isToday ? "bg-primary text-white" : "text-foreground"
+                      isToday ? "bg-primary text-black" : "text-foreground"
                     }`}
                   >
                     {DAYNUM_FMT.format(anchor)}

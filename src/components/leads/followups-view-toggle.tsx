@@ -23,7 +23,7 @@ export function FollowupsViewToggle({ active, anchorDate }: FollowupsViewToggleP
           key={v.id}
           href={`/leads/followups?view=${v.id}&date=${anchorDate}`}
           className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-            active === v.id ? "bg-primary text-white" : "text-text-muted hover:text-foreground"
+            active === v.id ? "bg-primary text-black" : "text-text-muted hover:text-foreground"
           }`}
         >
           {v.label}

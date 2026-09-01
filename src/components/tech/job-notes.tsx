@@ -66,7 +66,7 @@ export function JobNotes({ bookingId, initialNotes }: JobNotesProps) {
         type="button"
         disabled={!dirty || saving}
         onClick={save}
-        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-50"
+        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-black text-sm font-semibold transition-colors disabled:opacity-50"
       >
         {saving ? (
           <Loader2 size={15} className="animate-spin" />

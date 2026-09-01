@@ -163,7 +163,7 @@ export default async function LeadsPage({ searchParams }: LeadsPageProps) {
           </Link>
           <Link
             href="/leads/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-black text-xs font-semibold"
           >
             <Plus size={14} strokeWidth={2} />
             New Lead

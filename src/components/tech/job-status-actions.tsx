@@ -228,7 +228,7 @@ export function JobStatusActions({
                   "flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60",
                   action.tone === "danger"
                     ? "border border-error/40 text-error hover:bg-error/10"
-                    : "bg-primary hover:bg-primary-hover text-white"
+                    : "bg-primary hover:bg-primary-hover text-black"
                 )}
               >
                 {busy === action.target ? (

@@ -182,7 +182,7 @@ export function ManualReplyInput({ conversationId }: ManualReplyInputProps) {
           type="button"
           onClick={handleSend}
           disabled={sending || (!text.trim() && !pendingMediaUrl)}
-          className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-primary text-white hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
+          className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-primary text-black hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0"
           title="Send (Enter)"
         >
           {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} strokeWidth={1.8} />}

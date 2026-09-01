@@ -104,7 +104,7 @@ function MessageBubble({ message }: { message: MessengerMessageRow }) {
         <div
           className={`rounded-2xl px-4 py-2.5 ${
             isOutbound
-              ? "bg-primary text-white rounded-br-sm"
+              ? "bg-primary text-black rounded-br-sm"
               : "bg-surface-elevated border border-border text-foreground rounded-bl-sm"
           }`}
         >

@@ -43,7 +43,7 @@ export function BookingDrawer(props: BookingDrawerProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition-colors"
+        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-black text-xs font-semibold transition-colors"
       >
         <CalendarCheck size={14} strokeWidth={1.8} />
         {booked ? `Booking ${props.existingBooking!.booking_ref}` : "Schedule Installation"}

@@ -158,7 +158,7 @@ export default async function TechSchedulePage({
               className={[
                 "flex flex-col items-center rounded-lg py-2 transition-colors",
                 isSelected
-                  ? "bg-primary text-white"
+                  ? "bg-primary text-black"
                   : "border border-border text-foreground hover:bg-surface",
               ].join(" ")}
             >

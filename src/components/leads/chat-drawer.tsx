@@ -392,7 +392,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
               <button
                 type="button"
                 onClick={stopRecording}
-                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white hover:bg-primary-hover transition-all shrink-0"
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-black hover:bg-primary-hover transition-all shrink-0"
                 title="Stop recording"
               >
                 <Square size={13} strokeWidth={1.8} fill="currentColor" />
@@ -414,7 +414,7 @@ export function ChatDrawer({ chat, onClose }: ChatDrawerProps) {
                 type="button"
                 onClick={sendRecording}
                 disabled={sending}
-                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-white hover:bg-primary-hover disabled:opacity-40 transition-all shrink-0"
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-black hover:bg-primary-hover disabled:opacity-40 transition-all shrink-0"
                 title="Send voice note"
               >
                 {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} strokeWidth={1.8} />}
@@ -549,7 +549,7 @@ function Bubble({ message, contactName }: { message: ChatMessage; contactName: s
                 : "px-3.5 py-2"
           } ${
             isOutbound
-              ? "bg-primary text-white rounded-br-sm"
+              ? "bg-primary text-black rounded-br-sm"
               : "bg-surface border border-border text-foreground rounded-bl-sm"
           }`}
         >

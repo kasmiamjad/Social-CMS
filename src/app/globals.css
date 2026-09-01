@@ -14,9 +14,9 @@
   --color-charcoal: #0F172A;
 
   /* Semantic Colors (dark) */
-  --color-primary: #0EA5E9;
-  --color-primary-hover: #38BDF8;
-  --color-primary-muted: #7DD3FC;
+  --color-primary: #A3E635;
+  --color-primary-hover: #BEF264;
+  --color-primary-muted: #D9F99D;
   --background: #080C14;          /* page */
   --surface: #111A2B;            /* subtle fills, hovers, table headers */
   --surface-elevated: #141B2D;   /* cards */

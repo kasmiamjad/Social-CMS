@@ -138,7 +138,7 @@ export function JobPhotos({ bookingId, photos }: JobPhotosProps) {
             onClick={() => setKind(t.key)}
             className={cn(
               "px-3 py-1.5 rounded-md text-xs font-semibold transition-colors",
-              kind === t.key ? "bg-primary text-white" : "text-text-muted hover:text-foreground"
+              kind === t.key ? "bg-primary text-black" : "text-text-muted hover:text-foreground"
             )}
           >
             {t.label}
@@ -152,7 +152,7 @@ export function JobPhotos({ bookingId, photos }: JobPhotosProps) {
           type="button"
           disabled={uploading}
           onClick={() => cameraRef.current?.click()}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors disabled:opacity-60"
+          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-black text-sm font-semibold transition-colors disabled:opacity-60"
         >
           {uploading ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} strokeWidth={1.8} />}
           Take {kind} photo
@@ -268,7 +268,7 @@ export function JobPhotos({ bookingId, photos }: JobPhotosProps) {
                 type="button"
                 disabled={savingCaption || deleting === lightbox.id}
                 onClick={saveCaption}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-60"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-black text-sm font-semibold disabled:opacity-60"
               >
                 {savingCaption ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} strokeWidth={1.8} />}
                 Save caption

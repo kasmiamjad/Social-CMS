@@ -210,7 +210,7 @@ export function DayFollowupsPanel({ date, entries, showAddForm = true, showEntry
             type="button"
             onClick={() => void handleCreate()}
             disabled={creating || !selectedLead}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary hover:bg-primary-hover text-black text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
           >
             {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} strokeWidth={2} />}
             Add

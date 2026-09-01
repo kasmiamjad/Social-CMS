@@ -70,7 +70,7 @@ export default function TechLoginPage() {
         <button
           type="submit"
           disabled={loading || !phone.trim() || !passcode}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold disabled:opacity-50 transition-colors"
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary hover:bg-primary-hover text-black text-sm font-semibold disabled:opacity-50 transition-colors"
         >
           {loading && <Loader2 size={16} className="animate-spin" />}
           Sign in

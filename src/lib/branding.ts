@@ -87,9 +87,9 @@ export const BRANDING: BrandingConfig = {
     charcoal: "#0F172A",
   },
   semantic: {
-    primary: "#0EA5E9",
-    primaryHover: "#38BDF8",
-    primaryMuted: "#7DD3FC",
+    primary: "#A3E635",
+    primaryHover: "#BEF264",
+    primaryMuted: "#D9F99D",
     background: "#080C14",
     surface: "#111A2B",
     surfaceElevated: "#141B2D",
