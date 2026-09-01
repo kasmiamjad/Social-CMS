@@ -124,7 +124,7 @@ export default async function A360Page({ searchParams }: A360PageProps) {
     .select("id, serial_no, client_name, client_phone, client_business_type, product_model, status, source, created_at")
     .eq("user_id", tenantId)
     .order("created_at", { ascending: false })
-    .limit(7);
+    .limit(5);
   const recentLeads = (recentLeadsData ?? []) as RecentLeadRow[];
 
   // ── Today's follow-ups (same source/shape as leads/followups' Day view) ──
