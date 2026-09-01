@@ -10,6 +10,7 @@ import { TopCards } from "@/components/a360/top-cards";
 import { DailyTrendChart } from "@/components/a360/daily-trend-chart";
 import { AgentSummaryTable } from "@/components/a360/agent-summary-table";
 import { ChannelsCard } from "@/components/dashboard/channels-card";
+import { QuickActionsCard } from "@/components/dashboard/quick-actions-card";
 import { PeriodFilter } from "@/components/a360/period-filter";
 import { TableFilters } from "@/components/ui/table-filters";
 import { LeadListDetail } from "@/components/a360/lead-list-detail";
@@ -240,6 +241,7 @@ export default async function A360Page({ searchParams }: A360PageProps) {
             total={totalConvs}
             countColor={A360_ACCENT}
           />
+          <QuickActionsCard />
         </div>
       </div>
 
