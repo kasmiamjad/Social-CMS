@@ -219,7 +219,12 @@ export default async function A360Page({ searchParams }: A360PageProps) {
         <PeriodFilter />
       </div>
 
-      <KpiCards totalLeads={totalLeads} followUpCount={followUpCount} convertedCount={convertedCount} />
+      <KpiCards
+        totalLeads={totalLeads}
+        followUpCount={followUpCount}
+        convertedCount={convertedCount}
+        topAgent={topAgent ? { agentName: topAgent.agentName, conversionRatePct: topAgent.conversionRatePct } : null}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
         <div className="space-y-4">
@@ -227,10 +232,7 @@ export default async function A360Page({ searchParams }: A360PageProps) {
           <RecentLeads leads={recentLeads} />
         </div>
         <div className="space-y-4">
-          <TopCards
-            locationBreakdown={locationBreakdown}
-            topAgent={topAgent ? { agentName: topAgent.agentName, conversionRatePct: topAgent.conversionRatePct } : null}
-          />
+          <TopCards locationBreakdown={locationBreakdown} />
           <ChannelsCard
             whatsapp={waCount}
             messenger={msgrCount}
