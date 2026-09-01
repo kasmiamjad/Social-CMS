@@ -20,6 +20,9 @@ import {
 } from "@/services/platforms/whatsapp/whatsapp.constants";
 import { MessageCircle } from "lucide-react";
 
+// Flip to true to bring back the Product Images card.
+const SHOW_PRODUCT_IMAGES = false;
+
 interface CredentialsRow {
   is_active: boolean;
 }
@@ -127,7 +130,7 @@ export default async function WhatsAppPage() {
       <div className="mt-6 grid gap-6 grid-cols-1 xl:grid-cols-2">
         <ConversationList conversations={conversations} />
         <div className="space-y-6">
-          <ProductImagesForm initialImages={productImages} />
+          {SHOW_PRODUCT_IMAGES && <ProductImagesForm initialImages={productImages} />}
           <AutomationConfigForm initialConfig={config} />
         </div>
       </div>
