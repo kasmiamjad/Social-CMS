@@ -4,45 +4,82 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTenantId } from "@/lib/tenant";
-import { RecentLeads, type RecentLeadRow } from "@/components/dashboard/recent-leads";
-import { ChannelsCard, WHATSAPP, MESSENGER, INSTAGRAM } from "@/components/dashboard/channels-card";
+import { KpiCards } from "@/components/a360/kpi-cards";
+import { StatusDonut } from "@/components/a360/status-donut";
+import { TopCards } from "@/components/a360/top-cards";
+import { DailyTrendChart } from "@/components/a360/daily-trend-chart";
+import { AgentSummaryTable } from "@/components/a360/agent-summary-table";
+import { ChannelsCard } from "@/components/dashboard/channels-card";
 import { QuickActionsCard } from "@/components/dashboard/quick-actions-card";
-import { WhatsAppIcon, MessengerIcon, InstagramIcon } from "@/components/icons/platform-icons";
+import { PeriodFilter } from "@/components/a360/period-filter";
+import { TableFilters } from "@/components/ui/table-filters";
+import { LeadListDetail } from "@/components/a360/lead-list-detail";
+import { DayFollowupsPanel, type FollowupChip } from "@/components/leads/day-followups-panel";
+import { RecentLeads, type RecentLeadRow } from "@/components/dashboard/recent-leads";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { buildFollowupInfo } from "@/lib/followup-info";
 import {
-  Users,
-  Clock,
-  CheckCircle2,
-  TrendingUp,
-  Inbox,
-  type LucideIcon,
-} from "lucide-react";
+  computeStatusShares,
+  computeDailyTrend,
+  computeAgentSummary,
+  computeLocationBreakdown,
+  computeTopAgent,
+} from "@/services/a360-dashboard.service";
+import { toA360Status, A360_STATUS_LABELS, A360_ACCENT } from "@/types/a360";
+import type { A360LeadRow } from "@/types/a360";
 
-type IconComponent = React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
-
-const OPEN_STATUSES = ["new", "contacted", "qualified", "quoted"];
-const WON_STATUSES = ["won", "installed", "in_service"];
-
-interface RecentConv {
-  key: string;
-  channel: "whatsapp" | "messenger" | "instagram";
-  name: string;
-  preview: string | null;
-  at: string | null;
-  href: string;
+interface FollowupLeadRef {
+  client_name: string;
+  client_phone: string | null;
 }
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return "";
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+interface FollowupRow {
+  id: string;
+  lead_id: string;
+  follow_up_date: string;
+  note: string | null;
+  logged_by: string | null;
+  completed_at: string | null;
+  lead: FollowupLeadRef | FollowupLeadRef[] | null;
 }
 
-export default async function DashboardPage() {
+function leadRef(f: FollowupRow): FollowupLeadRef | null {
+  return Array.isArray(f.lead) ? (f.lead[0] ?? null) : f.lead;
+}
+
+const SELECT_COLS = "id, client_name, client_phone, city, assigned_to, call_status, remarks, internal_notes, created_at";
+
+// Flip to false to hide the search/filters + lead list & detail panel section again.
+const SHOW_LEAD_LIST = false;
+
+interface DashboardPageProps {
+  searchParams: Promise<{
+    period?: string;
+    from?: string;
+    to?: string;
+    agent?: string;
+    status?: string;
+    city?: string;
+    q?: string;
+  }>;
+}
+
+function startDateForPeriod(period: string): string | null {
+  const now = new Date();
+  if (period === "1d") return new Date(now.getTime() - 1 * 86400000).toISOString();
+  if (period === "7d") return new Date(now.getTime() - 7 * 86400000).toISOString();
+  if (period === "30d") return new Date(now.getTime() - 30 * 86400000).toISOString();
+  return null;
+}
+
+/** UTC-anchored, matches todayYmd() in leads/followups/page.tsx — follow_up_date is a plain DATE column. */
+function todayYmd(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+const TODAY_FMT = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -50,7 +87,7 @@ export default async function DashboardPage() {
 
   if (!user) {
     return (
-      <div>
+      <div className="max-w-3xl">
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
         <p className="mt-2 text-sm text-text-muted">Sign in to view your dashboard.</p>
       </div>
@@ -59,221 +96,219 @@ export default async function DashboardPage() {
 
   const admin = createAdminClient();
   const tenantId = getTenantId();
+  const sp = await searchParams;
+  const period = sp.period ?? "all";
 
-  const [totalRes, openRes, wonRes, recentLeadsRes, waRes, msgrRes, igRes] = await Promise.all([
-    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
-    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", tenantId).in("status", OPEN_STATUSES),
-    admin.from("leads").select("id", { count: "exact", head: true }).eq("user_id", tenantId).in("status", WON_STATUSES),
-    admin
-      .from("leads")
-      .select("id, serial_no, client_name, client_phone, client_business_type, product_model, status, source, created_at")
-      .eq("user_id", tenantId)
-      .order("created_at", { ascending: false })
-      .limit(7),
-    admin
-      .from("whatsapp_conversations")
-      .select("id, contact_name, contact_phone, last_message_preview, last_message_at", { count: "exact" })
-      .eq("user_id", tenantId)
-      .order("last_message_at", { ascending: false, nullsFirst: false })
-      .limit(6),
-    admin
-      .from("messenger_conversations")
-      .select("id, contact_name, psid, last_message_preview, last_message_at", { count: "exact" })
-      .eq("user_id", tenantId)
-      .order("last_message_at", { ascending: false, nullsFirst: false })
-      .limit(6),
-    admin
-      .from("instagram_dm_conversations")
-      .select("id, contact_name, contact_username, contact_ig_id, last_message_preview, last_message_at", { count: "exact" })
-      .eq("user_id", tenantId)
-      .order("last_message_at", { ascending: false, nullsFirst: false })
-      .limit(6),
+  // ── Period-filtered leads (drives the KPI cards, donut, trend, agent table) ──
+  let periodQuery = admin.from("leads").select(SELECT_COLS).eq("user_id", tenantId);
+  if (period === "custom") {
+    if (sp.from) periodQuery = periodQuery.gte("created_at", sp.from);
+    if (sp.to) periodQuery = periodQuery.lte("created_at", `${sp.to}T23:59:59`);
+  } else {
+    const start = startDateForPeriod(period);
+    if (start) periodQuery = periodQuery.gte("created_at", start);
+  }
+  const { data: periodData } = await periodQuery.order("created_at", { ascending: false });
+  const rawPeriodLeads = (periodData ?? []) as Omit<A360LeadRow, "next_followup_date">[];
+
+  const followupInfo = await buildFollowupInfo(admin, rawPeriodLeads.map((l) => l.id));
+  const periodLeads: A360LeadRow[] = rawPeriodLeads.map((l) => ({
+    ...l,
+    next_followup_date: followupInfo.get(l.id)?.date ?? null,
+  }));
+
+  // ── Recent leads, enough rows to roughly match the right column's height
+  // (Top Location + Channels + Quick Actions stacked). ──
+  const { data: recentLeadsData } = await admin
+    .from("leads")
+    .select("id, serial_no, client_name, client_phone, client_business_type, product_model, status, source, created_at")
+    .eq("user_id", tenantId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  const recentLeads = (recentLeadsData ?? []) as RecentLeadRow[];
+
+  // ── Today's follow-ups (same source/shape as leads/followups' Day view) ──
+  const today = todayYmd();
+  const { data: todayFollowupData } = await admin
+    .from("lead_followups")
+    .select("id, lead_id, follow_up_date, note, logged_by, completed_at, lead:leads(client_name, client_phone)")
+    .eq("user_id", tenantId)
+    .eq("follow_up_date", today)
+    .order("created_at", { ascending: false });
+  const todayFollowups: FollowupChip[] = ((todayFollowupData ?? []) as FollowupRow[]).map((r) => {
+    const lead = leadRef(r);
+    return {
+      id: r.id,
+      lead_id: r.lead_id,
+      lead_name: lead?.client_name ?? "Unknown lead",
+      lead_phone: lead?.client_phone ?? null,
+      follow_up_date: r.follow_up_date,
+      note: r.note,
+      logged_by: r.logged_by,
+      completed_at: r.completed_at,
+    };
+  });
+
+  // ── Overdue follow-ups: still-pending entries dated before today ──
+  const { data: overdueFollowupData } = await admin
+    .from("lead_followups")
+    .select("id, lead_id, follow_up_date, note, logged_by, completed_at, lead:leads(client_name, client_phone)")
+    .eq("user_id", tenantId)
+    .lt("follow_up_date", today)
+    .is("completed_at", null)
+    .order("follow_up_date", { ascending: true });
+  const overdueFollowups: FollowupChip[] = ((overdueFollowupData ?? []) as FollowupRow[]).map((r) => {
+    const lead = leadRef(r);
+    return {
+      id: r.id,
+      lead_id: r.lead_id,
+      lead_name: lead?.client_name ?? "Unknown lead",
+      lead_phone: lead?.client_phone ?? null,
+      follow_up_date: r.follow_up_date,
+      note: r.note,
+      logged_by: r.logged_by,
+      completed_at: r.completed_at,
+    };
+  });
+
+  // ── Channel conversation counts ──
+  const [waRes, msgrRes, igRes] = await Promise.all([
+    admin.from("whatsapp_conversations").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
+    admin.from("messenger_conversations").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
+    admin.from("instagram_dm_conversations").select("id", { count: "exact", head: true }).eq("user_id", tenantId),
   ]);
-
-  const totalLeads = totalRes.count ?? 0;
-  const openLeads = openRes.count ?? 0;
-  const wonLeads = wonRes.count ?? 0;
-  const conversion = totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
-
   const waCount = waRes.count ?? 0;
   const msgrCount = msgrRes.count ?? 0;
   const igCount = igRes.count ?? 0;
   const totalConvs = waCount + msgrCount + igCount;
 
-  const recentLeads = (recentLeadsRes.data ?? []) as RecentLeadRow[];
+  // ── Aggregates (always over the full period-filtered set, independent of the drill-down filters below) ──
+  const statusShares = computeStatusShares(periodLeads);
+  const trendPoints = computeDailyTrend(periodLeads);
+  const agentSummary = computeAgentSummary(periodLeads);
+  const locationBreakdown = computeLocationBreakdown(periodLeads);
+  const topAgent = computeTopAgent(agentSummary);
 
-  // Merge the newest chats from all three channels into one activity feed.
-  type WaRow = { id: string; contact_name: string | null; contact_phone: string; last_message_preview: string | null; last_message_at: string | null };
-  type MsgrRow = { id: string; contact_name: string | null; psid: string; last_message_preview: string | null; last_message_at: string | null };
-  type IgRow = { id: string; contact_name: string | null; contact_username: string | null; contact_ig_id: string; last_message_preview: string | null; last_message_at: string | null };
+  const totalLeads = periodLeads.length;
+  const followUpCount = statusShares.find((s) => s.status === "follow_up")?.count ?? 0;
+  const convertedCount = statusShares.find((s) => s.status === "converted")?.count ?? 0;
 
-  const recentConvs: RecentConv[] = [
-    ...((waRes.data ?? []) as WaRow[]).map((c) => ({
-      key: `wa-${c.id}`,
-      channel: "whatsapp" as const,
-      name: c.contact_name?.trim() || c.contact_phone,
-      preview: c.last_message_preview,
-      at: c.last_message_at,
-      href: `/whatsapp/conversations/${c.id}`,
-    })),
-    ...((msgrRes.data ?? []) as MsgrRow[]).map((c) => ({
-      key: `ms-${c.id}`,
-      channel: "messenger" as const,
-      name: c.contact_name?.trim() || `Messenger …${c.psid.slice(-6)}`,
-      preview: c.last_message_preview,
-      at: c.last_message_at,
-      href: `/messenger`,
-    })),
-    ...((igRes.data ?? []) as IgRow[]).map((c) => ({
-      key: `ig-${c.id}`,
-      channel: "instagram" as const,
-      name: c.contact_name?.trim() || (c.contact_username ? `@${c.contact_username}` : `Instagram …${c.contact_ig_id.slice(-6)}`),
-      preview: c.last_message_preview,
-      at: c.last_message_at,
-      href: `/instagram`,
-    })),
-  ]
-    .sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""))
-    .slice(0, 6);
+  // ── Drill-down filters for the lead list (agent / status / city / search) ──
+  const agentOptions = Array.from(new Set(periodLeads.map((l) => l.assigned_to?.trim()).filter(Boolean))).sort();
+  const cityOptions = Array.from(new Set(periodLeads.map((l) => l.city?.trim()).filter(Boolean))).sort();
+
+  const q = (sp.q ?? "").trim().toLowerCase();
+  const filteredLeads = periodLeads.filter((lead) => {
+    if (sp.agent && (lead.assigned_to?.trim() || "Unassigned") !== sp.agent) return false;
+    if (sp.status && toA360Status(lead.call_status) !== sp.status) return false;
+    if (sp.city && lead.city?.trim() !== sp.city) return false;
+    if (q) {
+      const haystack = `${lead.client_name} ${lead.client_phone ?? ""} ${lead.remarks ?? ""} ${lead.internal_notes ?? ""}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
 
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-[-0.6px] font-[family-name:var(--font-heading)] text-foreground">
-          Dashboard
-        </h1>
-        <p className="text-sm text-text-muted mt-1">
-          Your leads and messaging across WhatsApp, Messenger &amp; Instagram
-        </p>
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold tracking-[-0.8px] font-[family-name:var(--font-heading)] text-foreground">
+            Dashboard
+          </h1>
+          <p className="text-sm text-text-muted mt-1">Lead conversion &amp; agent performance overview.</p>
+        </div>
+        <PeriodFilter />
       </div>
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Kpi label="Total leads" value={totalLeads} hint="All time" icon={Users} accent="var(--color-primary)" delay={0} />
-        <Kpi label="Open leads" value={openLeads} hint="new · contacted · qualified" icon={Clock} accent="var(--warning)" delay={60} />
-        <Kpi label="Won / installed" value={wonLeads} hint="closed deals" icon={CheckCircle2} accent="var(--success)" delay={120} />
-        <Kpi label="Conversion" value={`${conversion}%`} hint={`${wonLeads} of ${totalLeads} leads`} icon={TrendingUp} accent="var(--color-primary)" delay={180} />
-      </div>
+      <KpiCards
+        totalLeads={totalLeads}
+        followUpCount={followUpCount}
+        convertedCount={convertedCount}
+        topAgent={topAgent ? { agentName: topAgent.agentName, conversionRatePct: topAgent.conversionRatePct } : null}
+      />
 
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: recent leads */}
-        <div className="lg:col-span-2 animate-fade-up" style={{ animationDelay: "220ms" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
+        <div className="space-y-4">
+          <StatusDonut shares={statusShares} totalLeads={totalLeads} />
           <RecentLeads leads={recentLeads} />
         </div>
-
-        {/* Right: channels + quick actions */}
-        <div className="space-y-6">
+        <div className="space-y-4">
+          <TopCards locationBreakdown={locationBreakdown} />
           <ChannelsCard
             whatsapp={waCount}
             messenger={msgrCount}
             instagram={igCount}
             total={totalConvs}
+            countColor={A360_ACCENT}
           />
           <QuickActionsCard />
         </div>
       </div>
 
-      {/* Activity feed */}
-      <div className="mt-6 animate-fade-up" style={{ animationDelay: "300ms" }}>
-        <RecentActivity conversations={recentConvs} />
-      </div>
-    </div>
-  );
-}
+      <DailyTrendChart points={trendPoints} />
 
-/* ── KPI card with a soft accent glow ─────────────────────────────────────── */
-function Kpi({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  accent,
-  delay,
-}: {
-  label: string;
-  value: number | string;
-  hint: string;
-  icon: LucideIcon;
-  accent: string;
-  delay: number;
-}) {
-  return (
-    <div
-      className="relative overflow-hidden rounded-2xl border border-border bg-surface-elevated p-5 animate-fade-up"
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      <div
-        className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl opacity-20"
-        style={{ background: accent }}
-      />
-      <div className="relative flex items-start justify-between">
-        <span className="text-[11px] uppercase tracking-wider text-text-muted">{label}</span>
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-xl"
-          style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent }}
-        >
-          <Icon size={17} strokeWidth={1.8} />
-        </div>
-      </div>
-      <div className="relative mt-3 text-3xl font-bold text-foreground font-[family-name:var(--font-heading)]">
-        {value}
-      </div>
-      <div className="relative text-[11px] text-text-muted mt-1">{hint}</div>
-    </div>
-  );
-}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="flex items-start justify-between gap-4 flex-row">
+            <div>
+              <CardTitle>Today&apos;s Follow-ups</CardTitle>
+              <CardDescription>{TODAY_FMT.format(new Date(`${today}T00:00:00Z`))}</CardDescription>
+            </div>
+            <Link href="/leads/followups" className="text-xs font-semibold text-primary hover:text-primary-hover shrink-0">
+              View calendar
+            </Link>
+          </CardHeader>
+          <DayFollowupsPanel date={today} entries={todayFollowups} showAddForm={false} />
+        </Card>
 
-/* ── Unified recent activity across channels ──────────────────────────────── */
-function RecentActivity({ conversations }: { conversations: RecentConv[] }) {
-  const meta: Record<RecentConv["channel"], { color: string; icon: IconComponent; label: string }> = {
-    whatsapp: { color: WHATSAPP, icon: WhatsAppIcon, label: "WhatsApp" },
-    messenger: { color: MESSENGER, icon: MessengerIcon, label: "Messenger" },
-    instagram: { color: INSTAGRAM, icon: InstagramIcon, label: "Instagram" },
-  };
-  return (
-    <div className="rounded-2xl border border-border bg-surface-elevated">
-      <div className="flex items-center justify-between p-5 pb-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-error">Overdue Follow-ups</CardTitle>
+            <CardDescription>Still pending, dated before today</CardDescription>
+          </CardHeader>
+          <DayFollowupsPanel date={today} entries={overdueFollowups} showAddForm={false} showEntryDates />
+        </Card>
+      </div>
+
+      <AgentSummaryTable agents={agentSummary} />
+
+      {/* Hidden for now per request — code kept intact, same "hidden" convention as
+          sidebar.tsx's navItems, so this can come back with a one-line flip. */}
+      {SHOW_LEAD_LIST && (
         <div>
-          <h2 className="text-base font-bold text-foreground font-[family-name:var(--font-heading)]">Recent activity</h2>
-          <p className="text-xs text-text-muted mt-0.5">Latest chats across every channel</p>
+          <TableFilters
+            searchPlaceholder="Search name, phone, or notes…"
+            selects={[
+              {
+                param: "agent",
+                ariaLabel: "Agent",
+                options: [
+                  { value: "", label: `All Agents (${totalLeads})` },
+                  ...agentOptions.map((a) => ({ value: a as string, label: a as string })),
+                ],
+              },
+              {
+                param: "status",
+                ariaLabel: "Status",
+                options: [
+                  { value: "", label: "All Statuses" },
+                  ...statusShares.map((s) => ({ value: s.status, label: A360_STATUS_LABELS[s.status] })),
+                ],
+              },
+              {
+                param: "city",
+                ariaLabel: "Location",
+                options: [
+                  { value: "", label: "All Locations" },
+                  ...cityOptions.map((c) => ({ value: c as string, label: c as string })),
+                ],
+              },
+            ]}
+          />
+          <LeadListDetail leads={filteredLeads} />
         </div>
-      </div>
-      {conversations.length === 0 ? (
-        <div className="px-5 py-10 text-center">
-          <div className="w-10 h-10 mx-auto rounded-xl bg-surface flex items-center justify-center mb-2">
-            <Inbox size={18} strokeWidth={1.8} className="text-text-muted" />
-          </div>
-          <p className="text-xs text-text-muted">No conversations yet.</p>
-        </div>
-      ) : (
-        <ul className="divide-y divide-border">
-          {conversations.map((c) => {
-            const m = meta[c.channel];
-            return (
-              <li key={c.key}>
-                <Link href={c.href} className="flex items-center gap-3 px-5 py-3 hover:bg-surface transition-colors">
-                  <div
-                    className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0"
-                    style={{ backgroundColor: `color-mix(in srgb, ${m.color} 16%, transparent)`, color: m.color }}
-                  >
-                    <m.icon size={16} strokeWidth={1.8} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
-                      <span className="text-[10px] text-text-muted shrink-0">{m.label}</span>
-                    </div>
-                    {c.preview && <div className="text-xs text-text-muted truncate mt-0.5">{c.preview}</div>}
-                  </div>
-                  <span className="text-[11px] text-text-muted shrink-0">{timeAgo(c.at)}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
       )}
     </div>
   );
 }
-

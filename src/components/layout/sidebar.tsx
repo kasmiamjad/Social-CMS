@@ -17,15 +17,12 @@ import {
   CalendarCheck,
   CalendarDays,
   Wrench,
-  BarChart3,
   X,
 } from "lucide-react";
 import { WhatsAppIcon, MessengerIcon, InstagramIcon } from "@/components/icons/platform-icons";
 
 // `hidden: true` keeps the route/code intact but hides the menu entry.
 // Flip back to `hidden: false` (or remove the flag) when you want it visible again.
-// `section`: renders a small uppercase divider label above the first item that
-// carries it, grouping items visually into a separate heading.
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, hidden: false },
   { label: "Leads", href: "/leads", icon: Users, hidden: false },
@@ -34,7 +31,6 @@ const navItems = [
   { label: "Messenger", href: "/messenger", icon: MessengerIcon, hidden: false },
   { label: "Instagram", href: "/instagram", icon: InstagramIcon, hidden: false },
   { label: "Settings", href: "/settings", icon: Settings, hidden: false },
-  { label: "A360 Dashboard", href: "/a360", icon: BarChart3, hidden: false, section: "A360 CRM" },
   // ── Hidden for now (code + routes still work, just not in the sidebar) ──
   { label: "Bookings", href: "/bookings", icon: CalendarCheck, hidden: true },
   { label: "Customers", href: "/customers", icon: UserCheck, hidden: true },
@@ -99,38 +95,25 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {(() => {
-            let prevSection: string | undefined;
-            return navItems
-              .filter((item) => !item.hidden)
-              .map((item) => {
-                const isActive = pathname === item.href;
-                const showSectionLabel = item.section && item.section !== prevSection;
-                prevSection = item.section;
-                return (
-                  <div key={item.href}>
-                    {showSectionLabel && (
-                      <div className="px-3 pt-4 pb-1.5 text-[10px] uppercase tracking-wider text-text-muted font-semibold">
-                        {item.section}
-                      </div>
-                    )}
-                    <Link
-                      href={item.href}
-                      onClick={onClose}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-primary/10 text-primary"
-                          : "text-text-muted hover:bg-surface hover:text-foreground"
-                      )}
-                    >
-                      <item.icon size={18} strokeWidth={1.8} />
-                      {item.label}
-                    </Link>
-                  </div>
-                );
-              });
-          })()}
+          {navItems.filter((item) => !item.hidden).map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-text-muted hover:bg-surface hover:text-foreground"
+                )}
+              >
+                <item.icon size={18} strokeWidth={1.8} />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="p-3 border-t border-border shrink-0">
