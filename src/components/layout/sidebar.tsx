@@ -68,23 +68,21 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {/* Brand block — black background, logo forced to pure white via CSS filter */}
+        {/* Brand block — black background, logo rendered in its own true colors */}
         <div className="h-20 bg-black flex items-center justify-between px-4 border-b border-border shrink-0">
           <Link
             href="/dashboard"
             onClick={onClose}
             className="flex items-center justify-center flex-1 h-full"
           >
-            <div className="bg-white rounded-lg px-3 py-1.5 flex items-center justify-center">
-              <Image
-                src={BRANDING.logo.url}
-                alt={BRANDING.logo.alt}
-                width={140}
-                height={48}
-                priority
-                className="max-h-11 w-auto"
-              />
-            </div>
+            <Image
+              src={BRANDING.logo.url}
+              alt={BRANDING.logo.alt}
+              width={140}
+              height={48}
+              priority
+              className="max-h-11 w-auto"
+            />
           </Link>
           <button
             type="button"
