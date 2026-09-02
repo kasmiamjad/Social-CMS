@@ -75,14 +75,16 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             onClick={onClose}
             className="flex items-center justify-center flex-1 h-full"
           >
-            <Image
-              src={BRANDING.logo.url}
-              alt={BRANDING.logo.alt}
-              width={140}
-              height={48}
-              priority
-              className="max-h-12 w-auto [filter:brightness(0)_invert(1)]"
-            />
+            <div className="bg-white rounded-lg px-3 py-1.5 flex items-center justify-center">
+              <Image
+                src={BRANDING.logo.url}
+                alt={BRANDING.logo.alt}
+                width={140}
+                height={48}
+                priority
+                className="max-h-11 w-auto"
+              />
+            </div>
           </Link>
           <button
             type="button"
