@@ -28,6 +28,8 @@ export interface BrandingConfig {
   name: string;
   tagline: string;
   logo: LogoConfig;
+  /** Browser-tab icon — a simplified icon-only mark, separate from the full logo lockup. */
+  faviconUrl: string;
   colors: {
     blue: string;
     white: string;
@@ -75,6 +77,7 @@ export const BRANDING: BrandingConfig = {
     width: 200,
     height: 128,
   },
+  faviconUrl: "/favicon.png",
   colors: {
     blue: "#0EA5E9",
     white: "#FFFFFF",

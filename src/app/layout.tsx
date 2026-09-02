@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   title: BRANDING.name,
   description: BRANDING.tagline,
   icons: {
-    icon: BRANDING.logo.url,
+    icon: BRANDING.faviconUrl,
   },
 };
 
