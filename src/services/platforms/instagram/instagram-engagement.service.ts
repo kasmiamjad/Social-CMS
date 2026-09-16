@@ -153,10 +153,14 @@ export class InstagramEngagementService {
     const url = `${IG_GRAPH_BASE_URL}/${igUserId}?fields=username,name&access_token=${this.credentials.access_token}`;
     try {
       const res = await fetch(url);
-      if (!res.ok) return {};
-      const data = (await res.json()) as { username?: string; name?: string };
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("IG fetchUserProfile failed", { igUserId, status: res.status, body: data });
+        return {};
+      }
       return { username: data.username, name: data.name };
-    } catch {
+    } catch (err) {
+      console.error("IG fetchUserProfile threw", { igUserId, err });
       return {};
     }
   }
