@@ -124,6 +124,7 @@ export class InstagramEngagementAutoReplyService {
     // Persist the message (inbound customer msg, or outbound echo). Dedup on the
     // unique ig_message_id — an echo of a portal-sent reply is skipped.
     const messageType = inferDmType(event.message);
+    const mediaUrl = event.message.attachments?.[0]?.payload?.url ?? null;
     const { data: inbound, error: inboundError } = await supabase
       .from("instagram_dm_messages")
       .insert({
@@ -133,6 +134,7 @@ export class InstagramEngagementAutoReplyService {
         direction: isEcho ? "outbound" : "inbound",
         message_type: messageType,
         body: messagePreview || null,
+        media_url: mediaUrl,
         status: isEcho ? "sent" : "received",
         raw_payload: event,
         sent_at: new Date(event.timestamp).toISOString(),
